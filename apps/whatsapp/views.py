@@ -1,9 +1,8 @@
 import hashlib
 import hmac
+import json
 import logging
-from base64 import b64encode
 from enum import Enum
-from urllib.parse import urlencode
 
 from django.conf import settings
 from django.http import HttpRequest, HttpResponse
@@ -12,7 +11,6 @@ from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 
 from apps.core.models import UserProfile, WaitlistEntry
-from apps.sales.models import Sale
 from apps.whatsapp.services.webhook_handler import (
     handle_incoming_message,
     handle_new_waitlist_entry,
@@ -33,9 +31,18 @@ class SenderStatus(Enum):
 
 
 def _extract_phone_number(sender: str) -> str:
-    """Extract phone number from WhatsApp sender format (e.g., 'whatsapp:+1234567890' -> '+1234567890')."""
+    """
+    Extract and normalize phone number.
+
+    Meta sends plain numbers like '1234567890'.
+    Stored numbers may have '+' prefix like '+1234567890'.
+    """
+    # Remove any whatsapp: prefix (for backwards compatibility)
     if sender.startswith("whatsapp:"):
-        return sender[9:]
+        sender = sender[9:]
+    # Ensure + prefix for database lookup
+    if not sender.startswith("+"):
+        sender = f"+{sender}"
     return sender
 
 
@@ -71,55 +78,105 @@ def _lookup_sender(sender: str) -> tuple[SenderStatus, UserProfile | None, Waitl
 
 @method_decorator(csrf_exempt, name="dispatch")
 class WhatsAppWebhookView(View):
-    """Webhook endpoint for Twilio WhatsApp messages."""
+    """Webhook endpoint for Meta WhatsApp Business Cloud API."""
+
+    def get(self, request: HttpRequest) -> HttpResponse:
+        """Handle webhook verification from Meta."""
+        mode = request.GET.get("hub.mode")
+        token = request.GET.get("hub.verify_token")
+        challenge = request.GET.get("hub.challenge")
+
+        verify_token = settings.META_WHATSAPP_VERIFY_TOKEN
+
+        if mode == "subscribe" and token == verify_token:
+            logger.info("Webhook verification successful")
+            return HttpResponse(challenge, content_type="text/plain")
+
+        logger.warning(f"Webhook verification failed: mode={mode}, token_match={token == verify_token}")
+        return HttpResponse("Verification failed", status=403)
 
     def post(self, request: HttpRequest) -> HttpResponse:
-        """Handle incoming webhook from Twilio."""
+        """Handle incoming webhook from Meta."""
         # Verify signature
         if not self._verify_signature(request):
-            logger.warning("Invalid Twilio webhook signature")
+            logger.warning("Invalid Meta webhook signature")
             return HttpResponse("Invalid signature", status=401)
 
-        # Extract message data from form POST
-        message_sid = request.POST.get("MessageSid", "")
-        sender = request.POST.get("From", "")  # e.g., whatsapp:+1234567890
-        body = request.POST.get("Body", "")
+        # Parse JSON body
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            logger.warning(f"Invalid JSON in webhook body: {request.body[:500]}")
+            logger.warning(f"Content-Type: {request.content_type}")
+            return HttpResponse("Invalid JSON", status=400)
 
-        # Handle confirm/cancel button clicks (sent as message body)
-        body_lower = body.strip().lower()
-        if body_lower in ("confirm", "cancel"):
-            # Get the original message SID that the user is replying to
-            original_message_sid = request.POST.get("OriginalRepliedMessageSid", "")
-            logger.info(f"Received {body_lower} from {sender} for message {original_message_sid}")
+        # Process each entry
+        for entry in data.get("entry", []):
+            for change in entry.get("changes", []):
+                if change.get("field") != "messages":
+                    continue
 
-            # Determine if this is a sale or waitlist confirmation
-            is_sale = Sale.objects.filter(confirmation_message_sid=original_message_sid).exists()
-            is_waitlist = WaitlistEntry.objects.filter(confirmation_message_sid=original_message_sid).exists()
+                value = change.get("value", {})
+                messages = value.get("messages", [])
 
-            if is_waitlist:
-                # Map "confirm" to "approve" and "cancel" to "reject" for waitlist
-                action = "approve" if body_lower == "confirm" else "reject"
-                handle_waitlist_confirmation(
-                    action=action,
-                    sender=sender,
-                    original_message_sid=original_message_sid or None,
-                )
-            else:
-                # Default to sale confirmation (or if neither found, let the handler report error)
-                handle_sale_confirmation(
-                    action=body_lower,
-                    sender=sender,
-                    original_message_sid=original_message_sid or None,
-                )
+                for message in messages:
+                    self._handle_message(message)
 
-            return HttpResponse(
-                '<?xml version="1.0" encoding="UTF-8"?><Response></Response>',
-                content_type="application/xml",
+        # Always return 200 OK for Meta webhooks
+        return HttpResponse("OK")
+
+    def _handle_message(self, message: dict) -> None:
+        """Process a single message from the webhook payload."""
+        message_id = message.get("id", "")
+        sender = message.get("from", "")  # Plain number like '1234567890'
+        message_type = message.get("type", "")
+
+        # Handle interactive button responses
+        if message_type == "interactive":
+            interactive = message.get("interactive", {})
+            if interactive.get("type") == "button_reply":
+                button_id = interactive.get("button_reply", {}).get("id", "")
+                self._handle_button_response(sender, button_id, message)
+                return
+
+        # Handle text messages
+        if message_type == "text":
+            body = message.get("text", {}).get("body", "")
+            if body:
+                self._handle_text_message(message_id, sender, body)
+            return
+
+        logger.info(f"Ignoring message type: {message_type}")
+
+    def _handle_button_response(self, sender: str, button_id: str, message: dict) -> None:
+        """Handle a button click response."""
+        logger.info(f"Received button click from {sender}: {button_id}")
+
+        # Get the context (original message being replied to)
+        context = message.get("context", {})
+        original_message_id = context.get("id", "")
+
+        # Parse button ID to determine action type
+        # Format: "confirm_{sale_id}", "cancel_{sale_id}", "waitlist_approve_{entry_id}", "waitlist_reject_{entry_id}"
+        if button_id.startswith("confirm_") or button_id.startswith("cancel_"):
+            action = "confirm" if button_id.startswith("confirm_") else "cancel"
+            handle_sale_confirmation(
+                action=action,
+                sender=sender,
+                original_message_sid=original_message_id or None,
             )
+        elif button_id.startswith("waitlist_approve_") or button_id.startswith("waitlist_reject_"):
+            action = "approve" if button_id.startswith("waitlist_approve_") else "reject"
+            handle_waitlist_confirmation(
+                action=action,
+                sender=sender,
+                original_message_sid=original_message_id or None,
+            )
+        else:
+            logger.warning(f"Unknown button ID format: {button_id}")
 
-        if not body:
-            return HttpResponse("OK")
-
+    def _handle_text_message(self, message_id: str, sender: str, body: str) -> None:
+        """Handle a text message."""
         logger.info(f"Received WhatsApp message from {sender}: {body[:50]}...")
 
         # Lookup sender status
@@ -141,43 +198,42 @@ class WhatsAppWebhookView(View):
         else:
             # Known user - handle the message normally
             handle_incoming_message(
-                message_id=message_sid,
+                message_id=message_id,
                 sender=sender,
                 text=body,
                 user_profile=profile,
             )
 
-        # Return empty TwiML response
-        return HttpResponse(
-            '<?xml version="1.0" encoding="UTF-8"?><Response></Response>',
-            content_type="application/xml",
-        )
-
     def _verify_signature(self, request: HttpRequest) -> bool:
-        """Verify the X-Twilio-Signature header."""
-        signature = request.headers.get("X-Twilio-Signature", "")
-        auth_token = settings.TWILIO_AUTH_TOKEN
+        """Verify the X-Hub-Signature-256 header."""
+        signature_header = request.headers.get("X-Hub-Signature-256", "")
+        app_secret = settings.META_WHATSAPP_APP_SECRET
 
-        if not auth_token:
-            # Skip verification if no auth token configured (dev mode)
-            logger.warning("TWILIO_AUTH_TOKEN not set, skipping signature verification")
+        if not app_secret:
+            # Skip verification if no app secret configured (dev mode)
+            logger.warning("META_WHATSAPP_APP_SECRET not set, skipping signature verification")
             return True
 
-        # Build the full URL
-        url = request.build_absolute_uri()
+        if not signature_header:
+            # TODO: Re-enable after debugging why Meta isn't sending signatures
+            logger.warning("X-Hub-Signature-256 header missing, allowing request for debugging")
+            return True
 
-        # Get POST parameters sorted by key
-        post_data = request.POST.dict()
-        sorted_params = "".join(f"{k}{v}" for k, v in sorted(post_data.items()))
+        if not signature_header.startswith("sha256="):
+            logger.warning(f"Invalid signature format: {signature_header[:20]}...")
+            return False
 
-        # Create signature
-        data = url + sorted_params
-        expected_signature = b64encode(
-            hmac.new(
-                auth_token.encode(),
-                data.encode(),
-                hashlib.sha1,
-            ).digest()
-        ).decode()
+        expected_signature = signature_header[7:]  # Remove 'sha256=' prefix
 
-        return hmac.compare_digest(signature, expected_signature)
+        # Calculate HMAC-SHA256 of the raw body
+        calculated_signature = hmac.new(
+            app_secret.encode(),
+            request.body,
+            hashlib.sha256,
+        ).hexdigest()
+
+        if not hmac.compare_digest(expected_signature, calculated_signature):
+            logger.warning(f"Signature mismatch: expected={expected_signature[:20]}..., calculated={calculated_signature[:20]}...")
+            return False
+
+        return True

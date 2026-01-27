@@ -28,9 +28,18 @@ ADMIN_PHONE_NUMBER = "+14342183470"
 
 
 def _extract_phone_number(sender: str) -> str:
-    """Extract phone number from WhatsApp sender format."""
+    """
+    Extract and normalize phone number.
+
+    Meta sends plain numbers like '1234567890'.
+    Stored numbers have '+' prefix like '+1234567890'.
+    """
+    # Remove whatsapp: prefix if present (backwards compatibility)
     if sender.startswith("whatsapp:"):
-        return sender[9:]
+        sender = sender[9:]
+    # Ensure + prefix for database storage
+    if not sender.startswith("+"):
+        sender = f"+{sender}"
     return sender
 
 
@@ -167,7 +176,7 @@ async def _send_waitlist_admin_notification(entry: WaitlistEntry) -> None:
     ]
 
     message_sid = await _send_response_with_buttons(
-        f"whatsapp:{ADMIN_PHONE_NUMBER}",
+        ADMIN_PHONE_NUMBER,
         message,
         buttons,
     )
@@ -601,7 +610,7 @@ async def _process_waitlist_confirmation_async(
 
         # Send approval notification to the user
         await _send_response(
-            f"whatsapp:{entry.phone_number}",
+            entry.phone_number,
             f"Welcome to Auto Tuck Shop! Your account has been approved.\n\n"
             f"Company: {company.name}\n\n"
             f"You can now send sales messages to track your sales. For example:\n"
@@ -619,7 +628,7 @@ async def _process_waitlist_confirmation_async(
 
         # Optionally notify the user
         await _send_response(
-            f"whatsapp:{entry.phone_number}",
+            entry.phone_number,
             "Sorry, your request to join was not approved. "
             "Please contact support if you believe this is an error."
         )

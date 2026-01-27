@@ -128,11 +128,11 @@ REST_FRAMEWORK = {
 # CORS
 CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[])
 
-# Twilio Configuration (for WhatsApp)
-TWILIO_ACCOUNT_SID = env("TWILIO_ACCOUNT_SID", default="")
-TWILIO_AUTH_TOKEN = env("TWILIO_AUTH_TOKEN", default="")
-TWILIO_WHATSAPP_NUMBER = env("TWILIO_WHATSAPP_NUMBER", default="")  # e.g., whatsapp:+14155238886
-TWILIO_SALE_CONFIRM_CONTENT_SID = env("TWILIO_SALE_CONFIRM_CONTENT_SID", default="")  # Content template for sale confirmation buttons
+# Meta WhatsApp Business Cloud API Configuration
+META_WHATSAPP_ACCESS_TOKEN = env("META_WHATSAPP_ACCESS_TOKEN", default="")
+META_WHATSAPP_PHONE_NUMBER_ID = env("META_WHATSAPP_PHONE_NUMBER_ID", default="")
+META_WHATSAPP_VERIFY_TOKEN = env("META_WHATSAPP_VERIFY_TOKEN", default="")  # Token for webhook verification
+META_WHATSAPP_APP_SECRET = env("META_WHATSAPP_APP_SECRET", default="")  # For signature verification
 
 # OpenRouter Configuration
 OPENROUTER_API_KEY = env("OPENROUTER_API_KEY", default="")
