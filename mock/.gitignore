@@ -1,0 +1,8 @@
+node_modules/
+*.png
+*.jpg
+screenshots/
+.claude/
+test-*.js
+verify-ui.js
+screenshot.js

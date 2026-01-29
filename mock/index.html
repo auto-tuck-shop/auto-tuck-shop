@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auto Tuck Shop - WhatsApp</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Scenario Selector (outside viewport - won't appear in recordings) -->
+    <nav class="scenario-selector">
+        <h4>Scenarios</h4>
+        <a href="?scenario=1" id="scenario1Link">1. Voice Sales</a>
+        <a href="?scenario=2" id="scenario2Link">2. Weekly Summary</a>
+        <a href="?scenario=3" id="scenario3Link">3. Inventory Alerts</a>
+
+        <div class="scenario-instructions" id="instructions"></div>
+    </nav>
+
+    <script>
+        const instructions = {
+            '1': `<strong>Voice Sales Recording</strong>
+                <ol>
+                    <li>Tap the <em>mic button</em> to start recording</li>
+                    <li>Say: "Sold 3 Mazoe orange, 2 bread, and 5 airtime for R10"</li>
+                    <li>Tap <em>green send</em> button</li>
+                    <li>Click <em>Confirm</em> on the sale card</li>
+                    <li>Owner receives notification</li>
+                </ol>`,
+            '2': `<strong>Weekly Summary</strong>
+                <ol>
+                    <li>Summary appears automatically</li>
+                    <li>Click <em>View Details</em> for breakdown</li>
+                    <li>Or click <em>Pricing Check</em> for recommendations</li>
+                    <li>Type "restock" to see restock suggestions</li>
+                </ol>`,
+            '3': `<strong>Inventory Alerts</strong>
+                <ol>
+                    <li>Expiration alert appears</li>
+                    <li>Click <em>Mark as Discounted</em></li>
+                    <li>Click <em>Apply Discounts</em></li>
+                    <li>Tap mic for low stock alert</li>
+                    <li>Tap mic again for price changes</li>
+                </ol>`
+        };
+
+        const params = new URLSearchParams(window.location.search);
+        const scenario = params.get('scenario');
+        const instrEl = document.getElementById('instructions');
+
+        if (scenario && instructions[scenario]) {
+            instrEl.innerHTML = instructions[scenario];
+        }
+
+        // Highlight active link
+        if (scenario) {
+            const link = document.getElementById('scenario' + scenario + 'Link');
+            if (link) link.classList.add('active');
+        }
+    </script>
+
+    <div class="phone-container">
+        <!-- Header -->
+        <header class="chat-header">
+            <button class="back-btn" aria-label="Back">
+                <svg viewBox="0 0 24 24" width="24" height="24">
+                    <path fill="currentColor" d="M12 4l1.41 1.41L7.83 11H20v2H7.83l5.58 5.59L12 20l-8-8 8-8z"/>
+                </svg>
+            </button>
+            <div class="avatar" id="botAvatar">A</div>
+            <div class="contact-info">
+                <span class="contact-name" id="botName">Auto Tuck Shop</span>
+            </div>
+            <div class="header-actions">
+                <button class="header-btn" aria-label="More options">
+                    <svg viewBox="0 0 24 24" width="24" height="24">
+                        <path fill="currentColor" d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/>
+                    </svg>
+                </button>
+            </div>
+        </header>
+
+        <!-- Messages Area -->
+        <main class="messages-container" id="messagesContainer">
+            <div class="messages" id="messages">
+                <!-- Messages will be inserted here -->
+            </div>
+        </main>
+
+        <!-- Input Bar -->
+        <footer class="input-bar">
+            <button class="input-btn emoji-btn" aria-label="Emoji">
+                <svg viewBox="0 0 24 24" width="24" height="24">
+                    <path fill="currentColor" d="M12 2C6.486 2 2 6.486 2 12s4.486 10 10 10 10-4.486 10-10S17.514 2 12 2zm0 18c-4.411 0-8-3.589-8-8s3.589-8 8-8 8 3.589 8 8-3.589 8-8 8z"/>
+                    <circle fill="currentColor" cx="8.5" cy="10.5" r="1.5"/>
+                    <circle fill="currentColor" cx="15.5" cy="10.5" r="1.5"/>
+                    <path fill="currentColor" d="M12 18c2.21 0 4-1.79 4-4H8c0 2.21 1.79 4 4 4z"/>
+                </svg>
+            </button>
+            <input type="text" class="message-input" id="messageInput" placeholder="Message" autocomplete="off">
+            <button class="input-btn attach-btn" aria-label="Attach">
+                <svg viewBox="0 0 24 24" width="24" height="24">
+                    <path fill="currentColor" d="M1.816 15.556v.002c0 1.502.584 2.912 1.646 3.972s2.472 1.647 3.974 1.647a5.58 5.58 0 003.972-1.645l9.547-9.548c.769-.768 1.147-1.767 1.058-2.817-.079-.968-.548-1.927-1.319-2.698-1.594-1.592-4.068-1.711-5.517-.262l-7.916 7.915c-.881.881-.792 2.25.214 3.261.959.958 2.423 1.053 3.263.215l5.511-5.512c.28-.28.267-.722.053-.936l-.244-.244c-.191-.191-.567-.349-.957.04l-5.506 5.506c-.18.18-.635.127-.976-.214-.098-.097-.576-.613-.213-.973l7.915-7.917c.818-.817 2.267-.699 3.23.262.5.501.802 1.1.849 1.685.051.573-.156 1.111-.589 1.543l-9.547 9.549a3.97 3.97 0 01-2.829 1.171 3.975 3.975 0 01-2.83-1.173 3.973 3.973 0 01-1.172-2.828c0-1.071.415-2.076 1.172-2.83l7.209-7.211c.157-.157.264-.579.028-.814L11.5 4.36a.572.572 0 00-.834.018l-7.205 7.207a5.577 5.577 0 00-1.645 3.971z"/>
+                </svg>
+            </button>
+            <button class="input-btn camera-btn" aria-label="Camera">
+                <svg viewBox="0 0 24 24" width="24" height="24">
+                    <path fill="currentColor" d="M12 6c3.859 0 7 3.141 7 7s-3.141 7-7 7-7-3.141-7-7 3.141-7 7-7zm0 12c2.757 0 5-2.243 5-5s-2.243-5-5-5-5 2.243-5 5 2.243 5 5 5zm9-10h-2.3c-.199 0-.457-.118-.637-.327L16.947 6.3a.989.989 0 00-.761-.3H7.814a.989.989 0 00-.761.3L5.937 7.673c-.18.209-.438.327-.637.327H3c-.552 0-1 .449-1 1v11c0 .551.448 1 1 1h18c.552 0 1-.449 1-1V9c0-.551-.448-1-1-1z"/>
+                </svg>
+            </button>
+            <button class="send-btn" id="sendBtn" aria-label="Send">
+                <svg viewBox="0 0 24 24" width="24" height="24">
+                    <path fill="currentColor" d="M12 14.379l-4.286 2.143 1-4.714L5 8.357l4.857-.714L12 3l2.143 4.643L19 8.357l-3.714 3.451 1 4.714z"/>
+                </svg>
+            </button>
+            <button class="mic-btn" id="micBtn" aria-label="Voice message">
+                <svg viewBox="0 0 24 24" width="24" height="24">
+                    <path fill="currentColor" d="M11.999 14.942c2.001 0 3.531-1.53 3.531-3.531V4.35c0-2.001-1.53-3.531-3.531-3.531S8.469 2.35 8.469 4.35v7.061c0 2.001 1.53 3.531 3.53 3.531zm6.238-3.53c0 3.531-2.942 6.002-6.237 6.002s-6.237-2.471-6.237-6.002H3.761c0 4.001 3.178 7.297 7.061 7.885v3.884h2.354v-3.884c3.884-.588 7.061-3.884 7.061-7.885h-2z"/>
+                </svg>
+            </button>
+        </footer>
+    </div>
+
+    <!-- Typing Indicator Template -->
+    <template id="typingTemplate">
+        <div class="message received typing-indicator">
+            <div class="bubble">
+                <div class="typing-dots">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <script src="app.js"></script>
+</body>
+</html>

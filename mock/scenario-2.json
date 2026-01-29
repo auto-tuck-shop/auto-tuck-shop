@@ -1,0 +1,156 @@
+{
+  "botName": "Auto Tuck Shop",
+  "botAvatar": "A",
+  "initialMessages": [
+    {
+      "type": "text",
+      "text": "📊 *Weekly Summary*\nJan 20 - Jan 26, 2026\n\n*Revenue & Profit*\n💵 Total Revenue: R4,280.00\n📈 Gross Profit: R1,142.00\n📊 Margin: 26.7%\n\n*Top Sellers*\n1. Mazoe Orange - 48 sold (R864)\n2. Bread - 42 sold (R504)\n3. Airtime R10 - 38 sold (R380)\n4. Coke 500ml - 31 sold (R465)\n\n*Week Highlights*\n✅ Revenue up 12% vs last week\n⚠️ Bread margins down (transport cost)\n🔄 Restock needed: 3 items",
+      "buttons": ["View Details", "Pricing Check"],
+      "sent": false,
+      "delay": 800
+    }
+  ],
+  "triggers": [
+    {
+      "match": "view details",
+      "matchType": "button",
+      "responses": [
+        {
+          "type": "text",
+          "text": "View Details",
+          "sent": true,
+          "delay": 100
+        },
+        {
+          "type": "text",
+          "text": "📋 *Detailed Breakdown*\nFull weekly report\n\n*Sales by Day*\nMon: R580 (busy day)\nTue: R420\nWed: R650 (market day)\nThu: R510\nFri: R720 (payday rush)\nSat: R890 (best day!)\nSun: R510\n\n*Payment Methods*\nCash: R3,420 (80%)\nEcoCash: R860 (20%)\n\n*Recorded by*\nAssistant: 67 sales\nYou: 12 sales",
+          "sent": false,
+          "delay": 600
+        }
+      ]
+    },
+    {
+      "match": "pricing check",
+      "matchType": "button",
+      "responses": [
+        {
+          "type": "text",
+          "text": "Pricing Check",
+          "sent": true,
+          "delay": 100
+        },
+        {
+          "type": "text",
+          "text": "💡 *Pricing Recommendations*\n\n*Bread*\nYour price: R12.00\nCompetitor avg: R13.50\nSuggestion: Can raise to R13 (8% increase)\nWhy: Your margin is low (transport costs up)\n\n*Mazoe Orange*\nYour price: R18.00\nMakro price changed: R14 → R15\nYour margin: Still good at 20%\nSuggestion: Keep current price",
+          "buttons": ["Update Bread Price", "Keep Current"],
+          "sent": false,
+          "delay": 600
+        }
+      ]
+    },
+    {
+      "match": "update bread price",
+      "matchType": "button",
+      "responses": [
+        {
+          "type": "text",
+          "text": "Update Bread Price",
+          "sent": true,
+          "delay": 100
+        },
+        {
+          "type": "text",
+          "text": "✓ Bread price updated!\nR12.00 → R13.00\n\nYour new margin: 18% (was 12%)\nThis adds ~R40/week profit on bread sales.",
+          "sent": false,
+          "delay": 500
+        }
+      ]
+    },
+    {
+      "match": "keep current",
+      "matchType": "button",
+      "responses": [
+        {
+          "type": "text",
+          "text": "Got it! Keeping current prices. I'll let you know if competitor prices change significantly.",
+          "sent": false,
+          "delay": 400
+        }
+      ]
+    },
+    {
+      "match": "restock",
+      "matchType": "contains",
+      "responses": [
+        {
+          "type": "text",
+          "text": "📦 *Restock Recommendations*\nBased on your sales patterns this week:\n\n🧃 Mazoe Orange: 4 left (sells 7/day)\nOrder now!\n\n🥤 Coke 500ml: 12 left (sells 5/day)\nOrder by Thu\n\n🍞 Daily delivery - no action",
+          "buttons": ["Create Order", "I'll Handle It"],
+          "sent": false,
+          "delay": 800
+        }
+      ]
+    },
+    {
+      "match": "create order",
+      "matchType": "button",
+      "responses": [
+        {
+          "type": "text",
+          "text": "Create Order",
+          "sent": true,
+          "delay": 100
+        },
+        {
+          "type": "card",
+          "title": "Suggested Order - Makro",
+          "items": [
+            "2x Case Mazoe Orange (12) @ R180",
+            "1x Case Coke 500ml (24) @ R288",
+            "Total: R648"
+          ],
+          "total": "R648.00",
+          "buttons": ["Copy to Clipboard", "Done"],
+          "sent": false,
+          "delay": 600
+        }
+      ]
+    },
+    {
+      "match": "copy to clipboard",
+      "matchType": "button",
+      "responses": [
+        {
+          "type": "text",
+          "text": "✓ Order copied to clipboard! You can paste it into WhatsApp to send to your supplier.",
+          "sent": false,
+          "delay": 400
+        }
+      ]
+    },
+    {
+      "match": "done",
+      "matchType": "button",
+      "responses": [
+        {
+          "type": "text",
+          "text": "Great! Let me know when the order arrives and I'll help track the new inventory.",
+          "sent": false,
+          "delay": 400
+        }
+      ]
+    },
+    {
+      "match": "i'll handle it",
+      "matchType": "button",
+      "responses": [
+        {
+          "type": "text",
+          "text": "No problem! I'll remind you again if stock gets critically low.",
+          "sent": false,
+          "delay": 400
+        }
+      ]
+    }
+  ]
+}
