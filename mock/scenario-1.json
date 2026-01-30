@@ -4,7 +4,7 @@
   "initialMessages": [
     {
       "type": "text",
-      "text": "Ready to record sales.\n\nJust send a voice note with what you sold.",
+      "text": "Mwakadini! Unokona kutumira voice note kana kunyora zvawatengesa nyamashi.\n\n(Hello! You can send a voice note or type what you sold today.)",
       "sent": false,
       "delay": 0
     }
@@ -16,7 +16,7 @@
       "responses": [
         {
           "type": "text",
-          "text": "I heard:\n\"Sold 3 Mazoe orange, 2 bread, and 5 airtime for R10\"",
+          "text": "Ndazwa kuti:\n\"Sold 3 Mazoe orange, 2 bread, and 5 airtime for R10\"",
           "sent": false,
           "delay": 1200
         },
@@ -47,7 +47,7 @@
         },
         {
           "type": "text",
-          "text": "✓ Sale #47 recorded! Profit: R33.00",
+          "text": "✓ Sale #47 yarekodwa!\nProfit: R33.00",
           "sent": false,
           "delay": 600
         },
@@ -108,7 +108,7 @@
       "responses": [
         {
           "type": "text",
-          "text": "I heard:\n\"One crate Coke, customer paid cash\"",
+          "text": "Ndazwa kuti:\n\"One crate Coke, customer paid cash\"",
           "sent": false,
           "delay": 1200
         },

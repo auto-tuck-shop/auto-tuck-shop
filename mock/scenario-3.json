@@ -4,62 +4,93 @@
   "initialMessages": [
     {
       "type": "text",
-      "text": "⚠️ *Expiring Soon!*\n\nThese items expire within 3 days:\n\n🥛 Fresh Milk (6 units) - expires Thu 30 Jan\n🍞 Bread (4 loaves) - expires tomorrow",
-      "buttons": ["Mark as Discounted", "Dismiss"],
+      "text": "⚠️ *Items Expiring Soon*\n\nThese are getting close:\n\n🥛 Fresh Milk — 6 bottles\nExpires: Thu 30 Jan (3 days)\n\n🍞 Bread — 4 loaves\nExpires: Tomorrow\n\n💭 You can drop the price a bit to move them faster, or I can help you calculate a discount.",
+      "buttons": ["Set Discount", "Remind Me Tomorrow"],
       "sent": false,
       "delay": 800
     }
   ],
   "triggers": [
     {
-      "match": "mark as discounted",
+      "match": "set discount",
       "matchType": "button",
       "responses": [
         {
           "type": "text",
-          "text": "Mark as Discounted",
+          "text": "Set Discount",
           "sent": true,
           "delay": 100
         },
         {
           "type": "card",
-          "title": "Set Discount Prices",
+          "title": "💸 Suggested Discounts",
           "items": [
-            "Fresh Milk: R18 → R14 (22% off)",
-            "Bread: R14 → R10 (29% off)"
+            "🥛 Fresh Milk",
+            "Normal: R18 → Discount: R14 (22% off)",
+            "You still cover your cost",
+            "",
+            "🍞 Bread",
+            "Normal: R14 → Discount: R10 (29% off)",
+            "You still cover your cost",
+            "",
+            "💭 Your assistant will see these new prices automatically"
           ],
-          "total": "Still covers cost",
-          "buttons": ["Apply Discounts", "Edit Prices"],
+          "total": "",
+          "buttons": ["Apply These", "Change Amounts"],
           "sent": false,
           "delay": 600
         }
       ]
     },
     {
-      "match": "apply discounts",
+      "match": "apply these",
       "matchType": "button",
       "responses": [
         {
           "type": "text",
-          "text": "✓ Discounts applied! I'll track these sales separately.",
-          "sent": false,
-          "delay": 500
+          "text": "Apply These",
+          "sent": true,
+          "delay": 100
         },
         {
           "type": "text",
-          "text": "Tip: The assistant will see the discounted prices when recording sales for these items.",
+          "text": "✅ Discounts applied!\n\nWhen your assistant records sales today, she'll see these new prices automatically. No need to call her.",
+          "sent": false,
+          "delay": 500
+        }
+      ]
+    },
+    {
+      "match": "change amounts",
+      "matchType": "button",
+      "responses": [
+        {
+          "type": "text",
+          "text": "Change Amounts",
+          "sent": true,
+          "delay": 100
+        },
+        {
+          "type": "text",
+          "text": "You can adjust the discount amounts to fit your needs. What would you prefer?",
           "sent": false,
           "delay": 400
         }
       ]
     },
     {
-      "match": "dismiss",
+      "match": "remind me tomorrow",
       "matchType": "button",
       "responses": [
         {
           "type": "text",
-          "text": "OK, I'll remind you again tomorrow morning.",
+          "text": "Remind Me Tomorrow",
+          "sent": true,
+          "delay": 100
+        },
+        {
+          "type": "text",
+          "text": "No problem. I'll remind you again tomorrow morning.",
           "sent": false,
           "delay": 400
         }
@@ -71,48 +102,90 @@
       "responses": [
         {
           "type": "text",
-          "text": "📦 *Low Stock Alert*\n\nRunning low on fast-moving items:\n\n🧃 Mazoe Orange: 4 left (avg 7/day)\n🥤 Coke 500ml: 8 left (avg 5/day)\n📱 Airtime R5 vouchers: 3 left",
-          "buttons": ["Create Restock List", "I'll Handle It"],
+          "text": "� *Running Low on Fast Sellers*\n\n🧃 Mazoe Orange: 4 left (you sell 7/day)\n🥤 Coke 500ml: 8 left (you sell 5/day)\n📱 Airtime R5: 3 vouchers left\n\n💭 Time to order more before they run out.",
+          "buttons": ["Create Order List", "I'll Do It Later"],
           "sent": false,
           "delay": 800
         }
       ]
     },
     {
-      "match": "create restock list",
+      "match": "create order list",
       "matchType": "button",
       "responses": [
         {
           "type": "text",
-          "text": "Create Restock List",
+          "text": "Create Order List",
           "sent": true,
           "delay": 100
         },
         {
           "type": "card",
-          "title": "Restock Order - 28 Jan",
+          "title": "📝 Order List — 28 Jan",
           "items": [
-            "Mazoe Orange 2L x12 - R180",
-            "Coke 500ml x24 - R288",
-            "Airtime R5 x20 - R100",
-            "---",
+            "Mazoe Orange 2L x12 — R180",
+            "Coke 500ml x24 — R288",
+            "Airtime R5 x20 — R100",
+            "",
             "Subtotal: R568",
-            "Est. transport: R50"
+            "Transport (estimate): R50"
           ],
-          "total": "R618.00",
-          "buttons": ["Send to Makro WhatsApp", "Copy List"],
+          "total": "Total: R618",
+          "buttons": ["Copy List", "Done"],
           "sent": false,
           "delay": 700
         }
       ]
     },
     {
-      "match": "i'll handle it",
+      "match": "copy list",
       "matchType": "button",
       "responses": [
         {
           "type": "text",
-          "text": "No problem! I'll alert you if stock gets critically low (below 2 units).",
+          "text": "Copy List",
+          "sent": true,
+          "delay": 100
+        },
+        {
+          "type": "text",
+          "text": "✓ List copied! You can paste it into WhatsApp or use it as a reminder.",
+          "sent": false,
+          "delay": 400
+        }
+      ]
+    },
+    {
+      "match": "done",
+      "matchType": "button",
+      "responses": [
+        {
+          "type": "text",
+          "text": "Done",
+          "sent": true,
+          "delay": 100
+        },
+        {
+          "type": "text",
+          "text": "Great! Let me know when your order arrives.",
+          "sent": false,
+          "delay": 400
+        }
+      ]
+    },
+    {
+      "match": "i'll do it later",
+      "matchType": "button",
+      "responses": [
+        {
+          "type": "text",
+          "text": "I'll Do It Later",
+          "sent": true,
+          "delay": 100
+        },
+        {
+          "type": "text",
+          "text": "No problem! I'll alert you again if stock gets critically low.",
           "sent": false,
           "delay": 400
         }
@@ -124,57 +197,7 @@
       "responses": [
         {
           "type": "text",
-          "text": "💰 *Price Change Detected*\n\nMakro updated wholesale prices:\n\n📈 Cooking Oil 2L: R45 → R52 (+15%)\n📉 Sugar 2kg: R38 → R35 (-8%)\n➡️ Mazoe 2L: No change (R15)",
-          "buttons": ["Update My Prices", "Keep Monitoring"],
-          "sent": false,
-          "delay": 800
-        }
-      ]
-    },
-    {
-      "match": "update my prices",
-      "matchType": "button",
-      "responses": [
-        {
-          "type": "text",
-          "text": "Update My Prices",
-          "sent": true,
-          "delay": 100
-        },
-        {
-          "type": "text",
-          "text": "💡 *Price Recommendations*\nTo maintain your margins\n\n*Cooking Oil 2L*\nCurrent sell price: R58\nNew cost: R52 (was R45)\nCurrent margin: 10% (was 22%)\nSuggested: R65 for 20% margin\n\n*Sugar 2kg*\nCurrent sell price: R48\nNew cost: R35 (was R38)\nCurrent margin: 27% (was 21%)\nKeep at R48 or lower to R45",
-          "buttons": ["Apply Suggestions", "Customize"],
-          "sent": false,
-          "delay": 700
-        }
-      ]
-    },
-    {
-      "match": "apply suggestions",
-      "matchType": "button",
-      "responses": [
-        {
-          "type": "text",
-          "text": "✓ Prices updated!\n• Cooking Oil: R58 → R65\n• Sugar: Kept at R48",
-          "sent": false,
-          "delay": 500
-        },
-        {
-          "type": "text",
-          "text": "Your margins are now healthy. I'll keep monitoring supplier prices and alert you to changes.",
-          "sent": false,
-          "delay": 400
-        }
-      ]
-    },
-    {
-      "match": "keep monitoring",
-      "matchType": "button",
-      "responses": [
-        {
-          "type": "text",
-          "text": "Got it. I'll keep tracking prices. Your cooking oil margin is now 10% - below your usual 20%. Let me know if you want to adjust later.",
+          "text": "All good! Your pricing looks healthy right now. I'll let you know if I notice any margin issues.",
           "sent": false,
           "delay": 500
         }

@@ -4,75 +4,81 @@
   "initialMessages": [
     {
       "type": "text",
-      "text": "📊 *Weekly Summary*\nJan 20 - Jan 26, 2026\n\n*Revenue & Profit*\n💵 Total Revenue: R4,280.00\n📈 Gross Profit: R1,142.00\n📊 Margin: 26.7%\n\n*Top Sellers*\n1. Mazoe Orange - 48 sold (R864)\n2. Bread - 42 sold (R504)\n3. Airtime R10 - 38 sold (R380)\n4. Coke 500ml - 31 sold (R465)\n\n*Week Highlights*\n✅ Revenue up 12% vs last week\n⚠️ Bread margins down (transport cost)\n🔄 Restock needed: 3 items",
-      "buttons": ["View Details", "Pricing Check"],
+      "text": "📊 *Your Week: Jan 20 – 26*\n\n💵 Revenue: R4,280\n📈 Profit: R1,142 (27% margin)\n\n*Top Sellers This Week:*\n1️⃣ Mazoe Orange — 48 sold\n2️⃣ Bread — 42 sold\n3️⃣ Airtime R10 — 38 sold\n4️⃣ Coke 500ml — 31 sold\n\n*Week Highlights*\n✅ Revenue up 12% from last week\n⚠️ Bread profit is down (transport cost went up)\n📦 3 items need ordering soon",
+      "buttons": ["See Full Report", "Check Prices"],
       "sent": false,
       "delay": 800
     }
   ],
   "triggers": [
     {
-      "match": "view details",
+      "match": "see full report",
       "matchType": "button",
       "responses": [
         {
           "type": "text",
-          "text": "View Details",
+          "text": "See Full Report",
           "sent": true,
           "delay": 100
         },
         {
           "type": "text",
-          "text": "📋 *Detailed Breakdown*\nFull weekly report\n\n*Sales by Day*\nMon: R580 (busy day)\nTue: R420\nWed: R650 (market day)\nThu: R510\nFri: R720 (payday rush)\nSat: R890 (best day!)\nSun: R510\n\n*Payment Methods*\nCash: R3,420 (80%)\nEcoCash: R860 (20%)\n\n*Recorded by*\nAssistant: 67 sales\nYou: 12 sales",
+          "text": "📋 *Full Weekly Report*\n\n*Sales by Day:*\nMon — R580\nTue — R420\nWed — R650 (market day 🎪)\nThu — R510\nFri — R720 (payday 💸)\nSat — R890 (best day!)\nSun — R510\n\n*Payment Split:*\n💵 Cash: R3,420 (80%)\n📱 EcoCash: R860 (20%)\n\n*Recorded By:*\nAssistant — 67 sales\nYou — 12 sales",
           "sent": false,
           "delay": 600
         }
       ]
     },
     {
-      "match": "pricing check",
+      "match": "check prices",
       "matchType": "button",
       "responses": [
         {
           "type": "text",
-          "text": "Pricing Check",
+          "text": "Check Prices",
           "sent": true,
           "delay": 100
         },
         {
           "type": "text",
-          "text": "💡 *Pricing Recommendations*\n\n*Bread*\nYour price: R12.00\nCompetitor avg: R13.50\nSuggestion: Can raise to R13 (8% increase)\nWhy: Your margin is low (transport costs up)\n\n*Mazoe Orange*\nYour price: R18.00\nMakro price changed: R14 → R15\nYour margin: Still good at 20%\nSuggestion: Keep current price",
-          "buttons": ["Update Bread Price", "Keep Current"],
+          "text": "💡 *Pricing Suggestions*\n\n🍞 *Bread*\nYour price: R12\nOther shops nearby: R13-R14\nYour profit: Only 12% (was 18% last month)\n\n💭 You could raise to R13. That's R40 more profit each week on bread alone.\n\n🧃 *Mazoe Orange*\nYour price: R18\nYour profit: Good at 20%\n\n💭 No need to change this one.",
+          "buttons": ["Raise Bread to R13", "Keep As Is"],
           "sent": false,
           "delay": 600
         }
       ]
     },
     {
-      "match": "update bread price",
+      "match": "raise bread to r13",
       "matchType": "button",
       "responses": [
         {
           "type": "text",
-          "text": "Update Bread Price",
+          "text": "Raise Bread to R13",
           "sent": true,
           "delay": 100
         },
         {
           "type": "text",
-          "text": "✓ Bread price updated!\nR12.00 → R13.00\n\nYour new margin: 18% (was 12%)\nThis adds ~R40/week profit on bread sales.",
+          "text": "✅ *Price Updated*\n\nBread: R12 → R13\n\nYour profit is now 18% (was 12%). This adds about R40 more profit each week on bread.",
           "sent": false,
           "delay": 500
         }
       ]
     },
     {
-      "match": "keep current",
+      "match": "keep as is",
       "matchType": "button",
       "responses": [
         {
           "type": "text",
-          "text": "Got it! Keeping current prices. I'll let you know if competitor prices change significantly.",
+          "text": "Keep As Is",
+          "sent": true,
+          "delay": 100
+        },
+        {
+          "type": "text",
+          "text": "Got it! Keeping current prices as they are.",
           "sent": false,
           "delay": 400
         }
@@ -84,45 +90,53 @@
       "responses": [
         {
           "type": "text",
-          "text": "📦 *Restock Recommendations*\nBased on your sales patterns this week:\n\n🧃 Mazoe Orange: 4 left (sells 7/day)\nOrder now!\n\n🥤 Coke 500ml: 12 left (sells 5/day)\nOrder by Thu\n\n🍞 Daily delivery - no action",
-          "buttons": ["Create Order", "I'll Handle It"],
+          "text": "📦 *Time to Order*\n\n🧃 Mazoe Orange: 4 left\nYou sell about 7 per day\n👉 Order now or you'll run out tomorrow\n\n🥤 Coke 500ml: 12 left\nYou sell about 5 per day\n👉 Order by Thursday\n\n🍞 Bread: Daily delivery — no action needed",
+          "buttons": ["Make Order List", "I'll Handle It"],
           "sent": false,
           "delay": 800
         }
       ]
     },
     {
-      "match": "create order",
+      "match": "make order list",
       "matchType": "button",
       "responses": [
         {
           "type": "text",
-          "text": "Create Order",
+          "text": "Make Order List",
           "sent": true,
           "delay": 100
         },
         {
           "type": "card",
-          "title": "Suggested Order - Makro",
+          "title": "📝 Suggested Order",
           "items": [
-            "2x Case Mazoe Orange (12) @ R180",
-            "1x Case Coke 500ml (24) @ R288",
-            "Total: R648"
+            "2x Case Mazoe Orange (12 each) — R180",
+            "1x Case Coke 500ml (24) — R288",
+            "",
+            "Subtotal: R468",
+            "Transport (estimate): R50"
           ],
-          "total": "R648.00",
-          "buttons": ["Copy to Clipboard", "Done"],
+          "total": "Total: R518",
+          "buttons": ["Copy List", "Done"],
           "sent": false,
           "delay": 600
         }
       ]
     },
     {
-      "match": "copy to clipboard",
+      "match": "copy list",
       "matchType": "button",
       "responses": [
         {
           "type": "text",
-          "text": "✓ Order copied to clipboard! You can paste it into WhatsApp to send to your supplier.",
+          "text": "Copy List",
+          "sent": true,
+          "delay": 100
+        },
+        {
+          "type": "text",
+          "text": "✓ List copied! You can paste it into WhatsApp or use it as a reminder.",
           "sent": false,
           "delay": 400
         }
@@ -134,7 +148,7 @@
       "responses": [
         {
           "type": "text",
-          "text": "Great! Let me know when the order arrives and I'll help track the new inventory.",
+          "text": "Great! Let me know when your order arrives.",
           "sent": false,
           "delay": 400
         }
