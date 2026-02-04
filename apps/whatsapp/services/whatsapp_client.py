@@ -3,11 +3,64 @@
 import logging
 
 import httpx
+from asgiref.sync import sync_to_async
 from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
 META_GRAPH_API_URL = "https://graph.facebook.com/v21.0"
+
+
+def _record_outbound_message_sync(
+    phone_number: str,
+    message_type: str,
+    content: str = "",
+    whatsapp_message_id: str = "",
+    api_success: bool = True,
+    api_error: str = "",
+    raw_payload: dict | None = None,
+) -> None:
+    """
+    Record an outbound WhatsApp message to the database (sync version).
+
+    This is a fire-and-forget operation - failures won't break message sending.
+    """
+    try:
+        from apps.core.models import UserProfile
+        from apps.whatsapp.models import WhatsAppMessage
+
+        # Normalize phone number (add + prefix if missing)
+        if not phone_number.startswith("+"):
+            phone_number = f"+{phone_number}"
+
+        # Try to lookup user profile for enrichment
+        user_profile = None
+        company = None
+        try:
+            user_profile = UserProfile.objects.select_related("company").get(phone_number=phone_number)
+            company = user_profile.company
+        except UserProfile.DoesNotExist:
+            pass
+
+        WhatsAppMessage.objects.create(
+            direction=WhatsAppMessage.Direction.OUTBOUND,
+            message_type=message_type,
+            phone_number=phone_number,
+            content=content,
+            whatsapp_message_id=whatsapp_message_id,
+            api_success=api_success,
+            api_error=api_error,
+            raw_payload=raw_payload,
+            user_profile=user_profile,
+            company=company,
+        )
+        logger.debug(f"Recorded outbound message to {phone_number}")
+    except Exception as e:
+        logger.error(f"Failed to record outbound message: {e}", exc_info=True)
+
+
+# Create async wrapper
+_record_outbound_message = sync_to_async(_record_outbound_message_sync, thread_sensitive=True)
 
 
 class WhatsAppClient:
@@ -60,8 +113,19 @@ class WhatsAppClient:
         Returns:
             The message ID if successful, None otherwise
         """
+        # Create content string with buttons for recording
+        button_titles = [btn["title"] for btn in buttons[:3]]
+        content_with_buttons = f"{body}\n\nButtons: {', '.join(button_titles)}"
+
         if not self.access_token or not self.phone_number_id:
             logger.error("Meta WhatsApp credentials not configured")
+            await _record_outbound_message(
+                phone_number=to,
+                message_type="INTERACTIVE_BUTTON",
+                content=content_with_buttons,
+                api_success=False,
+                api_error="Meta WhatsApp credentials not configured",
+            )
             return None
 
         to_number = self._normalize_phone_number(to)
@@ -109,14 +173,44 @@ class WhatsAppClient:
                 data = response.json()
                 message_id = data.get("messages", [{}])[0].get("id")
                 logger.info(f"Sent WhatsApp button message to {to_number}, id={message_id}")
+
+                # Record successful message
+                await _record_outbound_message(
+                    phone_number=to,
+                    message_type="INTERACTIVE_BUTTON",
+                    content=content_with_buttons,
+                    whatsapp_message_id=message_id,
+                    api_success=True,
+                )
+
                 return message_id
             except httpx.HTTPStatusError as e:
-                logger.error(
-                    f"Failed to send WhatsApp button message: {e.response.status_code} - {e.response.text}"
+                error_msg = f"{e.response.status_code} - {e.response.text}"
+                logger.error(f"Failed to send WhatsApp button message: {error_msg}")
+
+                # Record failed message
+                await _record_outbound_message(
+                    phone_number=to,
+                    message_type="INTERACTIVE_BUTTON",
+                    content=content_with_buttons,
+                    api_success=False,
+                    api_error=error_msg,
                 )
+
                 return None
             except httpx.RequestError as e:
-                logger.error(f"Meta WhatsApp request error: {e}")
+                error_msg = str(e)
+                logger.error(f"Meta WhatsApp request error: {error_msg}")
+
+                # Record failed message
+                await _record_outbound_message(
+                    phone_number=to,
+                    message_type="INTERACTIVE_BUTTON",
+                    content=content_with_buttons,
+                    api_success=False,
+                    api_error=error_msg,
+                )
+
                 return None
 
     async def send_message(self, to: str, text: str) -> bool:
@@ -132,6 +226,13 @@ class WhatsAppClient:
         """
         if not self.access_token or not self.phone_number_id:
             logger.error("Meta WhatsApp credentials not configured")
+            await _record_outbound_message(
+                phone_number=to,
+                message_type="TEXT",
+                content=text,
+                api_success=False,
+                api_error="Meta WhatsApp credentials not configured",
+            )
             return False
 
         to_number = self._normalize_phone_number(to)
@@ -155,13 +256,110 @@ class WhatsAppClient:
                     json=payload,
                 )
                 response.raise_for_status()
+                data = response.json()
+                message_id = data.get("messages", [{}])[0].get("id", "")
+
                 logger.info(f"Sent WhatsApp message to {to_number}")
+
+                # Record successful message
+                await _record_outbound_message(
+                    phone_number=to,
+                    message_type="TEXT",
+                    content=text,
+                    whatsapp_message_id=message_id,
+                    api_success=True,
+                )
+
                 return True
             except httpx.HTTPStatusError as e:
-                logger.error(
-                    f"Failed to send WhatsApp message: {e.response.status_code} - {e.response.text}"
+                error_msg = f"{e.response.status_code} - {e.response.text}"
+                logger.error(f"Failed to send WhatsApp message: {error_msg}")
+
+                # Record failed message
+                await _record_outbound_message(
+                    phone_number=to,
+                    message_type="TEXT",
+                    content=text,
+                    api_success=False,
+                    api_error=error_msg,
                 )
+
                 return False
             except httpx.RequestError as e:
-                logger.error(f"Meta WhatsApp request error: {e}")
+                error_msg = str(e)
+                logger.error(f"Meta WhatsApp request error: {error_msg}")
+
+                # Record failed message
+                await _record_outbound_message(
+                    phone_number=to,
+                    message_type="TEXT",
+                    content=text,
+                    api_success=False,
+                    api_error=error_msg,
+                )
+
                 return False
+
+    async def download_media(self, media_id: str) -> tuple[bytes, str] | None:
+        """
+        Download media file from Meta's CDN.
+
+        Args:
+            media_id: The Meta media ID
+
+        Returns:
+            Tuple of (audio_data, mime_type) if successful, None otherwise
+        """
+        if not self.access_token:
+            logger.error("Meta WhatsApp credentials not configured")
+            return None
+
+        # Step 1: Get media info (URL and mime type)
+        media_info_url = f"{META_GRAPH_API_URL}/{media_id}"
+
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            try:
+                response = await client.get(
+                    media_info_url,
+                    headers=self._get_headers(),
+                )
+                response.raise_for_status()
+                media_info = response.json()
+
+                media_url = media_info.get("url")
+                mime_type = media_info.get("mime_type", "audio/ogg")
+
+                if not media_url:
+                    logger.error(f"No URL in media info response: {media_info}")
+                    return None
+
+            except httpx.HTTPStatusError as e:
+                logger.error(f"Failed to get media info: {e.response.status_code} - {e.response.text}")
+                return None
+            except httpx.RequestError as e:
+                logger.error(f"Media info request error: {e}")
+                return None
+
+        # Step 2: Download the actual media file
+        download_headers = {
+            "Authorization": f"Bearer {self.access_token}",
+            "User-Agent": "AutoTuckShop/1.0",
+        }
+
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            try:
+                response = await client.get(
+                    media_url,
+                    headers=download_headers,
+                )
+                response.raise_for_status()
+
+                logger.info(f"Downloaded media {media_id}, size={len(response.content)} bytes, type={mime_type}")
+                return (response.content, mime_type)
+
+            except httpx.HTTPStatusError as e:
+                logger.error(f"Failed to download media: {e.response.status_code} - {e.response.text}")
+                return None
+            except httpx.RequestError as e:
+                logger.error(f"Media download request error: {e}")
+                return None

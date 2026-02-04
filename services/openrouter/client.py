@@ -34,7 +34,7 @@ class OpenRouterClient:
         return {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
-            "HTTP-Referer": "https://auto-tuck-shop.fly.dev",
+            "HTTP-Referer": "https://autotuckshop.site",
             "X-Title": "Auto Tuck Shop",
         }
 

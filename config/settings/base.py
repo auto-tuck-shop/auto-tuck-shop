@@ -137,3 +137,47 @@ META_WHATSAPP_APP_SECRET = env("META_WHATSAPP_APP_SECRET", default="")  # For si
 # OpenRouter Configuration
 OPENROUTER_API_KEY = env("OPENROUTER_API_KEY", default="")
 OPENROUTER_MODEL = env("OPENROUTER_MODEL", default="google/gemini-2.5-flash-lite")
+
+# Eleven Labs Configuration
+ELEVENLABS_API_KEY = env("ELEVENLABS_API_KEY", default="")
+
+# Cloudflare R2 Storage Configuration
+R2_ACCESS_KEY_ID = env("R2_ACCESS_KEY_ID", default="")
+R2_SECRET_ACCESS_KEY = env("R2_SECRET_ACCESS_KEY", default="")
+R2_ENDPOINT_URL = env("R2_ENDPOINT_URL", default="")
+R2_BUCKET_NAME = env("R2_BUCKET_NAME", default="whatsapp-media")
+R2_PUBLIC_URL = env("R2_PUBLIC_URL", default="")
+
+# Logging Configuration
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "verbose": {
+            "format": "{levelname} {asctime} {module} {message}",
+            "style": "{",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "verbose",
+        },
+    },
+    "root": {
+        "handlers": ["console"],
+        "level": "INFO",
+    },
+    "loggers": {
+        "django": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": False,
+        },
+        "apps": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": False,
+        },
+    },
+}

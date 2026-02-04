@@ -11,6 +11,7 @@ from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 
 from apps.core.models import UserProfile, WaitlistEntry
+from apps.whatsapp.models import WhatsAppMessage
 from apps.whatsapp.services.webhook_handler import (
     handle_incoming_message,
     handle_new_waitlist_entry,
@@ -74,6 +75,49 @@ def _lookup_sender(sender: str) -> tuple[SenderStatus, UserProfile | None, Waitl
 
     # Unknown sender
     return (SenderStatus.UNKNOWN, None, None)
+
+
+def _record_inbound_message(
+    phone_number: str,
+    message_type: str,
+    content: str = "",
+    button_id: str = "",
+    whatsapp_message_id: str = "",
+    reply_to_message_id: str = "",
+    raw_payload: dict | None = None,
+    user_profile: UserProfile | None = None,
+    waitlist_entry: WaitlistEntry | None = None,
+    media_id: str = "",
+    media_url: str = "",
+    r2_media_url: str = "",
+    transcribed_text: str = "",
+) -> None:
+    """
+    Record an inbound WhatsApp message to the database.
+
+    This is a fire-and-forget operation - failures won't break message processing.
+    """
+    try:
+        WhatsAppMessage.objects.create(
+            direction=WhatsAppMessage.Direction.INBOUND,
+            message_type=message_type,
+            phone_number=phone_number,
+            content=content,
+            button_id=button_id,
+            whatsapp_message_id=whatsapp_message_id,
+            reply_to_message_id=reply_to_message_id,
+            raw_payload=raw_payload,
+            user_profile=user_profile,
+            company=user_profile.company if user_profile else None,
+            waitlist_entry=waitlist_entry,
+            media_id=media_id,
+            media_url=media_url,
+            r2_media_url=r2_media_url,
+            transcribed_text=transcribed_text,
+        )
+        logger.debug(f"Recorded inbound message from {phone_number}")
+    except Exception as e:
+        logger.error(f"Failed to record inbound message: {e}", exc_info=True)
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -146,6 +190,41 @@ class WhatsAppWebhookView(View):
                 self._handle_text_message(message_id, sender, body)
             return
 
+        # Handle audio/voice messages
+        if message_type == "audio" or message_type == "voice":
+            audio = message.get("audio", {}) or message.get("voice", {})
+            media_id = audio.get("id", "")
+            if media_id:
+                self._handle_audio_message(message_id, sender, media_id, message)
+            return
+
+        # Handle image messages
+        if message_type == "image":
+            image = message.get("image", {})
+            media_id = image.get("id", "")
+            caption = image.get("caption", "")
+            if media_id:
+                self._handle_media_message(message_id, sender, media_id, "image", caption, message)
+            return
+
+        # Handle video messages
+        if message_type == "video":
+            video = message.get("video", {})
+            media_id = video.get("id", "")
+            caption = video.get("caption", "")
+            if media_id:
+                self._handle_media_message(message_id, sender, media_id, "video", caption, message)
+            return
+
+        # Handle document messages
+        if message_type == "document":
+            document = message.get("document", {})
+            media_id = document.get("id", "")
+            filename = document.get("filename", "")
+            if media_id:
+                self._handle_media_message(message_id, sender, media_id, "document", filename, message)
+            return
+
         logger.info(f"Ignoring message type: {message_type}")
 
     def _handle_button_response(self, sender: str, button_id: str, message: dict) -> None:
@@ -155,6 +234,23 @@ class WhatsAppWebhookView(View):
         # Get the context (original message being replied to)
         context = message.get("context", {})
         original_message_id = context.get("id", "")
+        message_id = message.get("id", "")
+
+        # Lookup sender for recording
+        phone_number = _extract_phone_number(sender)
+        status, profile, waitlist_entry = _lookup_sender(sender)
+
+        # Record inbound button response
+        _record_inbound_message(
+            phone_number=phone_number,
+            message_type=WhatsAppMessage.MessageType.BUTTON_RESPONSE,
+            button_id=button_id,
+            whatsapp_message_id=message_id,
+            reply_to_message_id=original_message_id,
+            raw_payload=message,
+            user_profile=profile,
+            waitlist_entry=waitlist_entry,
+        )
 
         # Parse button ID to determine action type
         # Format: "confirm_{sale_id}", "cancel_{sale_id}", "waitlist_approve_{entry_id}", "waitlist_reject_{entry_id}"
@@ -181,6 +277,17 @@ class WhatsAppWebhookView(View):
 
         # Lookup sender status
         status, profile, waitlist_entry = _lookup_sender(sender)
+        phone_number = _extract_phone_number(sender)
+
+        # Record inbound message
+        _record_inbound_message(
+            phone_number=phone_number,
+            message_type=WhatsAppMessage.MessageType.TEXT,
+            content=body,
+            whatsapp_message_id=message_id,
+            user_profile=profile,
+            waitlist_entry=waitlist_entry,
+        )
 
         if status == SenderStatus.UNKNOWN:
             # New user - add to waitlist
@@ -203,6 +310,128 @@ class WhatsAppWebhookView(View):
                 text=body,
                 user_profile=profile,
             )
+
+    def _handle_audio_message(self, message_id: str, sender: str, media_id: str, message: dict) -> None:
+        """Handle an audio/voice message."""
+        logger.info(f"Received WhatsApp audio message from {sender}, media_id={media_id}")
+
+        # Lookup sender status
+        status, profile, waitlist_entry = _lookup_sender(sender)
+        phone_number = _extract_phone_number(sender)
+
+        # Download media and upload to R2 in background
+        r2_url = self._download_and_upload_media(media_id, phone_number)
+
+        # Record inbound message
+        _record_inbound_message(
+            phone_number=phone_number,
+            message_type=WhatsAppMessage.MessageType.AUDIO,
+            content="[Audio message]",
+            whatsapp_message_id=message_id,
+            user_profile=profile,
+            waitlist_entry=waitlist_entry,
+            media_id=media_id,
+            r2_media_url=r2_url or "",
+            raw_payload=message,
+        )
+
+        if status == SenderStatus.UNKNOWN:
+            # New user - add to waitlist
+            handle_new_waitlist_entry(
+                sender=sender,
+                text="[Audio message]",
+            )
+        elif status == SenderStatus.WAITLISTED:
+            # Already on waitlist - send pending message
+            handle_waitlisted_message(
+                sender=sender,
+                text="[Audio message]",
+                waitlist_entry=waitlist_entry,
+            )
+        else:
+            # Known user - process audio message
+            from apps.whatsapp.services.webhook_handler import handle_incoming_audio_message
+            handle_incoming_audio_message(
+                message_id=message_id,
+                sender=sender,
+                media_id=media_id,
+                user_profile=profile,
+            )
+
+    def _handle_media_message(
+        self, message_id: str, sender: str, media_id: str, media_type: str, caption: str, message: dict
+    ) -> None:
+        """Handle an image/video/document message."""
+        logger.info(f"Received WhatsApp {media_type} message from {sender}, media_id={media_id}")
+
+        # Lookup sender status
+        status, profile, waitlist_entry = _lookup_sender(sender)
+        phone_number = _extract_phone_number(sender)
+
+        # Download media and upload to R2
+        r2_url = self._download_and_upload_media(media_id, phone_number)
+
+        # Record inbound message
+        content = f"[{media_type.capitalize()} message]"
+        if caption:
+            content = f"{content}: {caption}"
+
+        _record_inbound_message(
+            phone_number=phone_number,
+            message_type=WhatsAppMessage.MessageType.UNKNOWN,  # Add specific types later if needed
+            content=content,
+            whatsapp_message_id=message_id,
+            user_profile=profile,
+            waitlist_entry=waitlist_entry,
+            media_id=media_id,
+            r2_media_url=r2_url or "",
+            raw_payload=message,
+        )
+
+        # For now, we just save media files without processing them
+        # In the future, you could process images/videos/documents as needed
+        logger.info(f"Saved {media_type} message from {sender}, R2 URL: {r2_url}")
+
+    def _download_and_upload_media(self, media_id: str, phone_number: str) -> str | None:
+        """
+        Download media from Meta and upload to R2 storage.
+
+        This is a synchronous operation that should complete quickly.
+        For production, consider offloading to a background task queue.
+
+        Args:
+            media_id: The Meta media ID
+            phone_number: The phone number of the sender
+
+        Returns:
+            The R2 public URL, or None if the operation failed
+        """
+        import asyncio
+        from apps.whatsapp.services.whatsapp_client import WhatsAppClient
+        from services.storage import R2StorageClient
+
+        async def _download_and_upload():
+            # Download from Meta
+            whatsapp_client = WhatsAppClient()
+            media_result = await whatsapp_client.download_media(media_id)
+
+            if not media_result:
+                logger.error(f"Failed to download media {media_id}")
+                return None
+
+            media_data, mime_type = media_result
+
+            # Upload to R2
+            r2_client = R2StorageClient()
+            r2_url = r2_client.upload_media(media_data, media_id, mime_type, phone_number)
+
+            return r2_url
+
+        try:
+            return asyncio.run(_download_and_upload())
+        except Exception as e:
+            logger.error(f"Error downloading and uploading media {media_id}: {e}", exc_info=True)
+            return None
 
     def _verify_signature(self, request: HttpRequest) -> bool:
         """Verify the X-Hub-Signature-256 header."""

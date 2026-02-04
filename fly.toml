@@ -8,6 +8,8 @@ primary_region = 'jnb'
 console_command = '/code/manage.py shell'
 
 [build]
+  buildkit = true
+  depot = false
 
 [deploy]
   release_command = 'python manage.py migrate --noinput'

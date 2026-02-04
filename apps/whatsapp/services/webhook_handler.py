@@ -43,6 +43,29 @@ def _extract_phone_number(sender: str) -> str:
     return sender
 
 
+@sync_to_async
+def _upload_to_r2(media_data: bytes, media_id: str, mime_type: str, phone_number: str) -> str | None:
+    """
+    Upload media file to R2 storage.
+
+    Args:
+        media_data: The raw media file bytes
+        media_id: The Meta media ID
+        mime_type: The MIME type of the media
+        phone_number: The phone number of the sender
+
+    Returns:
+        The public URL of the uploaded file, or None if upload failed
+    """
+    try:
+        from services.storage import R2StorageClient
+        client = R2StorageClient()
+        return client.upload_media(media_data, media_id, mime_type, phone_number)
+    except Exception as e:
+        logger.error(f"Failed to upload media to R2: {e}", exc_info=True)
+        return None
+
+
 def handle_new_waitlist_entry(sender: str, text: str) -> None:
     """
     Handle a message from an unknown phone number by adding them to the waitlist.
@@ -94,6 +117,29 @@ def handle_incoming_message(
         asyncio.run(_process_message_async(message_id, sender, text, user_profile))
     except Exception as e:
         logger.exception(f"Error handling message {message_id}: {e}")
+
+
+def handle_incoming_audio_message(
+    message_id: str,
+    sender: str,
+    media_id: str,
+    user_profile: UserProfile | None = None,
+) -> None:
+    """
+    Handle an incoming WhatsApp audio message from a known user.
+
+    Downloads audio, transcribes it, and processes the transcription.
+
+    Args:
+        message_id: The WhatsApp message ID
+        sender: The sender's phone number
+        media_id: The Meta media ID
+        user_profile: The user profile of the sender
+    """
+    try:
+        asyncio.run(_process_audio_message_async(message_id, sender, media_id, user_profile))
+    except Exception as e:
+        logger.exception(f"Error handling audio message {message_id}: {e}")
 
 
 async def _process_new_waitlist_entry_async(sender: str, text: str) -> None:
@@ -239,6 +285,96 @@ async def _process_message_async(
     await _process_sale_message(message_id, sender, text, company)
 
 
+async def _process_audio_message_async(
+    message_id: str,
+    sender: str,
+    media_id: str,
+    user_profile: UserProfile | None = None,
+) -> None:
+    """
+    Async processing of incoming audio message.
+
+    Downloads audio, transcribes it, and processes the transcription.
+
+    Args:
+        message_id: The WhatsApp message ID
+        sender: The sender's phone number
+        media_id: The Meta media ID
+        user_profile: The user profile of the sender
+    """
+    company = user_profile.company if user_profile else None
+    phone_number = _extract_phone_number(sender)
+
+    # Step 1: Download audio from Meta CDN
+    whatsapp_client = WhatsAppClient()
+    media_result = await whatsapp_client.download_media(media_id)
+
+    if not media_result:
+        await _send_response(
+            sender,
+            "Sorry, I couldn't download your audio message. Please try sending it again or send a text message instead."
+        )
+        return
+
+    audio_data, mime_type = media_result
+
+    # Step 1.5: Upload to R2 for permanent storage
+    r2_url = await _upload_to_r2(audio_data, media_id, mime_type, phone_number)
+
+    # Step 2: Transcribe audio using Eleven Labs
+    from services.elevenlabs import ElevenLabsClient, ElevenLabsError
+
+    # Map MIME type to file extension
+    mime_to_extension = {
+        "audio/ogg": "ogg",
+        "audio/mpeg": "mp3",
+        "audio/mp4": "m4a",
+        "audio/aac": "aac",
+        "audio/amr": "amr",
+    }
+    extension = mime_to_extension.get(mime_type, "ogg")
+    filename = f"audio.{extension}"
+
+    try:
+        elevenlabs_client = ElevenLabsClient()
+        transcribed_text = await elevenlabs_client.transcribe_audio(audio_data, filename)
+        logger.info(f"Transcribed audio message {message_id}: {transcribed_text[:100]}...")
+
+        # Step 3: Update database with transcription and R2 URL
+        @sync_to_async
+        def _update_message_transcription(msg_id: str, transcript: str, r2_url: str | None):
+            from apps.whatsapp.models import WhatsAppMessage
+            update_fields = {
+                "transcribed_text": transcript,
+                "content": transcript,
+            }
+            if r2_url:
+                update_fields["r2_media_url"] = r2_url
+            WhatsAppMessage.objects.filter(whatsapp_message_id=msg_id).update(**update_fields)
+
+        await _update_message_transcription(message_id, transcribed_text, r2_url)
+
+    except ElevenLabsError as e:
+        logger.error(f"Failed to transcribe audio message {message_id}: {e}")
+        await _send_response(
+            sender,
+            "Sorry, I couldn't transcribe your audio message. Please try sending a text message instead."
+        )
+        return
+
+    # Step 4: Detect intent
+    intent = await detect_message_intent(transcribed_text)
+    logger.info(f"Detected intent from audio: {intent}")
+
+    if intent.get("intent") == "add_assistant":
+        # Handle add assistant command
+        await _handle_add_assistant(sender, transcribed_text, user_profile, intent)
+        return
+
+    # Default: treat as sale message with audio flag
+    await _process_sale_message_from_audio(message_id, sender, transcribed_text, company, is_from_audio=True)
+
+
 async def _handle_add_assistant(
     sender: str,
     text: str,
@@ -335,16 +471,43 @@ async def _process_sale_message(
     company: "Company | None" = None,
 ) -> None:
     """Process a sale message."""
+    await _process_sale_message_from_audio(message_id, sender, text, company, is_from_audio=False)
+
+
+async def _process_sale_message_from_audio(
+    message_id: str,
+    sender: str,
+    text: str,
+    company: "Company | None" = None,
+    is_from_audio: bool = False,
+) -> None:
+    """
+    Process sale message, optionally from audio transcription.
+
+    Args:
+        message_id: The WhatsApp message ID
+        sender: The sender's phone number
+        text: The message text or transcription
+        company: The company associated with the sender
+        is_from_audio: Whether this message came from audio transcription
+    """
     # Parse the sale message using LLM
     parsed_result = await parse_sale_message(text)
 
     if not parsed_result.items:
         # No items found - send a helpful response
-        await _send_response(
-            sender,
-            "I couldn't identify any products in your message. "
-            "Please list the items you sold, e.g., '2 cokes, 1 chips'",
-        )
+        if is_from_audio:
+            response = (
+                f'I heard you say "{text}"\n\n'
+                "I couldn't identify any products in your message. "
+                "Please list the items you sold, e.g., '2 cokes, 1 chips'"
+            )
+        else:
+            response = (
+                "I couldn't identify any products in your message. "
+                "Please list the items you sold, e.g., '2 cokes, 1 chips'"
+            )
+        await _send_response(sender, response)
         return
 
     # Update company currency if detected
@@ -360,6 +523,11 @@ async def _process_sale_message(
 
     # Build response message
     response_lines = []
+
+    # Add "I heard you say..." prefix for audio messages
+    if is_from_audio:
+        response_lines.append(f'I heard you say "{text}"')
+        response_lines.append("")
 
     sale_items = await _get_sale_items(sale)
     currency = company.currency if company else "USD"
