@@ -3,6 +3,8 @@ import logging
 import httpx
 from django.conf import settings
 
+from utils.timing import track
+
 logger = logging.getLogger(__name__)
 
 ELEVENLABS_API_URL = "https://api.elevenlabs.io/v1/speech-to-text"
@@ -28,6 +30,45 @@ class ElevenLabsClient:
             "xi-api-key": self.api_key,
         }
 
+    async def transcribe_audio_from_url(self, audio_url: str) -> str:
+        """
+        Transcribe audio from a URL using Eleven Labs Speech-to-Text API.
+
+        Args:
+            audio_url: HTTPS URL to the audio file
+
+        Returns:
+            Transcribed text from the audio
+        """
+        async with track("elevenlabs_transcribe"):
+            data = {
+                "model_id": "scribe_v1",
+                "cloud_storage_url": audio_url,
+            }
+
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                try:
+                    response = await client.post(
+                        ELEVENLABS_API_URL,
+                        headers=self._get_headers(),
+                        data=data,  # Use form data, not JSON
+                    )
+                    response.raise_for_status()
+                except httpx.HTTPStatusError as e:
+                    logger.error(f"Eleven Labs HTTP error: {e.response.status_code} - {e.response.text}")
+                    raise ElevenLabsError(f"API request failed: {e.response.status_code}") from e
+                except httpx.RequestError as e:
+                    logger.error(f"Eleven Labs request error: {e}")
+                    raise ElevenLabsError(f"Request failed: {e}") from e
+
+            response_data = response.json()
+
+            try:
+                return response_data["text"]
+            except KeyError as e:
+                logger.error(f"Unexpected Eleven Labs response format: {response_data}")
+                raise ElevenLabsError("Unexpected response format") from e
+
     async def transcribe_audio(self, audio_data: bytes, filename: str) -> str:
         """
         Transcribe audio using Eleven Labs Speech-to-Text API.
@@ -39,33 +80,34 @@ class ElevenLabsClient:
         Returns:
             Transcribed text from the audio
         """
-        files = {
-            "file": (filename, audio_data),
-        }
-        data = {
-            "model_id": "scribe_v1",
-        }
+        async with track("elevenlabs_transcribe"):
+            files = {
+                "file": (filename, audio_data),
+            }
+            data = {
+                "model_id": "scribe_v1",
+            }
 
-        async with httpx.AsyncClient(timeout=60.0) as client:
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                try:
+                    response = await client.post(
+                        ELEVENLABS_API_URL,
+                        headers=self._get_headers(),
+                        files=files,
+                        data=data,
+                    )
+                    response.raise_for_status()
+                except httpx.HTTPStatusError as e:
+                    logger.error(f"Eleven Labs HTTP error: {e.response.status_code} - {e.response.text}")
+                    raise ElevenLabsError(f"API request failed: {e.response.status_code}") from e
+                except httpx.RequestError as e:
+                    logger.error(f"Eleven Labs request error: {e}")
+                    raise ElevenLabsError(f"Request failed: {e}") from e
+
+            response_data = response.json()
+
             try:
-                response = await client.post(
-                    ELEVENLABS_API_URL,
-                    headers=self._get_headers(),
-                    files=files,
-                    data=data,
-                )
-                response.raise_for_status()
-            except httpx.HTTPStatusError as e:
-                logger.error(f"Eleven Labs HTTP error: {e.response.status_code} - {e.response.text}")
-                raise ElevenLabsError(f"API request failed: {e.response.status_code}") from e
-            except httpx.RequestError as e:
-                logger.error(f"Eleven Labs request error: {e}")
-                raise ElevenLabsError(f"Request failed: {e}") from e
-
-        response_data = response.json()
-
-        try:
-            return response_data["text"]
-        except KeyError as e:
-            logger.error(f"Unexpected Eleven Labs response format: {response_data}")
-            raise ElevenLabsError("Unexpected response format") from e
+                return response_data["text"]
+            except KeyError as e:
+                logger.error(f"Unexpected Eleven Labs response format: {response_data}")
+                raise ElevenLabsError("Unexpected response format") from e

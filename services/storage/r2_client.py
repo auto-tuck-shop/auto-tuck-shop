@@ -2,6 +2,7 @@
 
 import hashlib
 import logging
+import time
 from datetime import datetime
 from typing import Optional
 
@@ -9,6 +10,8 @@ import boto3
 from botocore.client import Config
 from botocore.exceptions import BotoCoreError, ClientError
 from django.conf import settings
+
+from utils.timing import _current_tracker
 
 logger = logging.getLogger(__name__)
 
@@ -55,49 +58,57 @@ class R2StorageClient:
         Returns:
             The public URL of the uploaded file, or None if upload failed
         """
-        if not self.client:
-            logger.error("R2 client not initialized - credentials missing")
-            return None
-
+        # Since boto3 is sync, manually time it
+        start = time.perf_counter()
         try:
-            # Generate file path: YYYY/MM/DD/phone_number/media_id.ext
-            now = datetime.utcnow()
-            extension = self._get_extension_from_mime(mime_type)
+            if not self.client:
+                logger.error("R2 client not initialized - credentials missing")
+                return None
 
-            # Sanitize phone number for file path (remove + and spaces)
-            safe_phone = phone_number.replace("+", "").replace(" ", "")
+            try:
+                # Generate file path: YYYY/MM/DD/phone_number/media_id.ext
+                now = datetime.utcnow()
+                extension = self._get_extension_from_mime(mime_type)
 
-            file_key = f"{now.year:04d}/{now.month:02d}/{now.day:02d}/{safe_phone}/{media_id}.{extension}"
+                # Sanitize phone number for file path (remove + and spaces)
+                safe_phone = phone_number.replace("+", "").replace(" ", "")
 
-            # Calculate MD5 hash for integrity check
-            md5_hash = hashlib.md5(media_data).hexdigest()
+                file_key = f"{now.year:04d}/{now.month:02d}/{now.day:02d}/{safe_phone}/{media_id}.{extension}"
 
-            # Upload to R2
-            self.client.put_object(
-                Bucket=self.bucket_name,
-                Key=file_key,
-                Body=media_data,
-                ContentType=mime_type,
-                Metadata={
-                    "media_id": media_id,
-                    "phone_number": phone_number,
-                    "md5": md5_hash,
-                },
-            )
+                # Calculate MD5 hash for integrity check
+                md5_hash = hashlib.md5(media_data).hexdigest()
 
-            # Construct public URL
-            if self.public_url:
-                public_url = f"{self.public_url.rstrip('/')}/{file_key}"
-            else:
-                # Fallback to R2 endpoint URL
-                public_url = f"{self.endpoint_url.rstrip('/')}/{self.bucket_name}/{file_key}"
+                # Upload to R2
+                self.client.put_object(
+                    Bucket=self.bucket_name,
+                    Key=file_key,
+                    Body=media_data,
+                    ContentType=mime_type,
+                    Metadata={
+                        "media_id": media_id,
+                        "phone_number": phone_number,
+                        "md5": md5_hash,
+                    },
+                )
 
-            logger.info(f"Uploaded media {media_id} to R2: {file_key}")
-            return public_url
+                # Construct public URL
+                if self.public_url:
+                    public_url = f"{self.public_url.rstrip('/')}/{file_key}"
+                else:
+                    # Fallback to R2 endpoint URL
+                    public_url = f"{self.endpoint_url.rstrip('/')}/{self.bucket_name}/{file_key}"
 
-        except (BotoCoreError, ClientError) as e:
-            logger.error(f"Failed to upload media {media_id} to R2: {e}", exc_info=True)
-            return None
+                logger.info(f"Uploaded media {media_id} to R2: {file_key}")
+                return public_url
+
+            except (BotoCoreError, ClientError) as e:
+                logger.error(f"Failed to upload media {media_id} to R2: {e}", exc_info=True)
+                return None
+        finally:
+            duration_ms = (time.perf_counter() - start) * 1000
+            tracker = _current_tracker.get()
+            if tracker:
+                tracker.record("r2_upload", duration_ms)
 
     def _get_extension_from_mime(self, mime_type: str) -> str:
         """Map MIME type to file extension."""

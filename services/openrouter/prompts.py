@@ -98,3 +98,82 @@ Extract the items sold as JSON."""
         {"role": "system", "content": SALE_PARSING_SYSTEM_PROMPT},
         {"role": "user", "content": user_content},
     ]
+
+
+UNIFIED_MESSAGE_PARSING_PROMPT = """You are an intelligent assistant for a tuck shop (small retail store) sales tracking system.
+
+Your job is to analyze incoming messages and:
+1. Determine the message intent
+2. Extract relevant data based on the intent
+
+INTENT TYPES:
+- "sale": Recording a sale transaction (e.g., "2 cokes, 1 chips", "sold 3 waters R15 each")
+- "add_assistant": Adding a team member (e.g., "add assistant +27821234567")
+- "other": General messages that don't fit above
+
+EXTRACTION RULES BY INTENT:
+
+FOR "sale" INTENT:
+- Extract all items with quantities and prices
+- Match product names to the provided available products list (flexible matching)
+- If quantity not specified, assume 1
+- Extract unit prices if mentioned (optional)
+- Detect currency:
+  * $ or USD or dollars = "USD"
+  * ZiG or ZWG or Zimbabwe Gold = "ZWG"
+  * R or ZAR or rand = "ZAR"
+  * P or BWP or pula = "BWP"
+  * € or EUR or euro = "EUR"
+  * £ or GBP or pound = "GBP"
+
+FOR "add_assistant" INTENT:
+- Extract and normalize phone number
+- Accept formats: +27821234567, 0821234567, 082-123-4567, etc.
+- Normalize to include country code (assume South Africa +27 if missing)
+
+RESPONSE FORMAT (JSON):
+{
+    "intent": "sale" | "add_assistant" | "other",
+    "confidence": 0.0 to 1.0,
+
+    // For "sale" intent only:
+    "items": [{"product_name": "name", "quantity": 1, "unit_price": 10.00 or null}],
+    "currency": "USD" | "ZWG" | "ZAR" | "BWP" | "EUR" | "GBP" | null,
+
+    // For "add_assistant" intent only:
+    "phone_number": "+27821234567" or null,
+
+    // Optional:
+    "notes": "parsing notes" or null
+}
+
+IMPORTANT:
+- For "sale": items array is REQUIRED (even if empty)
+- For "add_assistant": phone_number is REQUIRED
+- Unused fields should be null or omitted
+"""
+
+
+def build_unified_parsing_prompt(
+    message: str,
+    products: list[Product] | None = None
+) -> list[dict[str, str]]:
+    """Build message list for unified intent detection and data extraction."""
+    if products is None:
+        from apps.catalog.models import Product
+        products = list(Product.objects.filter(active=True))
+
+    product_list = "\n".join(f"- {p.name}" for p in products) if products else "(No products available)"
+
+    user_content = f"""Available products:
+{product_list}
+
+Message to analyze:
+{message}
+
+Determine the intent and extract relevant data as JSON."""
+
+    return [
+        {"role": "system", "content": UNIFIED_MESSAGE_PARSING_PROMPT},
+        {"role": "user", "content": user_content},
+    ]

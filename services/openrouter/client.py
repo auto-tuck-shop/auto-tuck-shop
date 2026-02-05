@@ -5,6 +5,8 @@ from typing import Any
 import httpx
 from django.conf import settings
 
+from utils.timing import track
+
 logger = logging.getLogger(__name__)
 
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
@@ -97,13 +99,14 @@ class OpenRouterClient:
         Returns:
             Parsed JSON response as a dictionary
         """
-        content = await self.chat_completion(
-            messages,
-            response_format={"type": "json_object"},
-        )
+        async with track("openrouter_llm"):
+            content = await self.chat_completion(
+                messages,
+                response_format={"type": "json_object"},
+            )
 
-        try:
-            return json.loads(content)
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse JSON response: {content}")
-            raise OpenRouterError(f"Invalid JSON response: {e}") from e
+            try:
+                return json.loads(content)
+            except json.JSONDecodeError as e:
+                logger.error(f"Failed to parse JSON response: {content}")
+                raise OpenRouterError(f"Invalid JSON response: {e}") from e

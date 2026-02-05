@@ -15,8 +15,9 @@ from apps.core.currencies import format_price
 from apps.core.models import Company, UserProfile, WaitlistEntry
 from apps.sales.models import Sale
 from apps.sales.services import create_sale_from_parsed_items
-from apps.whatsapp.services.message_parser import parse_sale_message, detect_message_intent
+from apps.whatsapp.services.message_parser import parse_sale_message, detect_message_intent, parse_message_unified
 from apps.whatsapp.services.whatsapp_client import WhatsAppClient
+from utils.timing import start_tracking, end_tracking, track
 
 if TYPE_CHECKING:
     pass
@@ -238,14 +239,17 @@ def _store_waitlist_confirmation_sid(entry_id: int, message_sid: str) -> None:
     WaitlistEntry.objects.filter(id=entry_id).update(confirmation_message_sid=message_sid)
 
 
-@sync_to_async
-def _create_sale(parsed_items, message_id, company):
-    """Create sale from parsed items (sync wrapper for async context)."""
-    return create_sale_from_parsed_items(
-        items=parsed_items,
-        whatsapp_message_id=message_id,
-        company=company,
-    )
+async def _create_sale(parsed_items, message_id, company):
+    """Create sale from parsed items (async wrapper with timing)."""
+    async with track("create_sale"):
+        @sync_to_async
+        def _create_sale_sync():
+            return create_sale_from_parsed_items(
+                items=parsed_items,
+                whatsapp_message_id=message_id,
+                company=company,
+            )
+        return await _create_sale_sync()
 
 
 @sync_to_async
@@ -270,19 +274,22 @@ async def _process_message_async(
         text: The message text
         user_profile: The user profile of the sender
     """
-    company = user_profile.company if user_profile else None
+    start_tracking(request_id=message_id)
+    try:
+        company = user_profile.company if user_profile else None
 
-    # Detect message intent using LLM
-    intent = await detect_message_intent(text)
-    logger.info(f"Detected intent: {intent}")
+        # UNIFIED: Single LLM call for intent + extraction
+        result = await parse_message_unified(text)
+        logger.info(f"Parsed message - intent: {result.intent}, confidence: {result.confidence}")
 
-    if intent.get("intent") == "add_assistant":
-        # Handle add assistant command
-        await _handle_add_assistant(sender, text, user_profile, intent)
-        return
+        if result.intent == "add_assistant":
+            await _handle_add_assistant(sender, text, user_profile, result)
+            return
 
-    # Default: treat as sale message
-    await _process_sale_message(message_id, sender, text, company)
+        # Default: treat as sale
+        await _process_sale_message_unified(message_id, sender, text, company, result)
+    finally:
+        end_tracking()
 
 
 async def _process_audio_message_async(
@@ -302,84 +309,93 @@ async def _process_audio_message_async(
         media_id: The Meta media ID
         user_profile: The user profile of the sender
     """
-    company = user_profile.company if user_profile else None
-    phone_number = _extract_phone_number(sender)
-
-    # Step 1: Download audio from Meta CDN
-    whatsapp_client = WhatsAppClient()
-    media_result = await whatsapp_client.download_media(media_id)
-
-    if not media_result:
-        await _send_response(
-            sender,
-            "Sorry, I couldn't download your audio message. Please try sending it again or send a text message instead."
-        )
-        return
-
-    audio_data, mime_type = media_result
-
-    # Step 1.5: Upload to R2 for permanent storage
-    r2_url = await _upload_to_r2(audio_data, media_id, mime_type, phone_number)
-
-    # Step 2: Transcribe audio using Eleven Labs
-    from services.elevenlabs import ElevenLabsClient, ElevenLabsError
-
-    # Map MIME type to file extension
-    mime_to_extension = {
-        "audio/ogg": "ogg",
-        "audio/mpeg": "mp3",
-        "audio/mp4": "m4a",
-        "audio/aac": "aac",
-        "audio/amr": "amr",
-    }
-    extension = mime_to_extension.get(mime_type, "ogg")
-    filename = f"audio.{extension}"
-
+    start_tracking(request_id=message_id)
     try:
-        elevenlabs_client = ElevenLabsClient()
-        transcribed_text = await elevenlabs_client.transcribe_audio(audio_data, filename)
-        logger.info(f"Transcribed audio message {message_id}: {transcribed_text[:100]}...")
+        company = user_profile.company if user_profile else None
+        phone_number = _extract_phone_number(sender)
 
-        # Step 3: Update database with transcription and R2 URL
-        @sync_to_async
-        def _update_message_transcription(msg_id: str, transcript: str, r2_url: str | None):
-            from apps.whatsapp.models import WhatsAppMessage
-            update_fields = {
-                "transcribed_text": transcript,
-                "content": transcript,
-            }
-            if r2_url:
-                update_fields["r2_media_url"] = r2_url
-            WhatsAppMessage.objects.filter(whatsapp_message_id=msg_id).update(**update_fields)
+        # Step 1: Download audio from Meta CDN (we need the bytes for both transcription and R2)
+        whatsapp_client = WhatsAppClient()
+        media_result = await whatsapp_client.download_media(media_id)
 
-        await _update_message_transcription(message_id, transcribed_text, r2_url)
+        if not media_result:
+            await _send_response(
+                sender,
+                "Sorry, I couldn't download your audio message. Please try sending it again or send a text message instead."
+            )
+            return
 
-    except ElevenLabsError as e:
-        logger.error(f"Failed to transcribe audio message {message_id}: {e}")
-        await _send_response(
-            sender,
-            "Sorry, I couldn't transcribe your audio message. Please try sending a text message instead."
+        audio_data, mime_type = media_result
+
+        # Step 2: Run transcription and R2 upload IN PARALLEL (both use the same audio_data)
+        from services.elevenlabs import ElevenLabsClient, ElevenLabsError
+
+        # Map MIME type to file extension
+        mime_to_extension = {
+            "audio/ogg": "ogg",
+            "audio/mpeg": "mp3",
+            "audio/mp4": "m4a",
+            "audio/aac": "aac",
+            "audio/amr": "amr",
+        }
+        extension = mime_to_extension.get(mime_type, "ogg")
+        filename = f"audio.{extension}"
+
+        try:
+            elevenlabs_client = ElevenLabsClient()
+
+            # Run both operations in parallel!
+            transcription_task = elevenlabs_client.transcribe_audio(audio_data, filename)
+            r2_upload_task = _upload_to_r2(audio_data, media_id, mime_type, phone_number)
+
+            # Wait for both to complete
+            transcribed_text, r2_url = await asyncio.gather(transcription_task, r2_upload_task)
+
+            logger.info(f"Transcribed audio message {message_id}: {transcribed_text[:100]}...")
+
+            # Step 3: Update database with transcription and R2 URL
+            @sync_to_async
+            def _update_message_transcription(msg_id: str, transcript: str, r2_url: str | None):
+                from apps.whatsapp.models import WhatsAppMessage
+                update_fields = {
+                    "transcribed_text": transcript,
+                    "content": transcript,
+                }
+                if r2_url:
+                    update_fields["r2_media_url"] = r2_url
+                WhatsAppMessage.objects.filter(whatsapp_message_id=msg_id).update(**update_fields)
+
+            await _update_message_transcription(message_id, transcribed_text, r2_url)
+
+        except ElevenLabsError as e:
+            logger.error(f"Failed to transcribe audio message {message_id}: {e}")
+            await _send_response(
+                sender,
+                "Sorry, I couldn't transcribe your audio message. Please try sending a text message instead."
+            )
+            return
+
+        # Step 4: Unified parse (intent + extraction)
+        result = await parse_message_unified(transcribed_text)
+        logger.info(f"Parsed audio - intent: {result.intent}, confidence: {result.confidence}")
+
+        if result.intent == "add_assistant":
+            await _handle_add_assistant(sender, transcribed_text, user_profile, result)
+            return
+
+        # Default: treat as sale
+        await _process_sale_message_unified(
+            message_id, sender, transcribed_text, company, result, is_from_audio=True
         )
-        return
-
-    # Step 4: Detect intent
-    intent = await detect_message_intent(transcribed_text)
-    logger.info(f"Detected intent from audio: {intent}")
-
-    if intent.get("intent") == "add_assistant":
-        # Handle add assistant command
-        await _handle_add_assistant(sender, transcribed_text, user_profile, intent)
-        return
-
-    # Default: treat as sale message with audio flag
-    await _process_sale_message_from_audio(message_id, sender, transcribed_text, company, is_from_audio=True)
+    finally:
+        end_tracking()
 
 
 async def _handle_add_assistant(
     sender: str,
     text: str,
     user_profile: UserProfile | None,
-    intent: dict,
+    result,  # UnifiedMessageResult
 ) -> None:
     """Handle a request to add an assistant."""
     # Check if user is an owner
@@ -391,8 +407,8 @@ async def _handle_add_assistant(
         )
         return
 
-    # Get phone number from intent
-    phone_number = intent.get("phone_number")
+    # Get phone number from unified result
+    phone_number = result.phone_number
     if not phone_number:
         await _send_response(
             sender,
@@ -472,6 +488,84 @@ async def _process_sale_message(
 ) -> None:
     """Process a sale message."""
     await _process_sale_message_from_audio(message_id, sender, text, company, is_from_audio=False)
+
+
+async def _process_sale_message_unified(
+    message_id: str,
+    sender: str,
+    text: str,
+    company: "Company | None",
+    result,  # UnifiedMessageResult
+    is_from_audio: bool = False,
+) -> None:
+    """
+    Process sale using already-parsed result.
+
+    Args:
+        message_id: The WhatsApp message ID
+        sender: The sender's phone number
+        text: The message text or transcription
+        company: The company associated with the sender
+        result: The unified parsing result with intent and extracted data
+        is_from_audio: Whether this message came from audio transcription
+    """
+    if not result.items:
+        # No items found
+        if is_from_audio:
+            response = f'I heard you say "{text}"\n\nI couldn\'t identify any products. Please list items, e.g., "2 cokes, 1 chips"'
+        else:
+            response = 'I couldn\'t identify any products. Please list items, e.g., "2 cokes, 1 chips"'
+        await _send_response(sender, response)
+        return
+
+    # Update company currency if detected
+    if result.currency and company:
+        await _update_company_currency(company.id, result.currency)
+        company.currency = result.currency
+
+    # Create sale
+    sale_result = await _create_sale(result.items, message_id, company)
+    sale = sale_result["sale"]
+    unmatched = sale_result["unmatched_items"]
+
+    # Build response message
+    response_lines = []
+
+    # Add "I heard you say..." prefix for audio messages
+    if is_from_audio:
+        response_lines.append(f'I heard you say "{text}"')
+        response_lines.append("")
+
+    sale_items = await _get_sale_items(sale)
+    currency = company.currency if company else "USD"
+    has_missing_prices = False
+    if sale_items:
+        response_lines.append("")
+        for item in sale_items:
+            if item.unit_price is not None:
+                response_lines.append(f"  {item.quantity}x {item.product.name} @ {format_price(item.unit_price, currency)}")
+            else:
+                response_lines.append(f"  {item.quantity}x {item.product.name} (no price)")
+                has_missing_prices = True
+        response_lines.append(f"\nTotal: {format_price(sale.total_amount, currency)}")
+        if has_missing_prices:
+            response_lines.append('\nNote: Some items have no price set. Include prices (e.g. "2x Pear @ 5") to see totals.')
+
+    if unmatched:
+        response_lines.append(f"\n⚠ Unmatched: {', '.join(unmatched)}")
+
+    # Send with confirm/cancel buttons, replying to the original message
+    buttons = [
+        {"id": f"confirm_{sale.id}", "title": "Confirm"},
+        {"id": f"cancel_{sale.id}", "title": "Cancel"},
+    ]
+    message_sid = await _send_response_with_buttons(
+        sender, "\n".join(response_lines), buttons, reply_to=message_id
+    )
+
+    # Store the confirmation message SID for lookup when button is clicked
+    if message_sid:
+        await _store_confirmation_sid(sale.id, message_sid)
 
 
 async def _process_sale_message_from_audio(

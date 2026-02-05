@@ -6,6 +6,8 @@ import httpx
 from asgiref.sync import sync_to_async
 from django.conf import settings
 
+from utils.timing import track
+
 logger = logging.getLogger(__name__)
 
 META_GRAPH_API_URL = "https://graph.facebook.com/v21.0"
@@ -224,81 +226,125 @@ class WhatsAppClient:
         Returns:
             True if successful, False otherwise
         """
-        if not self.access_token or not self.phone_number_id:
-            logger.error("Meta WhatsApp credentials not configured")
-            await _record_outbound_message(
-                phone_number=to,
-                message_type="TEXT",
-                content=text,
-                api_success=False,
-                api_error="Meta WhatsApp credentials not configured",
-            )
-            return False
+        async with track("meta_send"):
+            if not self.access_token or not self.phone_number_id:
+                logger.error("Meta WhatsApp credentials not configured")
+                await _record_outbound_message(
+                    phone_number=to,
+                    message_type="TEXT",
+                    content=text,
+                    api_success=False,
+                    api_error="Meta WhatsApp credentials not configured",
+                )
+                return False
 
-        to_number = self._normalize_phone_number(to)
+            to_number = self._normalize_phone_number(to)
 
-        payload = {
-            "messaging_product": "whatsapp",
-            "recipient_type": "individual",
-            "to": to_number,
-            "type": "text",
-            "text": {
-                "preview_url": False,
-                "body": text,
+            payload = {
+                "messaging_product": "whatsapp",
+                "recipient_type": "individual",
+                "to": to_number,
+                "type": "text",
+                "text": {
+                    "preview_url": False,
+                    "body": text,
+                }
             }
-        }
 
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            try:
-                response = await client.post(
-                    self._get_api_url(),
-                    headers=self._get_headers(),
-                    json=payload,
-                )
-                response.raise_for_status()
-                data = response.json()
-                message_id = data.get("messages", [{}])[0].get("id", "")
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                try:
+                    response = await client.post(
+                        self._get_api_url(),
+                        headers=self._get_headers(),
+                        json=payload,
+                    )
+                    response.raise_for_status()
+                    data = response.json()
+                    message_id = data.get("messages", [{}])[0].get("id", "")
 
-                logger.info(f"Sent WhatsApp message to {to_number}")
+                    logger.info(f"Sent WhatsApp message to {to_number}")
 
-                # Record successful message
-                await _record_outbound_message(
-                    phone_number=to,
-                    message_type="TEXT",
-                    content=text,
-                    whatsapp_message_id=message_id,
-                    api_success=True,
-                )
+                    # Record successful message
+                    await _record_outbound_message(
+                        phone_number=to,
+                        message_type="TEXT",
+                        content=text,
+                        whatsapp_message_id=message_id,
+                        api_success=True,
+                    )
 
-                return True
-            except httpx.HTTPStatusError as e:
-                error_msg = f"{e.response.status_code} - {e.response.text}"
-                logger.error(f"Failed to send WhatsApp message: {error_msg}")
+                    return True
+                except httpx.HTTPStatusError as e:
+                    error_msg = f"{e.response.status_code} - {e.response.text}"
+                    logger.error(f"Failed to send WhatsApp message: {error_msg}")
 
-                # Record failed message
-                await _record_outbound_message(
-                    phone_number=to,
-                    message_type="TEXT",
-                    content=text,
-                    api_success=False,
-                    api_error=error_msg,
-                )
+                    # Record failed message
+                    await _record_outbound_message(
+                        phone_number=to,
+                        message_type="TEXT",
+                        content=text,
+                        api_success=False,
+                        api_error=error_msg,
+                    )
 
-                return False
-            except httpx.RequestError as e:
-                error_msg = str(e)
-                logger.error(f"Meta WhatsApp request error: {error_msg}")
+                    return False
+                except httpx.RequestError as e:
+                    error_msg = str(e)
+                    logger.error(f"Meta WhatsApp request error: {error_msg}")
 
-                # Record failed message
-                await _record_outbound_message(
-                    phone_number=to,
-                    message_type="TEXT",
-                    content=text,
-                    api_success=False,
-                    api_error=error_msg,
-                )
+                    # Record failed message
+                    await _record_outbound_message(
+                        phone_number=to,
+                        message_type="TEXT",
+                        content=text,
+                        api_success=False,
+                        api_error=error_msg,
+                    )
 
-                return False
+                    return False
+
+    async def get_media_url(self, media_id: str) -> tuple[str, str] | None:
+        """
+        Get the pre-signed URL for a media file without downloading it.
+
+        Args:
+            media_id: The Meta media ID
+
+        Returns:
+            Tuple of (media_url, mime_type) if successful, None otherwise
+        """
+        async with track("meta_get_url"):
+            if not self.access_token:
+                logger.error("Meta WhatsApp credentials not configured")
+                return None
+
+            media_info_url = f"{META_GRAPH_API_URL}/{media_id}"
+
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                try:
+                    response = await client.get(
+                        media_info_url,
+                        headers=self._get_headers(),
+                    )
+                    response.raise_for_status()
+                    media_info = response.json()
+
+                    media_url = media_info.get("url")
+                    mime_type = media_info.get("mime_type", "audio/ogg")
+
+                    if not media_url:
+                        logger.error(f"No URL in media info response: {media_info}")
+                        return None
+
+                    logger.info(f"Got media URL for {media_id}, type={mime_type}")
+                    return (media_url, mime_type)
+
+                except httpx.HTTPStatusError as e:
+                    logger.error(f"Failed to get media info: {e.response.status_code} - {e.response.text}")
+                    return None
+                except httpx.RequestError as e:
+                    logger.error(f"Media info request error: {e}")
+                    return None
 
     async def download_media(self, media_id: str) -> tuple[bytes, str] | None:
         """
@@ -310,56 +356,57 @@ class WhatsAppClient:
         Returns:
             Tuple of (audio_data, mime_type) if successful, None otherwise
         """
-        if not self.access_token:
-            logger.error("Meta WhatsApp credentials not configured")
-            return None
+        async with track("meta_download"):
+            if not self.access_token:
+                logger.error("Meta WhatsApp credentials not configured")
+                return None
 
-        # Step 1: Get media info (URL and mime type)
-        media_info_url = f"{META_GRAPH_API_URL}/{media_id}"
+            # Step 1: Get media info (URL and mime type)
+            media_info_url = f"{META_GRAPH_API_URL}/{media_id}"
 
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            try:
-                response = await client.get(
-                    media_info_url,
-                    headers=self._get_headers(),
-                )
-                response.raise_for_status()
-                media_info = response.json()
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                try:
+                    response = await client.get(
+                        media_info_url,
+                        headers=self._get_headers(),
+                    )
+                    response.raise_for_status()
+                    media_info = response.json()
 
-                media_url = media_info.get("url")
-                mime_type = media_info.get("mime_type", "audio/ogg")
+                    media_url = media_info.get("url")
+                    mime_type = media_info.get("mime_type", "audio/ogg")
 
-                if not media_url:
-                    logger.error(f"No URL in media info response: {media_info}")
+                    if not media_url:
+                        logger.error(f"No URL in media info response: {media_info}")
+                        return None
+
+                except httpx.HTTPStatusError as e:
+                    logger.error(f"Failed to get media info: {e.response.status_code} - {e.response.text}")
+                    return None
+                except httpx.RequestError as e:
+                    logger.error(f"Media info request error: {e}")
                     return None
 
-            except httpx.HTTPStatusError as e:
-                logger.error(f"Failed to get media info: {e.response.status_code} - {e.response.text}")
-                return None
-            except httpx.RequestError as e:
-                logger.error(f"Media info request error: {e}")
-                return None
+            # Step 2: Download the actual media file
+            download_headers = {
+                "Authorization": f"Bearer {self.access_token}",
+                "User-Agent": "AutoTuckShop/1.0",
+            }
 
-        # Step 2: Download the actual media file
-        download_headers = {
-            "Authorization": f"Bearer {self.access_token}",
-            "User-Agent": "AutoTuckShop/1.0",
-        }
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                try:
+                    response = await client.get(
+                        media_url,
+                        headers=download_headers,
+                    )
+                    response.raise_for_status()
 
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            try:
-                response = await client.get(
-                    media_url,
-                    headers=download_headers,
-                )
-                response.raise_for_status()
+                    logger.info(f"Downloaded media {media_id}, size={len(response.content)} bytes, type={mime_type}")
+                    return (response.content, mime_type)
 
-                logger.info(f"Downloaded media {media_id}, size={len(response.content)} bytes, type={mime_type}")
-                return (response.content, mime_type)
-
-            except httpx.HTTPStatusError as e:
-                logger.error(f"Failed to download media: {e.response.status_code} - {e.response.text}")
-                return None
-            except httpx.RequestError as e:
-                logger.error(f"Media download request error: {e}")
-                return None
+                except httpx.HTTPStatusError as e:
+                    logger.error(f"Failed to download media: {e.response.status_code} - {e.response.text}")
+                    return None
+                except httpx.RequestError as e:
+                    logger.error(f"Media download request error: {e}")
+                    return None
