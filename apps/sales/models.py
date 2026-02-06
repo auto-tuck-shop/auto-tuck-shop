@@ -68,12 +68,13 @@ class SaleItem(models.Model):
     )
     quantity = models.PositiveIntegerField(default=1)
     unit_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    currency = models.CharField(max_length=3, null=True, blank=True)
 
     class Meta:
         ordering = ["id"]
 
     def __str__(self):
-        currency = self.sale.company.currency if self.sale and self.sale.company else "USD"
+        currency = self.currency or (self.sale.company.currency if self.sale and self.sale.company else "USD")
         return f"{self.quantity}x {self.product.name} @ {format_price(self.unit_price, currency)}"
 
     @property

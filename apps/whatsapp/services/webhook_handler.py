@@ -238,7 +238,7 @@ def _store_waitlist_confirmation_sid(entry_id: int, message_sid: str) -> None:
     WaitlistEntry.objects.filter(id=entry_id).update(confirmation_message_sid=message_sid)
 
 
-async def _create_sale(parsed_items, message_id, company):
+async def _create_sale(parsed_items, message_id, company, currency=None):
     """Create sale from parsed items (async wrapper with timing)."""
     async with track("create_sale"):
         @sync_to_async
@@ -247,6 +247,7 @@ async def _create_sale(parsed_items, message_id, company):
                 items=parsed_items,
                 whatsapp_message_id=message_id,
                 company=company,
+                currency=currency,
             )
         return await _create_sale_sync()
 
@@ -504,7 +505,7 @@ async def _process_sale_message_unified(
         company.currency = result.currency
 
     # Create sale
-    sale_result = await _create_sale(result.items, message_id, company)
+    sale_result = await _create_sale(result.items, message_id, company, currency=result.currency)
     sale = sale_result["sale"]
     unmatched = sale_result["unmatched_items"]
 
@@ -517,18 +518,25 @@ async def _process_sale_message_unified(
         response_lines.append("")
 
     sale_items = await _get_sale_items(sale)
-    currency = company.currency if company else "USD"
     has_missing_prices = False
+    currencies_in_sale = set()
+
     if sale_items:
         response_lines.append("")
         for item in sale_items:
-            if item.unit_price is not None:
-                response_lines.append(t("sale.item_with_price", quantity=item.quantity, product=item.product.name, price=format_price(item.unit_price, currency)))
+            if item.unit_price is not None and item.currency:
+                item_currency = item.currency
+                currencies_in_sale.add(item_currency)
+                response_lines.append(t("sale.item_with_price", quantity=item.quantity, product=item.product.name, price=format_price(item.unit_price, item_currency)))
             else:
                 response_lines.append(t("sale.item_no_price", quantity=item.quantity, product=item.product.name))
                 has_missing_prices = True
-        response_lines.append(t("sale.total", total=format_price(sale.total_amount, currency)))
-        if has_missing_prices:
+
+        # Only show total if all items have prices AND all are the same currency
+        if not has_missing_prices and len(currencies_in_sale) == 1:
+            sale_currency = currencies_in_sale.pop()
+            response_lines.append(t("sale.total", total=format_price(sale.total_amount, sale_currency)))
+        elif has_missing_prices:
             response_lines.append(t("sale.missing_prices_note"))
 
     if unmatched:

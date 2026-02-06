@@ -73,6 +73,16 @@ class Product(models.Model):
         return price.price if price else None
 
     @property
+    def current_price_with_currency(self) -> tuple[Decimal, str] | None:
+        """Get the current effective price and its currency for this product."""
+        price = (
+            self.prices.filter(effective_from__lte=timezone.now())
+            .order_by("-effective_from")
+            .first()
+        )
+        return (price.price, price.currency) if price else None
+
+    @property
     def current_stock(self) -> int:
         """Calculate current stock from adjustments minus sales."""
         from apps.sales.models import SaleItem
@@ -103,11 +113,11 @@ class ProductPrice(models.Model):
         related_name="prices",
     )
     price = models.DecimalField(max_digits=10, decimal_places=2)
+    currency = models.CharField(max_length=3, default="USD")
     effective_from = models.DateTimeField(default=timezone.now)
 
     class Meta:
         ordering = ["-effective_from"]
 
     def __str__(self):
-        currency = self.product.company.currency if self.product.company else "USD"
-        return f"{self.product.name} - {format_price(self.price, currency)} (from {self.effective_from.date()})"
+        return f"{self.product.name} - {format_price(self.price, self.currency)} (from {self.effective_from.date()})"
