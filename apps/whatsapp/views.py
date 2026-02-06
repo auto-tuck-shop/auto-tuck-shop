@@ -319,10 +319,7 @@ class WhatsAppWebhookView(View):
         status, profile, waitlist_entry = _lookup_sender(sender)
         phone_number = _extract_phone_number(sender)
 
-        # Download media and upload to R2 in background
-        r2_url = self._download_and_upload_media(media_id, phone_number)
-
-        # Record inbound message
+        # Record inbound message (R2 URL is populated later during async processing)
         _record_inbound_message(
             phone_number=phone_number,
             message_type=WhatsAppMessage.MessageType.AUDIO,
@@ -331,7 +328,7 @@ class WhatsAppWebhookView(View):
             user_profile=profile,
             waitlist_entry=waitlist_entry,
             media_id=media_id,
-            r2_media_url=r2_url or "",
+            r2_media_url="",
             raw_payload=message,
         )
 
