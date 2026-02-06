@@ -1,0 +1,44 @@
+{
+  "waitlist": {
+    "welcome": "Mwakadini! Unokona kutumira voice note kana kunyora zvawatengesa nyamashi.\n\n(Hello! You can send a voice note or type what you sold today.)",
+    "shop_name_noted": "Thanks! We got your shop name \"{shop_name}\".\n\nYou're still waiting. We'll check your request soon.",
+    "still_pending": "Thanks for your message! You're still waiting.\n\nWe'll check your request soon. We'll send you a message when you're approved.",
+    "rejected": "Sorry, we can't approve your request. Please call us if this is wrong.",
+    "already_processed": "This request was already done"
+  },
+  "waitlist_admin": {
+    "new_request": "New person wants to join:\n\nPhone: {phone}\nMessage: {message}",
+    "approved": "✓ Approved {phone}\nShop: {company}",
+    "rejected": "✗ Rejected {phone}",
+    "btn_approve": "Confirm",
+    "btn_reject": "Cancel"
+  },
+  "approval": {
+    "welcome": "Welcome to Auto Tuck Shop! You can start now.\n\nShop: {company}\n\nYou can send me what you sold. Like this:\n'sold 2 cokes R15 each, 1 chips R10'\n'3 waters R12 each, 2 chocolates R8 each'\n\nYou can also add helpers by sending:\n'add assistant +27821234567'"
+  },
+  "audio": {
+    "download_failed": "Sorry, I couldn't get your voice note. Please try again or send a text message.",
+    "transcription_failed": "Sorry, I couldn't hear your voice note clearly. Please send a text message."
+  },
+  "assistant": {
+    "not_owner": "Sorry, only the shop owner can add helpers. Talk to the owner if you need help.",
+    "missing_phone": "I didn't see a phone number. Please add it like this: 'add assistant +27821234567'",
+    "already_registered": "This phone number {phone} is already being used.",
+    "added": "Helper added!\n\nPhone: {phone}\nThey can now send sales for {company}."
+  },
+  "sale": {
+    "no_products": "I didn't see any items. Please list them like this: \"2 cokes, 1 chips\"",
+    "no_products_audio": "Ndazwa kuti:\n\"{text}\"\n\nI didn't see any items. Please list them like this: \"2 cokes, 1 chips\"",
+    "heard_prefix": "Ndazwa kuti:\n\"{text}\"",
+    "item_with_price": "  {quantity}x {product} @ {price}",
+    "item_no_price": "  {quantity}x {product} (no price)",
+    "total": "\nTotal: {total}",
+    "missing_prices_note": "\nNote: Some items don't have prices. Add prices like \"2x Pear @ 5\" to see totals.",
+    "unmatched": "\n⚠ Unmatched: {items}",
+    "confirmed": "✓ Confirmed",
+    "cancelled": "✗ Cancelled",
+    "already_processed": "This sale was already done",
+    "btn_confirm": "Confirm",
+    "btn_cancel": "Cancel"
+  }
+}

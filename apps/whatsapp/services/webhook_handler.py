@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from asgiref.sync import sync_to_async
@@ -15,7 +17,7 @@ from apps.core.currencies import format_price
 from apps.core.models import Company, UserProfile, WaitlistEntry
 from apps.sales.models import Sale
 from apps.sales.services import create_sale_from_parsed_items
-from apps.whatsapp.services.message_parser import parse_sale_message, detect_message_intent, parse_message_unified
+from apps.whatsapp.services.message_parser import parse_message_unified
 from apps.whatsapp.services.whatsapp_client import WhatsAppClient
 from utils.timing import start_tracking, end_tracking, track
 
@@ -23,6 +25,20 @@ if TYPE_CHECKING:
     pass
 
 logger = logging.getLogger(__name__)
+
+# Load localization strings
+_LOCALES_DIR = Path(__file__).parent.parent / "locales"
+_strings = json.loads((_LOCALES_DIR / "sn.json").read_text())
+
+
+def t(key: str, **kwargs) -> str:
+    """Get localized string by dot-notation key, with optional format args."""
+    keys = key.split(".")
+    value = _strings
+    for k in keys:
+        value = value[k]
+    return value.format(**kwargs) if kwargs else value
+
 
 # Admin phone number for waitlist approval notifications
 ADMIN_PHONE_NUMBER = "+14342183470"
@@ -151,14 +167,7 @@ async def _process_new_waitlist_entry_async(sender: str, text: str) -> None:
     entry = await _create_waitlist_entry(phone_number, text)
 
     # Send welcome message
-    await _send_response(
-        sender,
-        "Welcome! You've been added to our waitlist.\n\n"
-        "An administrator will review your request and approve your account shortly. "
-        "We'll send you a message when you're approved.\n\n"
-        "In the meantime, if you'd like to provide a name for your shop, "
-        "just send another message with it."
-    )
+    await _send_response(sender, t("waitlist.welcome"))
 
     # Send admin notification with approve/reject buttons
     await _send_waitlist_admin_notification(entry)
@@ -172,22 +181,12 @@ async def _process_waitlisted_message_async(sender: str, text: str, waitlist_ent
             await _update_waitlist_company_name(waitlist_entry.id, text.strip())
             await _send_response(
                 sender,
-                f"Thanks! We've noted your shop name as \"{text.strip()}\".\n\n"
-                "You're still on our waitlist. An administrator will review your request soon."
+                t("waitlist.shop_name_noted", shop_name=text.strip()),
             )
         else:
-            await _send_response(
-                sender,
-                "Thanks for your message! You're still on our waitlist.\n\n"
-                "An administrator will review your request soon. "
-                "We'll notify you when your account is approved."
-            )
+            await _send_response(sender, t("waitlist.still_pending"))
     elif waitlist_entry.status == WaitlistEntry.Status.REJECTED:
-        await _send_response(
-            sender,
-            "Sorry, your request to join was not approved. "
-            "Please contact support if you believe this is an error."
-        )
+        await _send_response(sender, t("waitlist.rejected"))
 
 
 @sync_to_async
@@ -211,15 +210,15 @@ def _create_waitlist_entry(phone_number: str, first_message: str) -> WaitlistEnt
 
 async def _send_waitlist_admin_notification(entry: WaitlistEntry) -> None:
     """Send a notification to the admin with approve/reject buttons."""
-    message = (
-        f"New waitlist request:\n\n"
-        f"Phone: {entry.phone_number}\n"
-        f"Message: {entry.first_message[:100] if entry.first_message else '(none)'}"
+    message = t(
+        "waitlist_admin.new_request",
+        phone=entry.phone_number,
+        message=entry.first_message[:100] if entry.first_message else "(none)",
     )
 
     buttons = [
-        {"id": f"waitlist_approve_{entry.id}", "title": "Confirm"},
-        {"id": f"waitlist_reject_{entry.id}", "title": "Cancel"},
+        {"id": f"waitlist_approve_{entry.id}", "title": t("waitlist_admin.btn_approve")},
+        {"id": f"waitlist_reject_{entry.id}", "title": t("waitlist_admin.btn_reject")},
     ]
 
     message_sid = await _send_response_with_buttons(
@@ -319,10 +318,7 @@ async def _process_audio_message_async(
         media_result = await whatsapp_client.download_media(media_id)
 
         if not media_result:
-            await _send_response(
-                sender,
-                "Sorry, I couldn't download your audio message. Please try sending it again or send a text message instead."
-            )
+            await _send_response(sender, t("audio.download_failed"))
             return
 
         audio_data, mime_type = media_result
@@ -344,35 +340,41 @@ async def _process_audio_message_async(
         try:
             elevenlabs_client = ElevenLabsClient()
 
-            # Run both operations in parallel!
-            transcription_task = elevenlabs_client.transcribe_audio(audio_data, filename)
-            r2_upload_task = _upload_to_r2(audio_data, media_id, mime_type, phone_number)
+            # Fire-and-forget R2 upload (archival, not on critical path)
+            async def _background_r2_upload():
+                """Upload to R2 and update DB in background."""
+                r2_url = await _upload_to_r2(audio_data, media_id, mime_type, phone_number)
+                if r2_url:
+                    @sync_to_async
+                    def _update_r2_url(msg_id: str, url: str):
+                        from apps.whatsapp.models import WhatsAppMessage
+                        WhatsAppMessage.objects.filter(whatsapp_message_id=msg_id).update(r2_media_url=url)
 
-            # Wait for both to complete
-            transcribed_text, r2_url = await asyncio.gather(transcription_task, r2_upload_task)
+                    await _update_r2_url(message_id, r2_url)
+                    logger.info(f"R2 upload completed for {message_id}: {r2_url}")
+
+            # Start R2 upload in background (don't await)
+            asyncio.create_task(_background_r2_upload())
+
+            # Only await transcription (on critical path)
+            transcribed_text = await elevenlabs_client.transcribe_audio(audio_data, filename)
 
             logger.info(f"Transcribed audio message {message_id}: {transcribed_text[:100]}...")
 
-            # Step 3: Update database with transcription and R2 URL
+            # Step 3: Update database with transcription (R2 URL updated separately in background)
             @sync_to_async
-            def _update_message_transcription(msg_id: str, transcript: str, r2_url: str | None):
+            def _update_message_transcription(msg_id: str, transcript: str):
                 from apps.whatsapp.models import WhatsAppMessage
-                update_fields = {
-                    "transcribed_text": transcript,
-                    "content": transcript,
-                }
-                if r2_url:
-                    update_fields["r2_media_url"] = r2_url
-                WhatsAppMessage.objects.filter(whatsapp_message_id=msg_id).update(**update_fields)
+                WhatsAppMessage.objects.filter(whatsapp_message_id=msg_id).update(
+                    transcribed_text=transcript,
+                    content=transcript,
+                )
 
-            await _update_message_transcription(message_id, transcribed_text, r2_url)
+            await _update_message_transcription(message_id, transcribed_text)
 
         except ElevenLabsError as e:
             logger.error(f"Failed to transcribe audio message {message_id}: {e}")
-            await _send_response(
-                sender,
-                "Sorry, I couldn't transcribe your audio message. Please try sending a text message instead."
-            )
+            await _send_response(sender, t("audio.transcription_failed"))
             return
 
         # Step 4: Unified parse (intent + extraction)
@@ -400,30 +402,20 @@ async def _handle_add_assistant(
     """Handle a request to add an assistant."""
     # Check if user is an owner
     if not user_profile or user_profile.role != UserProfile.Role.OWNER:
-        await _send_response(
-            sender,
-            "Sorry, only shop owners can add assistants. "
-            "Contact the shop owner if you need to add team members."
-        )
+        await _send_response(sender, t("assistant.not_owner"))
         return
 
     # Get phone number from unified result
     phone_number = result.phone_number
     if not phone_number:
-        await _send_response(
-            sender,
-            "I couldn't find a phone number in your message. "
-            "Please include the assistant's phone number, e.g., "
-            "'add assistant +27821234567'"
-        )
+        await _send_response(sender, t("assistant.missing_phone"))
         return
 
     # Check if phone number is already in use
     existing_profile = await _get_profile_by_phone(phone_number)
     if existing_profile:
         await _send_response(
-            sender,
-            f"The phone number {phone_number} is already registered to another user."
+            sender, t("assistant.already_registered", phone=phone_number)
         )
         return
 
@@ -433,9 +425,7 @@ async def _handle_add_assistant(
     # Notify the owner
     await _send_response(
         sender,
-        f"Assistant added successfully!\n\n"
-        f"Phone: {phone_number}\n"
-        f"They can now send sales messages for {user_profile.company.name}."
+        t("assistant.added", phone=phone_number, company=user_profile.company.name),
     )
 
 
@@ -480,16 +470,6 @@ def _update_company_currency(company_id: int, currency: str) -> None:
     Company.objects.filter(id=company_id).update(currency=currency)
 
 
-async def _process_sale_message(
-    message_id: str,
-    sender: str,
-    text: str,
-    company: "Company | None" = None,
-) -> None:
-    """Process a sale message."""
-    await _process_sale_message_from_audio(message_id, sender, text, company, is_from_audio=False)
-
-
 async def _process_sale_message_unified(
     message_id: str,
     sender: str,
@@ -512,9 +492,9 @@ async def _process_sale_message_unified(
     if not result.items:
         # No items found
         if is_from_audio:
-            response = f'I heard you say "{text}"\n\nI couldn\'t identify any products. Please list items, e.g., "2 cokes, 1 chips"'
+            response = t("sale.no_products_audio", text=text)
         else:
-            response = 'I couldn\'t identify any products. Please list items, e.g., "2 cokes, 1 chips"'
+            response = t("sale.no_products")
         await _send_response(sender, response)
         return
 
@@ -533,7 +513,7 @@ async def _process_sale_message_unified(
 
     # Add "I heard you say..." prefix for audio messages
     if is_from_audio:
-        response_lines.append(f'I heard you say "{text}"')
+        response_lines.append(t("sale.heard_prefix", text=text))
         response_lines.append("")
 
     sale_items = await _get_sale_items(sale)
@@ -543,108 +523,21 @@ async def _process_sale_message_unified(
         response_lines.append("")
         for item in sale_items:
             if item.unit_price is not None:
-                response_lines.append(f"  {item.quantity}x {item.product.name} @ {format_price(item.unit_price, currency)}")
+                response_lines.append(t("sale.item_with_price", quantity=item.quantity, product=item.product.name, price=format_price(item.unit_price, currency)))
             else:
-                response_lines.append(f"  {item.quantity}x {item.product.name} (no price)")
+                response_lines.append(t("sale.item_no_price", quantity=item.quantity, product=item.product.name))
                 has_missing_prices = True
-        response_lines.append(f"\nTotal: {format_price(sale.total_amount, currency)}")
+        response_lines.append(t("sale.total", total=format_price(sale.total_amount, currency)))
         if has_missing_prices:
-            response_lines.append('\nNote: Some items have no price set. Include prices (e.g. "2x Pear @ 5") to see totals.')
+            response_lines.append(t("sale.missing_prices_note"))
 
     if unmatched:
-        response_lines.append(f"\n⚠ Unmatched: {', '.join(unmatched)}")
+        response_lines.append(t("sale.unmatched", items=", ".join(unmatched)))
 
     # Send with confirm/cancel buttons, replying to the original message
     buttons = [
-        {"id": f"confirm_{sale.id}", "title": "Confirm"},
-        {"id": f"cancel_{sale.id}", "title": "Cancel"},
-    ]
-    message_sid = await _send_response_with_buttons(
-        sender, "\n".join(response_lines), buttons, reply_to=message_id
-    )
-
-    # Store the confirmation message SID for lookup when button is clicked
-    if message_sid:
-        await _store_confirmation_sid(sale.id, message_sid)
-
-
-async def _process_sale_message_from_audio(
-    message_id: str,
-    sender: str,
-    text: str,
-    company: "Company | None" = None,
-    is_from_audio: bool = False,
-) -> None:
-    """
-    Process sale message, optionally from audio transcription.
-
-    Args:
-        message_id: The WhatsApp message ID
-        sender: The sender's phone number
-        text: The message text or transcription
-        company: The company associated with the sender
-        is_from_audio: Whether this message came from audio transcription
-    """
-    # Parse the sale message using LLM
-    parsed_result = await parse_sale_message(text)
-
-    if not parsed_result.items:
-        # No items found - send a helpful response
-        if is_from_audio:
-            response = (
-                f'I heard you say "{text}"\n\n'
-                "I couldn't identify any products in your message. "
-                "Please list the items you sold, e.g., '2 cokes, 1 chips'"
-            )
-        else:
-            response = (
-                "I couldn't identify any products in your message. "
-                "Please list the items you sold, e.g., '2 cokes, 1 chips'"
-            )
-        await _send_response(sender, response)
-        return
-
-    # Update company currency if detected
-    if parsed_result.currency and company:
-        await _update_company_currency(company.id, parsed_result.currency)
-        company.currency = parsed_result.currency  # Update local reference
-
-    # Create the sale
-    result = await _create_sale(parsed_result.items, message_id, company)
-
-    sale = result["sale"]
-    unmatched = result["unmatched_items"]
-
-    # Build response message
-    response_lines = []
-
-    # Add "I heard you say..." prefix for audio messages
-    if is_from_audio:
-        response_lines.append(f'I heard you say "{text}"')
-        response_lines.append("")
-
-    sale_items = await _get_sale_items(sale)
-    currency = company.currency if company else "USD"
-    has_missing_prices = False
-    if sale_items:
-        response_lines.append("")
-        for item in sale_items:
-            if item.unit_price is not None:
-                response_lines.append(f"  {item.quantity}x {item.product.name} @ {format_price(item.unit_price, currency)}")
-            else:
-                response_lines.append(f"  {item.quantity}x {item.product.name} (no price)")
-                has_missing_prices = True
-        response_lines.append(f"\nTotal: {format_price(sale.total_amount, currency)}")
-        if has_missing_prices:
-            response_lines.append('\nNote: Some items have no price set. Include prices (e.g. "2x Pear @ 5") to see totals.')
-
-    if unmatched:
-        response_lines.append(f"\n⚠ Unmatched: {', '.join(unmatched)}")
-
-    # Send with confirm/cancel buttons, replying to the original message
-    buttons = [
-        {"id": f"confirm_{sale.id}", "title": "Confirm"},
-        {"id": f"cancel_{sale.id}", "title": "Cancel"},
+        {"id": f"confirm_{sale.id}", "title": t("sale.btn_confirm")},
+        {"id": f"cancel_{sale.id}", "title": t("sale.btn_cancel")},
     ]
     message_sid = await _send_response_with_buttons(
         sender, "\n".join(response_lines), buttons, reply_to=message_id
@@ -729,25 +622,17 @@ async def _process_sale_confirmation_async(
     """
     if action == "confirm":
         new_status = Sale.Status.CONFIRMED
-        status_text = "confirmed"
-        emoji = "✓"
+        response_key = "sale.confirmed"
     else:
         new_status = Sale.Status.CANCELLED
-        status_text = "cancelled"
-        emoji = "✗"
+        response_key = "sale.cancelled"
 
     sale = await _get_and_update_sale(original_message_sid, new_status)
 
     if sale:
-        await _send_response(
-            sender,
-            f"{emoji} {status_text.capitalize()}",
-        )
+        await _send_response(sender, t(response_key))
     else:
-        await _send_response(
-            sender,
-            "Sale already processed or not found",
-        )
+        await _send_response(sender, t("sale.already_processed"))
 
 
 def handle_waitlist_confirmation(
@@ -854,10 +739,7 @@ async def _process_waitlist_confirmation_async(
     entry = await _get_and_update_waitlist_entry(original_message_sid, action)
 
     if not entry:
-        await _send_response(
-            sender,
-            "Waitlist entry already processed or not found",
-        )
+        await _send_response(sender, t("waitlist.already_processed"))
         return
 
     if action == "approve":
@@ -867,30 +749,20 @@ async def _process_waitlist_confirmation_async(
         # Notify admin
         await _send_response(
             sender,
-            f"✓ Approved {entry.phone_number}\nCompany: {company.name}",
+            t("waitlist_admin.approved", phone=entry.phone_number, company=company.name),
         )
 
         # Send approval notification to the user
         await _send_response(
             entry.phone_number,
-            f"Welcome to Auto Tuck Shop! Your account has been approved.\n\n"
-            f"Company: {company.name}\n\n"
-            f"You can now send sales messages to track your sales. For example:\n"
-            f"'sold 2 cokes R15 each, 1 chips R10'\n"
-            f"'3 waters R12 each, 2 chocolates R8 each'\n\n"
-            f"As an owner, you can also add assistants by sending messages like:\n"
-            f"'add assistant +27821234567'"
+            t("approval.welcome", company=company.name),
         )
     else:
         # Notify admin
         await _send_response(
             sender,
-            f"✗ Rejected {entry.phone_number}",
+            t("waitlist_admin.rejected", phone=entry.phone_number),
         )
 
-        # Optionally notify the user
-        await _send_response(
-            entry.phone_number,
-            "Sorry, your request to join was not approved. "
-            "Please contact support if you believe this is an error."
-        )
+        # Notify the user
+        await _send_response(entry.phone_number, t("waitlist.rejected"))
