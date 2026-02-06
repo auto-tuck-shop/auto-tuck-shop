@@ -4,6 +4,8 @@ from apps.catalog.models import Product
 
 UNIFIED_MESSAGE_PARSING_PROMPT = """You are an intelligent assistant for a tuck shop (small retail store) sales tracking system.
 
+CONTEXT: Messages come from shop owners and assistants in Zimbabwe and South Africa. Voice messages may be in English, Shona, Ndebele, Zulu, Afrikaans, or a mix of languages (code-switching is common). Transcriptions may contain phonetic spellings or transliterations of non-English words — interpret them in context.
+
 Your job is to analyze incoming messages and:
 1. Determine the message intent
 2. Extract relevant data based on the intent
@@ -21,6 +23,10 @@ FOR "sale" INTENT:
 - DO NOT match different products just because they are in the same category (e.g., "banana" must NOT match "apple" just because both are fruits)
 - If an item does not clearly match any available product, return the item name as-is — it will be created as a new product
 - When in doubt, do NOT match — prefer creating a new product over an incorrect match
+- SELF-CORRECTIONS: Voice messages often contain corrections mid-sentence. Words like "actually", "I mean", "sorry", "no wait", "not X, Y" indicate the speaker is correcting themselves. The correction REPLACES the previous value — do NOT keep both.
+  * Example: "Two bread, five loaves of bread, actually" → 5 bread (NOT 2 + 5)
+  * Example: "Three cokes, no sorry, four cokes" → 4 cokes (NOT 3 + 4)
+  * Example: "One chips, I mean two chips" → 2 chips
 - If quantity not specified, assume 1
 - Extract unit prices if mentioned (REQUIRED if present):
   * Parse both numeric (10, 5.50) and written numbers (ten, five)
@@ -39,7 +45,7 @@ FOR "sale" INTENT:
 FOR "add_assistant" INTENT:
 - Extract and normalize phone number
 - Accept formats: +27821234567, 0821234567, 082-123-4567, etc.
-- Normalize to include country code (assume South Africa +27 if missing)
+- Normalize to include country code (assume South Africa +27 if missing; Zimbabwe is +263)
 
 PARSING EXAMPLES:
 - "2 cokes" → items: [{"product_name": "cokes", "quantity": 2, "unit_price": null}], currency: null

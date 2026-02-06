@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 
 from asgiref.sync import sync_to_async
 from django.contrib.auth.models import User
+from django.db import close_old_connections
 from django.utils import timezone
 from django.utils.text import slugify
 
@@ -19,6 +20,7 @@ from apps.sales.models import Sale
 from apps.sales.services import create_sale_from_parsed_items
 from apps.whatsapp.services.message_parser import parse_message_unified
 from apps.whatsapp.services.whatsapp_client import WhatsAppClient
+from services.openrouter.client import OpenRouterError
 from utils.timing import start_tracking, end_tracking, track
 
 if TYPE_CHECKING:
@@ -92,6 +94,7 @@ def handle_new_waitlist_entry(sender: str, text: str) -> None:
         text: The message text
     """
     try:
+        close_old_connections()
         asyncio.run(_process_new_waitlist_entry_async(sender, text))
     except Exception as e:
         logger.exception(f"Error handling new waitlist entry for {sender}: {e}")
@@ -107,6 +110,7 @@ def handle_waitlisted_message(sender: str, text: str, waitlist_entry: WaitlistEn
         waitlist_entry: The existing waitlist entry
     """
     try:
+        close_old_connections()
         asyncio.run(_process_waitlisted_message_async(sender, text, waitlist_entry))
     except Exception as e:
         logger.exception(f"Error handling waitlisted message for {sender}: {e}")
@@ -131,6 +135,8 @@ def handle_incoming_message(
         user_profile: The user profile of the sender
     """
     try:
+        # Close old database connections before creating new event loop
+        close_old_connections()
         asyncio.run(_process_message_async(message_id, sender, text, user_profile))
     except Exception as e:
         logger.exception(f"Error handling message {message_id}: {e}")
@@ -154,6 +160,8 @@ def handle_incoming_audio_message(
         user_profile: The user profile of the sender
     """
     try:
+        # Close old database connections before creating new event loop
+        close_old_connections()
         asyncio.run(_process_audio_message_async(message_id, sender, media_id, user_profile))
     except Exception as e:
         logger.exception(f"Error handling audio message {message_id}: {e}")
@@ -279,7 +287,13 @@ async def _process_message_async(
         company = user_profile.company if user_profile else None
 
         # UNIFIED: Single LLM call for intent + extraction
-        result = await parse_message_unified(text)
+        try:
+            result = await parse_message_unified(text)
+        except OpenRouterError as e:
+            logger.error(f"LLM processing failed for message {message_id}: {e}")
+            await _send_response(sender, t("error.processing_failed"))
+            return
+
         logger.info(f"Parsed message - intent: {result.intent}, confidence: {result.confidence}")
 
         if result.intent == "add_assistant":
@@ -379,7 +393,13 @@ async def _process_audio_message_async(
             return
 
         # Step 4: Unified parse (intent + extraction)
-        result = await parse_message_unified(transcribed_text)
+        try:
+            result = await parse_message_unified(transcribed_text)
+        except OpenRouterError as e:
+            logger.error(f"LLM processing failed for audio message {message_id}: {e}")
+            await _send_response(sender, t("error.processing_failed"))
+            return
+
         logger.info(f"Parsed audio - intent: {result.intent}, confidence: {result.confidence}")
 
         if result.intent == "add_assistant":
@@ -590,6 +610,7 @@ def handle_sale_confirmation(
         original_message_sid: The SID of the message being replied to
     """
     try:
+        close_old_connections()
         asyncio.run(_process_sale_confirmation_async(action, sender, original_message_sid))
     except Exception as e:
         logger.exception(f"Error handling sale {action}: {e}")
@@ -657,6 +678,7 @@ def handle_waitlist_confirmation(
         original_message_sid: The SID of the message being replied to
     """
     try:
+        close_old_connections()
         asyncio.run(_process_waitlist_confirmation_async(action, sender, original_message_sid))
     except Exception as e:
         logger.exception(f"Error handling waitlist {action}: {e}")

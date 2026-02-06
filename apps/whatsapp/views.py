@@ -5,6 +5,7 @@ import logging
 from enum import Enum
 
 from django.conf import settings
+from django.db import close_old_connections
 from django.http import HttpRequest, HttpResponse
 from django.utils.decorators import method_decorator
 from django.views import View
@@ -425,6 +426,7 @@ class WhatsAppWebhookView(View):
             return r2_url
 
         try:
+            close_old_connections()
             return asyncio.run(_download_and_upload())
         except Exception as e:
             logger.error(f"Error downloading and uploading media {media_id}: {e}", exc_info=True)

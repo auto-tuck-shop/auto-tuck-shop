@@ -1,6 +1,7 @@
 import asyncio
 
 from django.contrib import admin, messages
+from django.db import close_old_connections
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.models import User
 from django.utils import timezone
@@ -142,6 +143,7 @@ class WaitlistEntryAdmin(admin.ModelAdmin):
         # Send approval notification via WhatsApp
         client = WhatsAppClient()
         try:
+            close_old_connections()
             asyncio.run(client.send_message(
                 f"whatsapp:{entry.phone_number}",
                 f"Welcome to Auto Tuck Shop! Your account has been approved.\n\n"

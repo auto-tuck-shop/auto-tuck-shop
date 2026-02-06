@@ -16,6 +16,9 @@
   "approval": {
     "welcome": "Welcome to Auto Tuck Shop! You can start now.\n\nShop: {company}\n\nYou can send me what you sold. Like this:\n'sold 2 cokes R15 each, 1 chips R10'\n'3 waters R12 each, 2 chocolates R8 each'\n\nYou can also add helpers by sending:\n'add assistant +27821234567'"
   },
+  "error": {
+    "processing_failed": "Sorry, something went wrong. Please try again."
+  },
   "audio": {
     "download_failed": "Sorry, I couldn't get your voice note. Please try again or send a text message.",
     "transcription_failed": "Sorry, I couldn't hear your voice note clearly. Please send a text message."

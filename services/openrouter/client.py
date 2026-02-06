@@ -4,6 +4,7 @@ from typing import Any
 
 import httpx
 from django.conf import settings
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception
 
 from utils.timing import track
 
@@ -16,6 +17,21 @@ class OpenRouterError(Exception):
     """Exception raised for OpenRouter API errors."""
 
     pass
+
+
+def _is_retryable(exc: BaseException) -> bool:
+    """Return True for transient HTTP errors worth retrying."""
+    if isinstance(exc, httpx.HTTPStatusError):
+        return exc.response.status_code in (429, 502, 503, 504)
+    return isinstance(exc, httpx.RequestError)
+
+
+_retry_policy = retry(
+    retry=retry_if_exception(_is_retryable),
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=1, max=4),
+    reraise=True,
+)
 
 
 class OpenRouterClient:
@@ -63,20 +79,25 @@ class OpenRouterClient:
         if response_format:
             payload["response_format"] = response_format
 
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            try:
+        @_retry_policy
+        async def _do_request():
+            async with httpx.AsyncClient(timeout=30.0) as client:
                 response = await client.post(
                     OPENROUTER_API_URL,
                     headers=self._get_headers(),
                     json=payload,
                 )
                 response.raise_for_status()
-            except httpx.HTTPStatusError as e:
-                logger.error(f"OpenRouter HTTP error: {e.response.status_code} - {e.response.text}")
-                raise OpenRouterError(f"API request failed: {e.response.status_code}") from e
-            except httpx.RequestError as e:
-                logger.error(f"OpenRouter request error: {e}")
-                raise OpenRouterError(f"Request failed: {e}") from e
+                return response
+
+        try:
+            response = await _do_request()
+        except httpx.HTTPStatusError as e:
+            logger.error(f"OpenRouter HTTP error: {e.response.status_code} - {e.response.text}")
+            raise OpenRouterError(f"API request failed: {e.response.status_code}") from e
+        except httpx.RequestError as e:
+            logger.error(f"OpenRouter request error: {e}")
+            raise OpenRouterError(f"Request failed: {e}") from e
 
         data = response.json()
 
