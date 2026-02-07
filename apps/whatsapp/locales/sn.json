@@ -1,4 +1,18 @@
 {
+  "onboarding": {
+    "language_selection": "👋 Hesi! Welcome to Auto Tuckshop.\n\nWhich language would you like to use?\n\n1️⃣ English\n2️⃣ Shona",
+    "role_selection": "Zvakanaka 👍\n\nWho are you in the shop?\n\n1️⃣ Shop owner\n2️⃣ Shop assistant\n3️⃣ Both (I own the shop and sell)",
+    "assistant_linking_ask": "Ndinonzwisisa.\n\nAre you the only one who will use Auto Tuckshop, or should we add another number?\n\n1️⃣ Add another number\n2️⃣ Skip for now",
+    "assistant_linking_prompt": "Please send the WhatsApp number.",
+    "assistant_linking_skipped": "Zvakanaka. You can add them later.",
+    "value_explanation": "Auto Tuckshop inokubatsira kuwedzera mari automatically uye inokupa daily, weekly ne monthly summaries — without writing everything down.",
+    "stock_setup_ask": "To get the best results, you can tell me what you sell and the prices.\n\nWould you like to do that now?\n\n1️⃣ Add stock now\n2️⃣ Skip for now",
+    "stock_setup_prompt": "Please tell me your items like this:\n\n\"Sugar 10 at R45, Rice 20 at R60\"\n\nYou can use voice or text.",
+    "stock_setup_complete": "Stock saved ✅\nYou can update this anytime.",
+    "stock_setup_skipped": "Zvakanaka 👍\nWhen you sell, just include the item, quantity and price.",
+    "sales_instruction": "When you sell, just tell me what was sold.\n\nExample:\n'Sold sugar 2 at R45, rice 1 at R60'\n\nYou can send one message for many items.",
+    "onboarding_complete": "Waita! 🎉\n\nStart recording sales whenever you're ready."
+  },
   "waitlist": {
     "welcome": "Mwakadini! Unokona kutumira voice note kana kunyora zvawatengesa nyamashi.\n\n(Hello! You can send a voice note or type what you sold today.)",
     "shop_name_noted": "Thanks! We got your shop name \"{shop_name}\".\n\nYou're still waiting. We'll check your request soon.",
@@ -14,7 +28,23 @@
     "btn_reject": "Cancel"
   },
   "approval": {
-    "welcome": "Welcome to Auto Tuck Shop! You can start now.\n\nShop: {company}\n\nYou can send me what you sold. Like this:\n'sold 2 cokes R15 each, 1 chips R10'\n'3 waters R12 each, 2 chocolates R8 each'\n\nYou can also add helpers by sending:\n'add assistant +27821234567'"
+    "welcome": "Welcome to Auto Tuck Shop! Mazvakanaka.\n\nShop: {company}"
+  },
+  "end_of_day": {
+    "summary": "📊 Daily Summary:\n\n{summary_details}\n\n(You can continue logging sales. This is just a summary.)\n\nWould you like to receive this summary automatically at the end of each day?\n\n1️⃣ Yes\n2️⃣ No",
+    "summary_enabled": "Zvakanaka! You'll receive a daily summary automatically.",
+    "summary_disabled": "Zvakanaka. You can always ask for a summary by saying 'summary' or 'report'."
+  },
+  "weekly_summary": {
+    "title": "📅 Weekly Summary ({start_date} - {end_date}):",
+    "no_sales": "Hapana sales yakarekodwa vhiki ino."
+  },
+  "monthly_summary": {
+    "title": "📆 Monthly Summary ({month} {year}):",
+    "no_sales": "Hapana sales yakarekodwa mwedzi uno."
+  },
+  "summary_help": {
+    "message": "You can request summaries anytime:\n\n• 'summary' or 'done' = Today\n• 'weekly summary' or 'week' = This week\n• 'monthly summary' or 'month' = This month"
   },
   "error": {
     "processing_failed": "Sorry, something went wrong. Please try again."

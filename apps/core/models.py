@@ -36,6 +36,15 @@ class UserProfile(models.Model):
     class Role(models.TextChoices):
         OWNER = "owner", "Owner"
         ASSISTANT = "assistant", "Assistant"
+        BOTH = "both", "Both (Owner & Assistant)"
+
+    class OnboardingStep(models.TextChoices):
+        COMPLETE = "complete", "Complete"
+        LANGUAGE = "language", "Language Selection"
+        ROLE = "role", "Role Selection"
+        ASSISTANT_LINK = "assistant_link", "Assistant Linking"
+        STOCK_SETUP = "stock_setup", "Stock Setup"
+        STOCK_ADDING = "stock_adding", "Adding Stock Items"
 
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="profile")
     company = models.ForeignKey(
@@ -45,6 +54,15 @@ class UserProfile(models.Model):
     )
     role = models.CharField(max_length=20, choices=Role.choices, default=Role.ASSISTANT)
     phone_number = models.CharField(max_length=20, unique=True)
+    language = models.CharField(max_length=10, default="en", help_text="User's preferred language (en, sn)")
+    onboarding_step = models.CharField(
+        max_length=20,
+        choices=OnboardingStep.choices,
+        default=OnboardingStep.LANGUAGE,
+        help_text="Current onboarding step",
+    )
+    daily_summary_enabled = models.BooleanField(default=True, help_text="Send daily summary")
+    last_summary_date = models.DateField(null=True, blank=True, help_text="Last date a summary was sent/requested")
 
     class Meta:
         ordering = ["user__username"]
