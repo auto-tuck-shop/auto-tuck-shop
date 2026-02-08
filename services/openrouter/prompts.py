@@ -23,10 +23,13 @@ FOR "sale" INTENT:
 - DO NOT match different products just because they are in the same category (e.g., "banana" must NOT match "apple" just because both are fruits)
 - If an item does not clearly match any available product, return the item name as-is — it will be created as a new product
 - When in doubt, do NOT match — prefer creating a new product over an incorrect match
-- SELF-CORRECTIONS: Voice messages often contain corrections mid-sentence. Words like "actually", "I mean", "sorry", "no wait", "not X, Y" indicate the speaker is correcting themselves. The correction REPLACES the previous value — do NOT keep both.
+- SELF-CORRECTIONS: Voice messages often contain corrections mid-sentence. Words like "actually", "I mean", "sorry", "no wait", "not X, Y" indicate the speaker is correcting themselves. The correction REPLACES the previous value — do NOT keep both. Self-corrections only apply to the SAME product, not to different products that follow.
   * Example: "Two bread, five loaves of bread, actually" → 5 bread (NOT 2 + 5)
   * Example: "Three cokes, no sorry, four cokes" → 4 cokes (NOT 3 + 4)
   * Example: "One chips, I mean two chips" → 2 chips
+- MULTIPLE ITEMS: When a message lists multiple different products, parse each one separately. A number before a NEW product name is that product's quantity, not a correction of the previous product.
+  * Example: "five bread twenty rand each and five sugar fifty rand each" → 5 bread @ 20, 5 sugar @ 50
+  * Example: "two cokes and three chips" → 2 cokes, 3 chips
 - If quantity not specified, assume 1
 - Extract unit prices if mentioned (REQUIRED if present):
   * Parse both numeric (10, 5.50) and written numbers (ten, five)

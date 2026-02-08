@@ -13,6 +13,16 @@ logger = logging.getLogger(__name__)
 META_GRAPH_API_URL = "https://graph.facebook.com/v21.0"
 
 
+def get_whatsapp_client():
+    """Factory function that returns mock or real WhatsApp client based on settings."""
+    if settings.USE_MOCK_WHATSAPP:
+        from services.whatsapp.mock_client import MockWhatsAppClient
+        logger.info("Using MockWhatsAppClient (USE_MOCK_WHATSAPP=True)")
+        return MockWhatsAppClient()
+
+    return WhatsAppClient()
+
+
 def _record_outbound_message_sync(
     phone_number: str,
     message_type: str,
@@ -188,7 +198,7 @@ class WhatsAppClient:
                 return message_id
             except httpx.HTTPStatusError as e:
                 error_msg = f"{e.response.status_code} - {e.response.text}"
-                logger.error(f"Failed to send WhatsApp button message: {error_msg}")
+                logger.exception(f"Failed to send WhatsApp button message: {error_msg}")
 
                 # Record failed message
                 await _record_outbound_message(
@@ -202,7 +212,7 @@ class WhatsAppClient:
                 return None
             except httpx.RequestError as e:
                 error_msg = str(e)
-                logger.error(f"Meta WhatsApp request error: {error_msg}")
+                logger.exception(f"Meta WhatsApp request error: {error_msg}")
 
                 # Record failed message
                 await _record_outbound_message(
@@ -276,7 +286,7 @@ class WhatsAppClient:
                     return True
                 except httpx.HTTPStatusError as e:
                     error_msg = f"{e.response.status_code} - {e.response.text}"
-                    logger.error(f"Failed to send WhatsApp message: {error_msg}")
+                    logger.exception(f"Failed to send WhatsApp message: {error_msg}")
 
                     # Record failed message
                     await _record_outbound_message(
@@ -290,7 +300,7 @@ class WhatsAppClient:
                     return False
                 except httpx.RequestError as e:
                     error_msg = str(e)
-                    logger.error(f"Meta WhatsApp request error: {error_msg}")
+                    logger.exception(f"Meta WhatsApp request error: {error_msg}")
 
                     # Record failed message
                     await _record_outbound_message(
@@ -340,10 +350,10 @@ class WhatsAppClient:
                     return (media_url, mime_type)
 
                 except httpx.HTTPStatusError as e:
-                    logger.error(f"Failed to get media info: {e.response.status_code} - {e.response.text}")
+                    logger.exception(f"Failed to get media info: {e.response.status_code} - {e.response.text}")
                     return None
                 except httpx.RequestError as e:
-                    logger.error(f"Media info request error: {e}")
+                    logger.exception(f"Media info request error: {e}")
                     return None
 
     async def download_media(self, media_id: str) -> tuple[bytes, str] | None:
@@ -381,10 +391,10 @@ class WhatsAppClient:
                         return None
 
                 except httpx.HTTPStatusError as e:
-                    logger.error(f"Failed to get media info: {e.response.status_code} - {e.response.text}")
+                    logger.exception(f"Failed to get media info: {e.response.status_code} - {e.response.text}")
                     return None
                 except httpx.RequestError as e:
-                    logger.error(f"Media info request error: {e}")
+                    logger.exception(f"Media info request error: {e}")
                     return None
 
             # Step 2: Download the actual media file
@@ -405,8 +415,8 @@ class WhatsAppClient:
                     return (response.content, mime_type)
 
                 except httpx.HTTPStatusError as e:
-                    logger.error(f"Failed to download media: {e.response.status_code} - {e.response.text}")
+                    logger.exception(f"Failed to download media: {e.response.status_code} - {e.response.text}")
                     return None
                 except httpx.RequestError as e:
-                    logger.error(f"Media download request error: {e}")
+                    logger.exception(f"Media download request error: {e}")
                     return None

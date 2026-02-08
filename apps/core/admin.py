@@ -105,7 +105,7 @@ class WaitlistEntryAdmin(admin.ModelAdmin):
 
     def _approve_entry(self, request, entry):
         """Run the full approval logic for a single entry."""
-        from apps.whatsapp.services.whatsapp_client import WhatsAppClient
+        from apps.whatsapp.services.whatsapp_client import get_whatsapp_client
 
         # Create company name from entry or generate fallback
         company_name = entry.company_name.strip() if entry.company_name else "Unnamed Shop"
@@ -141,7 +141,7 @@ class WaitlistEntryAdmin(admin.ModelAdmin):
         entry.save()
 
         # Send approval notification via WhatsApp
-        client = WhatsAppClient()
+        client = get_whatsapp_client()
         try:
             close_old_connections()
             asyncio.run(client.send_message(

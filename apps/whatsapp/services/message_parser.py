@@ -6,6 +6,7 @@ from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from asgiref.sync import sync_to_async
+from django.db import close_old_connections
 
 from apps.catalog.models import Product
 from apps.sales.services import ParsedSaleItem
@@ -42,6 +43,7 @@ class UnifiedMessageResult:
 @sync_to_async
 def _get_active_products():
     """Fetch active products (sync wrapper for async context)."""
+    close_old_connections()
     return list(Product.objects.filter(active=True))
 
 
@@ -62,14 +64,10 @@ async def parse_message_unified(message: str) -> UnifiedMessageResult:
         try:
             response = await client.parse_json_response(messages)
         except Exception as e:
-            logger.error(f"Failed to parse message: {e}")
-            # Default to sale intent if parsing fails
-            return UnifiedMessageResult(
-                intent="sale",
-                confidence=0.5,
-                items=[],
-                notes="Parsing failed, defaulting to sale"
-            )
+            logger.exception(f"Failed to parse message: {e}")
+            raise
+
+        logger.info(f"LLM response for '{message[:80]}': {response}")
 
         # Extract intent and confidence
         intent = response.get("intent", "sale")

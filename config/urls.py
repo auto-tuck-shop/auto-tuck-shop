@@ -2,6 +2,7 @@
 URL configuration for auto-tuck-shop project.
 """
 
+from django.conf import settings
 from django.contrib import admin
 from django.urls import include, path
 from django.views.generic import TemplateView
@@ -11,3 +12,8 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("webhook/", include("apps.whatsapp.urls")),
 ]
+
+if getattr(settings, "ENABLE_TEST_API", False):
+    urlpatterns += [
+        path("test/", include("apps.testing.urls")),
+    ]

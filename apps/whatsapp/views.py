@@ -155,14 +155,19 @@ class WhatsAppWebhookView(View):
             logger.warning(f"Content-Type: {request.content_type}")
             return HttpResponse("Invalid JSON", status=400)
 
+        print(f"[DEBUG VIEW POST] Received webhook data: {data}", flush=True)
+
         # Process each entry
         for entry in data.get("entry", []):
+            print(f"[DEBUG VIEW POST] Processing entry", flush=True)
             for change in entry.get("changes", []):
+                print(f"[DEBUG VIEW POST] Processing change, field={change.get('field')}", flush=True)
                 if change.get("field") != "messages":
                     continue
 
                 value = change.get("value", {})
                 messages = value.get("messages", [])
+                print(f"[DEBUG VIEW POST] Found {len(messages)} messages", flush=True)
 
                 for message in messages:
                     self._handle_message(message)
@@ -172,6 +177,7 @@ class WhatsAppWebhookView(View):
 
     def _handle_message(self, message: dict) -> None:
         """Process a single message from the webhook payload."""
+        print(f"[DEBUG VIEW] _handle_message called with message type: {message.get('type', '')}", flush=True)
         message_id = message.get("id", "")
         sender = message.get("from", "")  # Plain number like '1234567890'
         message_type = message.get("type", "")
@@ -274,11 +280,12 @@ class WhatsAppWebhookView(View):
 
     def _handle_text_message(self, message_id: str, sender: str, body: str) -> None:
         """Handle a text message."""
-        logger.info(f"Received WhatsApp message from {sender}: {body[:50]}...")
+        print(f"[DEBUG VIEW] _handle_text_message called: sender={sender}, body={body[:50]}...", flush=True)
 
         # Lookup sender status
         status, profile, waitlist_entry = _lookup_sender(sender)
         phone_number = _extract_phone_number(sender)
+        print(f"[DEBUG VIEW] Sender status: {status.value}, phone={phone_number}", flush=True)
 
         # Record inbound message
         _record_inbound_message(
@@ -292,10 +299,12 @@ class WhatsAppWebhookView(View):
 
         if status == SenderStatus.UNKNOWN:
             # New user - add to waitlist
+            print(f"[DEBUG VIEW] Calling handle_new_waitlist_entry for unknown sender {sender}", flush=True)
             handle_new_waitlist_entry(
                 sender=sender,
                 text=body,
             )
+            print(f"[DEBUG VIEW] handle_new_waitlist_entry returned", flush=True)
         elif status == SenderStatus.WAITLISTED:
             # Already on waitlist - send pending message (or capture company name)
             handle_waitlisted_message(
@@ -405,12 +414,12 @@ class WhatsAppWebhookView(View):
             The R2 public URL, or None if the operation failed
         """
         import asyncio
-        from apps.whatsapp.services.whatsapp_client import WhatsAppClient
+        from apps.whatsapp.services.whatsapp_client import get_whatsapp_client
         from services.storage import R2StorageClient
 
         async def _download_and_upload():
             # Download from Meta
-            whatsapp_client = WhatsAppClient()
+            whatsapp_client = get_whatsapp_client()
             media_result = await whatsapp_client.download_media(media_id)
 
             if not media_result:

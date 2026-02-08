@@ -1,0 +1,49 @@
+# fly.staging.toml - Staging environment configuration
+#
+# Deploy with: fly deploy --config fly.staging.toml
+#
+
+app = 'auto-tuck-shop-staging'
+primary_region = 'iad'
+console_command = '/code/manage.py shell'
+
+[build]
+  buildkit = true
+  depot = false
+
+[processes]
+  app = 'gunicorn --bind :8000 --workers 1 config.wsgi'
+
+[deploy]
+  release_command = 'python manage.py migrate --noinput'
+
+[env]
+  PORT = '8000'
+  DJANGO_SETTINGS_MODULE = 'config.settings.staging'
+  USE_MOCK_WHATSAPP = 'true'
+  R2_BUCKET_NAME = 'auto-tuck-shop-staging'
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+  auto_stop_machines = 'off'
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ['app']
+
+  [[http_service.checks]]
+    interval = '30s'
+    timeout = '5s'
+    grace_period = '10s'
+    method = 'GET'
+    path = '/healthz'
+
+[[vm]]
+  memory = '1gb'
+  cpu_kind = 'shared'
+  cpus = 1
+  memory_mb = 1024
+
+[[statics]]
+  guest_path = '/code/staticfiles'
+  url_prefix = '/static/'

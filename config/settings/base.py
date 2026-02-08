@@ -4,6 +4,8 @@ Base Django settings for auto-tuck-shop project.
 
 import environ
 from pathlib import Path
+import sentry_sdk
+from sentry_sdk.integrations.django import DjangoIntegration
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -16,6 +18,21 @@ env = environ.Env(
 
 # Read .env file if it exists
 environ.Env.read_env(BASE_DIR / ".env")
+
+# Sentry Configuration
+sentry_sdk.init(
+    dsn=env("SENTRY_DSN", default="https://f6537de071098a6d2f789e823443b12b@o4510840406867968.ingest.us.sentry.io/4510840407982081"),
+    integrations=[DjangoIntegration()],
+    # Set traces_sample_rate to 1.0 to capture 100% of transactions for performance monitoring.
+    # Adjust this value in production to reduce volume
+    traces_sample_rate=env.float("SENTRY_TRACES_SAMPLE_RATE", default=0.1),
+    # Set profiles_sample_rate to profile 10% of sampled transactions.
+    profiles_sample_rate=env.float("SENTRY_PROFILES_SAMPLE_RATE", default=0.1),
+    # Add data like request headers and IP for users
+    send_default_pii=True,
+    # Set environment
+    environment=env("SENTRY_ENVIRONMENT", default="production"),
+)
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = env("SECRET_KEY")
@@ -82,6 +99,7 @@ DATABASES = {
     "default": env.db("DATABASE_URL", default="sqlite:///db.sqlite3"),
 }
 DATABASES["default"]["CONN_MAX_AGE"] = 600
+DATABASES["default"]["CONN_HEALTH_CHECKS"] = True
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
@@ -149,6 +167,9 @@ R2_SECRET_ACCESS_KEY = env("R2_SECRET_ACCESS_KEY", default="")
 R2_ENDPOINT_URL = env("R2_ENDPOINT_URL", default="")
 R2_BUCKET_NAME = env("R2_BUCKET_NAME", default="whatsapp-media")
 R2_PUBLIC_URL = env("R2_PUBLIC_URL", default="")
+
+# Mock WhatsApp client for staging/test (avoid sending real messages)
+USE_MOCK_WHATSAPP = env.bool("USE_MOCK_WHATSAPP", default=False)
 
 # Logging Configuration
 LOGGING = {
