@@ -25,23 +25,23 @@
   },
   "assistant": {
     "not_owner": "Sorry, only the shop owner can add helpers. Talk to the owner if you need help.",
-    "missing_phone": "I didn't see a phone number. Please add it like this: 'add assistant +27821234567'",
+    "missing_phone": "I didn't see a phone number. Send the whole message again, like: 'add assistant +27821234567'",
     "already_registered": "This phone number {phone} is already being used.",
     "added": "Helper added!\n\nPhone: {phone}\nThey can now send sales for {company}."
   },
   "sale": {
-    "no_products": "I didn't see any items. Please list them like this: \"2 cokes, 1 chips\"",
-    "no_products_audio": "Ndazwa kuti:\n\"{text}\"\n\nI didn't see any items. Please list them like this: \"2 cokes, 1 chips\"",
+    "no_products": "I didn't see any items. Send everything you sold in one message, like: \"sold 2 cokes R15 each, 1 chips R10\"",
+    "no_products_audio": "Ndazwa kuti:\n\"{text}\"\n\nI didn't see any items. Send everything you sold in one message, like: \"sold 2 cokes R15 each, 1 chips R10\"",
     "heard_prefix": "Ndazwa kuti:\n\"{text}\"",
     "item_with_price": "  {quantity}x {product} @ {price}",
     "item_no_price": "  {quantity}x {product} (no price)",
     "total": "\nTotal: {total}",
-    "missing_prices_note": "\nNote: Some items don't have prices. Add prices like \"2x Pear @ 5\" to see totals.",
+    "missing_prices_note": "\nSome items don't have prices. Press \"Start Over\" and send again with prices, like \"2x Pear @ R5\".",
     "unmatched": "\n⚠ Unmatched: {items}",
     "confirmed": "✓ Confirmed",
     "cancelled": "✗ Cancelled",
     "already_processed": "This sale was already done",
     "btn_confirm": "Confirm",
-    "btn_cancel": "Cancel"
+    "btn_cancel": "Start Over"
   }
 }

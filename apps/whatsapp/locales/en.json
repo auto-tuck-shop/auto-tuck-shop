@@ -22,23 +22,23 @@
   },
   "assistant": {
     "not_owner": "Sorry, only shop owners can add assistants. Contact the shop owner if you need to add team members.",
-    "missing_phone": "I couldn't find a phone number in your message. Please include the assistant's phone number, e.g., 'add assistant +27821234567'",
+    "missing_phone": "I couldn't find a phone number. Please resend the full message, e.g., 'add assistant +27821234567'",
     "already_registered": "The phone number {phone} is already registered to another user.",
     "added": "Assistant added successfully!\n\nPhone: {phone}\nThey can now send sales messages for {company}."
   },
   "sale": {
-    "no_products": "I couldn't identify any products. Please list items, e.g., \"2 cokes, 1 chips\"",
-    "no_products_audio": "I heard you say \"{text}\"\n\nI couldn't identify any products. Please list items, e.g., \"2 cokes, 1 chips\"",
+    "no_products": "I couldn't identify any products. Please send a full sale message, e.g., \"sold 2 cokes R15 each, 1 chips R10\"",
+    "no_products_audio": "I heard you say \"{text}\"\n\nI couldn't identify any products. Please send a full sale message, e.g., \"sold 2 cokes R15 each, 1 chips R10\"",
     "heard_prefix": "I heard you say \"{text}\"",
     "item_with_price": "  {quantity}x {product} @ {price}",
     "item_no_price": "  {quantity}x {product} (no price)",
     "total": "\nTotal: {total}",
-    "missing_prices_note": "\nNote: Some items have no price set. Include prices (e.g. \"2x Pear @ 5\") to see totals.",
+    "missing_prices_note": "\nNote: Some items have no price set. Press \"Start Over\" and resend everything with prices included (e.g. \"2x Pear @ R5\").",
     "unmatched": "\n⚠ Unmatched: {items}",
     "confirmed": "✓ Confirmed",
     "cancelled": "✗ Cancelled",
     "already_processed": "Sale already processed or not found",
     "btn_confirm": "Confirm",
-    "btn_cancel": "Cancel"
+    "btn_cancel": "Start Over"
   }
 }
