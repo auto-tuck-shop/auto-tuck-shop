@@ -14,8 +14,6 @@ class Category(models.Model):
         "core.Company",
         on_delete=models.CASCADE,
         related_name="categories",
-        null=True,  # Nullable for migration - will be required later
-        blank=True,
     )
     name = models.CharField(max_length=100)
 
@@ -34,8 +32,6 @@ class Product(models.Model):
         "core.Company",
         on_delete=models.CASCADE,
         related_name="products",
-        null=True,  # Nullable for migration - will be required later
-        blank=True,
     )
     sku = models.CharField(max_length=50, null=True, blank=True)
     name = models.CharField(max_length=200)

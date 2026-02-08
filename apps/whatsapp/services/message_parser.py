@@ -41,21 +41,28 @@ class UnifiedMessageResult:
 
 
 @sync_to_async
-def _get_active_products():
-    """Fetch active products (sync wrapper for async context)."""
+def _get_active_products(company=None):
+    """Fetch active products scoped to a company (sync wrapper for async context)."""
     close_old_connections()
-    return list(Product.objects.filter(active=True))
+    queryset = Product.objects.filter(active=True)
+    if company:
+        queryset = queryset.filter(company=company)
+    return list(queryset)
 
 
-async def parse_message_unified(message: str) -> UnifiedMessageResult:
+async def parse_message_unified(message: str, company=None) -> UnifiedMessageResult:
     """
     Parse message using unified LLM call (intent detection + data extraction).
 
     Replaces two-step: detect_message_intent() + parse_sale_message()
+
+    Args:
+        message: The message text to parse
+        company: The company to scope product lookup to (prevents cross-shop leaks)
     """
     async with track("unified_parse"):
-        # Fetch products upfront so sale parsing happens in same call
-        products = await _get_active_products()
+        # Fetch products scoped to company so we don't leak across shops
+        products = await _get_active_products(company)
         from services.openrouter import build_unified_parsing_prompt
         messages = build_unified_parsing_prompt(message, products)
 

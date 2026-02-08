@@ -2,8 +2,10 @@
 
 ## Deployment
 
-Always deploy to Fly.io after making changes:
+Always deploy to staging first, run tests, then deploy to prod:
 
 ```bash
+fly deploy -c fly.staging.toml
+python -m pytest tests/ -x
 fly deploy
 ```

@@ -23,21 +23,18 @@ class SaleCreationResult(TypedDict):
     unmatched_items: list[str]
 
 
-def find_product_by_name(name: str, company: Company | None = None) -> Product | None:
+def find_product_by_name(name: str, company: Company) -> Product | None:
     """Find a product by name (case-insensitive exact match), scoped to company."""
-    queryset = Product.objects.filter(active=True)
-    if company:
-        queryset = queryset.filter(company=company)
-
-    # Only use exact match - LLM should handle fuzzy matching
-    return queryset.filter(name__iexact=name).first()
+    return Product.objects.filter(
+        active=True, company=company
+    ).filter(name__iexact=name).first()
 
 
 @transaction.atomic
 def create_sale_from_parsed_items(
     items: list[ParsedSaleItem],
     whatsapp_message_id: str | None = None,
-    company: Company | None = None,
+    company: Company = None,
     currency: str | None = None,
 ) -> SaleCreationResult:
     """

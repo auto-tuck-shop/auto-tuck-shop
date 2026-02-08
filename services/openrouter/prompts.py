@@ -85,10 +85,14 @@ def build_unified_parsing_prompt(
     message: str,
     products: list[Product] | None = None
 ) -> list[dict[str, str]]:
-    """Build message list for unified intent detection and data extraction."""
+    """Build message list for unified intent detection and data extraction.
+
+    Args:
+        message: The message text to parse
+        products: List of products to match against (should be pre-filtered by company)
+    """
     if products is None:
-        from apps.catalog.models import Product
-        products = list(Product.objects.filter(active=True))
+        products = []
 
     product_list = "\n".join(f"- {p.name}" for p in products) if products else "(No products available)"
 

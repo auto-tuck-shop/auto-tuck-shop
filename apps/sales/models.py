@@ -19,8 +19,6 @@ class Sale(models.Model):
         "core.Company",
         on_delete=models.CASCADE,
         related_name="sales",
-        null=True,  # Nullable for migration - will be required later
-        blank=True,
     )
     sale_timestamp = models.DateTimeField(default=timezone.now)
     total_amount = models.DecimalField(

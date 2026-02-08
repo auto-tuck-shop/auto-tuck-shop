@@ -357,7 +357,7 @@ async def _process_message_async(
 
         # UNIFIED: Single LLM call for intent + extraction
         try:
-            result = await parse_message_unified(text)
+            result = await parse_message_unified(text, company=company)
         except Exception as e:
             logger.exception(f"LLM processing failed for message {message_id}: {e}")
             await _send_response(sender, t("error.processing_failed"))
@@ -463,7 +463,7 @@ async def _process_audio_message_async(
 
         # Step 4: Unified parse (intent + extraction)
         try:
-            result = await parse_message_unified(transcribed_text)
+            result = await parse_message_unified(transcribed_text, company=company)
         except Exception as e:
             logger.exception(f"LLM processing failed for audio message {message_id}: {e}")
             await _send_response(sender, t("error.processing_failed"))
