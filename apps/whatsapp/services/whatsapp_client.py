@@ -225,13 +225,14 @@ class WhatsAppClient:
 
                 return None
 
-    async def send_message(self, to: str, text: str) -> bool:
+    async def send_message(self, to: str, text: str, reply_to: str | None = None) -> bool:
         """
         Send a WhatsApp message via Meta Cloud API.
 
         Args:
             to: The recipient's phone number (e.g., +1234567890 or whatsapp:+1234567890)
             text: The message text
+            reply_to: Optional message ID to reply to (for quoted replies)
 
         Returns:
             True if successful, False otherwise
@@ -260,6 +261,10 @@ class WhatsAppClient:
                     "body": text,
                 }
             }
+
+            # Add reply context if provided
+            if reply_to:
+                payload["context"] = {"message_id": reply_to}
 
             async with httpx.AsyncClient(timeout=30.0) as client:
                 try:

@@ -645,10 +645,10 @@ async def _process_sale_message_unified(
         await _store_confirmation_sid(sale.id, message_sid)
 
 
-async def _send_response(to: str, message: str) -> None:
+async def _send_response(to: str, message: str, reply_to: str | None = None) -> None:
     """Send a response message back to the sender."""
     client = get_whatsapp_client()
-    await client.send_message(to, message)
+    await client.send_message(to, message, reply_to=reply_to)
 
 
 async def _send_response_with_buttons(
@@ -686,8 +686,12 @@ def handle_sale_confirmation(
 
 
 @db_sync_to_async
-def _get_and_update_sale(original_message_sid: str | None, new_status: str) -> Sale | None:
-    """Find the sale by confirmation message SID and update its status."""
+def _get_and_update_sale(original_message_sid: str | None, new_status: str) -> tuple[Sale, str | None] | None:
+    """Find the sale by confirmation message SID and update its status.
+
+    Returns:
+        A tuple of (sale, whatsapp_message_id) if found, None otherwise.
+    """
     if not original_message_sid:
         logger.warning("No original message SID provided")
         return None
@@ -699,7 +703,7 @@ def _get_and_update_sale(original_message_sid: str | None, new_status: str) -> S
         )
         sale.status = new_status
         sale.save(update_fields=["status"])
-        return sale
+        return sale, sale.whatsapp_message_id
     except Sale.DoesNotExist:
         logger.warning(f"No pending sale found for message SID: {original_message_sid}")
         return None
@@ -725,10 +729,13 @@ async def _process_sale_confirmation_async(
         new_status = Sale.Status.CANCELLED
         response_key = "sale.cancelled"
 
-    sale = await _get_and_update_sale(original_message_sid, new_status)
+    result = await _get_and_update_sale(original_message_sid, new_status)
 
-    if sale:
-        await _send_response(sender, t(response_key))
+    if result:
+        sale, original_whatsapp_message_id = result
+        await _send_response(
+            sender, t(response_key), reply_to=original_whatsapp_message_id
+        )
     else:
         await _send_response(sender, t("sale.already_processed"))
 

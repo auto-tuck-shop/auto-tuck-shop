@@ -39,7 +39,7 @@
     "missing_prices_note": "\nSome items don't have prices. Press \"Start Over\" and send again with prices, like \"2x Pear @ R5\".",
     "unmatched": "\n⚠ Unmatched: {items}",
     "confirmed": "✓ Confirmed",
-    "cancelled": "✗ Cancelled",
+    "cancelled": "✗ This sale was thrown out. Send everything again to redo it.",
     "already_processed": "This sale was already done",
     "btn_confirm": "Confirm",
     "btn_cancel": "Start Over"

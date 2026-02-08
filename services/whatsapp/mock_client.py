@@ -16,10 +16,10 @@ class MockWhatsAppClient:
     sent_buttons = []
     media_downloads = {}  # media_id -> (audio_data, mime_type)
 
-    async def send_message(self, to: str, text: str) -> bool:
+    async def send_message(self, to: str, text: str, reply_to: str | None = None) -> bool:
         """Mock send_message - logs but doesn't send."""
         logger.info(f"[MOCK] Would send WhatsApp message to {to}: {text[:50]}...")
-        self.sent_messages.append({"to": to, "text": text})
+        self.sent_messages.append({"to": to, "text": text, "reply_to": reply_to})
         return True
 
     async def send_message_with_buttons(
