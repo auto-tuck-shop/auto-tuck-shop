@@ -1,4 +1,5 @@
 import logging
+import uuid
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +27,7 @@ class MockWhatsAppClient:
         self, to: str, body: str, buttons: list, reply_to: str | None = None
     ) -> str | None:
         """Mock send_message_with_buttons - logs but doesn't send."""
-        message_id = f"wamid.mock_{len(self.sent_buttons)}"
+        message_id = f"wamid.mock_{uuid.uuid4().hex[:12]}"
         logger.info(f"[MOCK] Would send button message to {to}: {body[:50]}...")
         self.sent_buttons.append({
             "to": to,

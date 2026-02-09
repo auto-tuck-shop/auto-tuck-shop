@@ -14,8 +14,7 @@ INSTALLED_APPS += ["apps.testing"]  # noqa: F405
 # - Tests can read from production bucket for test data
 R2_BUCKET_NAME = env("R2_BUCKET_NAME", default="auto-tuck-shop-staging")
 
-# Sentry environment tracking
-SENTRY_ENVIRONMENT = "staging"
+# Sentry environment is set via SENTRY_ENVIRONMENT env var in fly.staging.toml
 
 # Relax security for staging (optional - makes testing easier)
 SECURE_SSL_REDIRECT = False
