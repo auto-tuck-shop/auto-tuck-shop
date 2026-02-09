@@ -581,10 +581,7 @@ async def _process_sale_message_unified(
     """
     if not result.items:
         # No items found
-        if is_from_audio:
-            response = t("sale.no_products_audio", text=text)
-        else:
-            response = t("sale.no_products")
+        response = t("sale.no_products")
         await _send_response(sender, response)
         return
 
@@ -600,11 +597,6 @@ async def _process_sale_message_unified(
 
     # Build response message
     response_lines = []
-
-    # Add "I heard you say..." prefix for audio messages
-    if is_from_audio:
-        response_lines.append(t("sale.heard_prefix", text=text))
-        response_lines.append("")
 
     sale_items = await _get_sale_items(sale)
     has_missing_prices = False

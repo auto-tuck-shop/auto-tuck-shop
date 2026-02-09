@@ -28,8 +28,6 @@
   },
   "sale": {
     "no_products": "I couldn't identify any products. Please send a full sale message, e.g., \"sold 2 cokes R15 each, 1 chips R10\"",
-    "no_products_audio": "I heard you say \"{text}\"\n\nI couldn't identify any products. Please send a full sale message, e.g., \"sold 2 cokes R15 each, 1 chips R10\"",
-    "heard_prefix": "I heard you say \"{text}\"",
     "item_with_price": "  {quantity}x {product} @ {price}",
     "item_no_price": "  {quantity}x {product} (no price)",
     "total": "\nTotal: {total}",
