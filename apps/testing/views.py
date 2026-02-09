@@ -7,6 +7,8 @@ import base64
 import json
 import logging
 
+import boto3
+from botocore.client import Config
 from django.conf import settings
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.utils.decorators import method_decorator
@@ -86,3 +88,50 @@ class MockMediaView(View):
 
         logger.info(f"[TEST] Loaded mock media {media_id}: {len(audio_bytes)} bytes")
         return HttpResponse("OK", status=200)
+
+
+class SampleAudioView(View):
+    """GET /test/r2-sample-audio/?key=...&bucket=... — fetch a specific audio file from R2.
+
+    Query params:
+        key     — exact R2 object key (required)
+        bucket  — R2 bucket to read from (default: production bucket "auto-tuck-shop")
+    """
+
+    def get(self, request: HttpRequest) -> HttpResponse:
+        err = _check_api_key(request)
+        if err:
+            return err
+
+        key = request.GET.get("key", "")
+        bucket = request.GET.get("bucket", "auto-tuck-shop")
+
+        if not key:
+            return HttpResponse("'key' query param is required", status=400)
+
+        if not all([settings.R2_ACCESS_KEY_ID, settings.R2_SECRET_ACCESS_KEY, settings.R2_ENDPOINT_URL]):
+            return HttpResponse("R2 credentials not configured", status=503)
+
+        client = boto3.client(
+            "s3",
+            endpoint_url=settings.R2_ENDPOINT_URL,
+            aws_access_key_id=settings.R2_ACCESS_KEY_ID,
+            aws_secret_access_key=settings.R2_SECRET_ACCESS_KEY,
+            config=Config(signature_version="s3v4"),
+        )
+
+        try:
+            obj = client.get_object(Bucket=bucket, Key=key)
+            audio_bytes = obj["Body"].read()
+            content_type = obj.get("ContentType", "audio/ogg")
+
+            logger.info(f"[TEST] Serving audio from R2: {bucket}/{key} ({len(audio_bytes)} bytes)")
+            response = HttpResponse(audio_bytes, content_type=content_type)
+            response["X-R2-Key"] = key
+            return response
+
+        except client.exceptions.NoSuchKey:
+            return HttpResponse(f"Key not found: {bucket}/{key}", status=404)
+        except Exception as e:
+            logger.error(f"[TEST] Failed to fetch audio from R2: {e}", exc_info=True)
+            return HttpResponse(f"R2 error: {e}", status=500)

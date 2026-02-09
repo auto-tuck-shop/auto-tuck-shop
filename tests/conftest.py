@@ -169,18 +169,36 @@ def upload_mock_media(http_client, staging_url, api_key):
     return _upload
 
 
-@pytest.fixture
-def r2_audio(http_client, staging_url, api_key):
-    """Fetch random audio from production R2 via the staging app's R2 credentials.
+# Hard-coded R2 keys for deterministic audio tests.
+# Each is a real voice note chosen to exercise tricky transcription cases.
+TEST_AUDIO_R2_KEYS = [
+    "2026/02/05/27641295093/1437335271280111.ogg",  # ZA number, 18KB
+    "2026/02/05/27641295093/3518063444999554.ogg",  # ZA number, 44KB long clip
+    "2026/02/08/263789398574/1283193456994830.ogg",  # ZW number, 14KB
+    "2026/02/08/27644178150/1229463476040703.ogg",   # ZA number, 70KB large clip
+]
 
-    Since we can't import Django settings in tests, we use a small .ogg test file
-    as fallback. For real R2 integration, the staging app handles it.
+
+@pytest.fixture(params=TEST_AUDIO_R2_KEYS)
+def r2_audio(request, http_client, staging_url, api_key):
+    """Fetch a specific real audio file from the production R2 bucket via staging.
+
+    Parameterized over TEST_AUDIO_R2_KEYS so each audio test runs once per file.
     """
+    r2_key = request.param
+
     def _get():
-        # Use a minimal valid OGG file for testing
-        # In practice, the staging app's mock client will receive this via upload_mock_media
-        test_audio = b"OggS" + b"\x00" * 200  # Minimal placeholder
-        return test_audio, "audio/ogg"
+        resp = http_client.get(
+            f"{staging_url}/test/r2-sample-audio/",
+            params={"key": r2_key, "bucket": "auto-tuck-shop"},
+            headers={"X-Test-Api-Key": api_key},
+        )
+        assert resp.status_code == 200, (
+            f"Failed to fetch R2 audio {r2_key}: {resp.status_code}: {resp.text}"
+        )
+        content_type = resp.headers.get("content-type", "audio/ogg")
+        return resp.content, content_type
+
     return _get
 
 
