@@ -145,7 +145,7 @@ class WaitlistEntryAdmin(admin.ModelAdmin):
         try:
             close_old_connections()
             asyncio.run(client.send_message(
-                f"whatsapp:{entry.phone_number}",
+                entry.phone_number,
                 f"Welcome to Auto Tuck Shop! Your account has been approved.\n\n"
                 f"Company: {company_name}\n\n"
                 f"You can now send sales messages to track your sales. For example:\n"

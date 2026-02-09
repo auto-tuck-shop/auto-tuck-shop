@@ -44,7 +44,7 @@ class UserProfile(models.Model):
         related_name="members",
     )
     role = models.CharField(max_length=20, choices=Role.choices, default=Role.ASSISTANT)
-    phone_number = models.CharField(max_length=20, unique=True)
+    phone_number = models.CharField(max_length=25, unique=True)
 
     class Meta:
         ordering = ["user__username"]
@@ -61,7 +61,7 @@ class WaitlistEntry(models.Model):
         APPROVED = "approved", "Approved"
         REJECTED = "rejected", "Rejected"
 
-    phone_number = models.CharField(max_length=20, unique=True)
+    phone_number = models.CharField(max_length=25, unique=True)
     first_message = models.TextField(blank=True)
     company_name = models.CharField(max_length=200, blank=True)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)

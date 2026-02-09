@@ -41,7 +41,9 @@ def _record_outbound_message_sync(
         from apps.core.models import UserProfile
         from apps.whatsapp.models import WhatsAppMessage
 
-        # Normalize phone number (add + prefix if missing)
+        # Normalize phone number
+        if phone_number.startswith("whatsapp:"):
+            phone_number = phone_number[9:]
         if not phone_number.startswith("+"):
             phone_number = f"+{phone_number}"
 

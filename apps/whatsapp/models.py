@@ -18,7 +18,7 @@ class WhatsAppMessage(models.Model):
     # Message metadata
     direction = models.CharField(max_length=20, choices=Direction.choices)
     message_type = models.CharField(max_length=30, choices=MessageType.choices)
-    phone_number = models.CharField(max_length=20, db_index=True, help_text="Normalized phone number with + prefix")
+    phone_number = models.CharField(max_length=25, db_index=True, help_text="Normalized phone number with + prefix")
     timestamp = models.DateTimeField(auto_now_add=True, db_index=True)
 
     # Content
