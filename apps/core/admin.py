@@ -1,7 +1,7 @@
 import asyncio
 
 from django.contrib import admin, messages
-from django.db import close_old_connections
+from django.db import close_old_connections, transaction
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.models import User
 from django.utils import timezone
@@ -75,8 +75,45 @@ class WaitlistEntryAdmin(admin.ModelAdmin):
     list_display = ["phone_number", "company_name", "status", "created_at", "approved_at"]
     list_filter = ["status", "created_at"]
     search_fields = ["phone_number", "company_name", "notes"]
-    readonly_fields = ["created_at", "approved_at", "approved_by", "company", "user_profile"]
+    readonly_fields = ["created_at", "approved_at", "approved_by", "company", "user_profile", "status"]
     actions = ["approve_entries", "reject_entries"]
+    change_form_template = "admin/core/waitlistentry/change_form.html"
+
+    def get_readonly_fields(self, request, obj=None):
+        readonly = list(self.readonly_fields)
+        if not request.user.is_superuser:
+            readonly += ["phone_number", "company_name", "first_message"]
+        return readonly
+
+    def change_view(self, request, object_id, form_url="", extra_context=None):
+        extra_context = extra_context or {}
+        obj = self.get_object(request, object_id)
+        extra_context["show_approve_reject"] = (
+            obj is not None and obj.status == WaitlistEntry.Status.PENDING
+        )
+        return super().change_view(request, object_id, form_url, extra_context)
+
+    def response_change(self, request, obj):
+        if "_approve" in request.POST and obj.status == WaitlistEntry.Status.PENDING:
+            obj.status = WaitlistEntry.Status.APPROVED
+            self._approve_entry(request, obj)
+            return self.response_post_save_change(request, obj)
+        if "_reject" in request.POST and obj.status == WaitlistEntry.Status.PENDING:
+            obj.status = WaitlistEntry.Status.REJECTED
+            obj.save()
+            self.message_user(request, f"Rejected {obj.phone_number}.", messages.SUCCESS)
+            return self.response_post_save_change(request, obj)
+        return super().response_change(request, obj)
+
+    def has_add_permission(self, request):
+        if not request.user.is_superuser:
+            return False
+        return super().has_add_permission(request)
+
+    def has_delete_permission(self, request, obj=None):
+        if not request.user.is_superuser:
+            return False
+        return super().has_delete_permission(request, obj)
 
     fieldsets = (
         (None, {
@@ -93,15 +130,6 @@ class WaitlistEntryAdmin(admin.ModelAdmin):
             "fields": ("notes",),
         }),
     )
-
-    def save_model(self, request, obj, form, change):
-        """Handle approval when status is changed to 'approved' via the detail page."""
-        if change and "status" in form.changed_data:
-            if obj.status == WaitlistEntry.Status.APPROVED and not obj.company:
-                # Status changed to approved but no company yet - run approval logic
-                self._approve_entry(request, obj)
-                return  # _approve_entry calls save()
-        super().save_model(request, obj, form, change)
 
     def _approve_entry(self, request, entry):
         """Run the full approval logic for a single entry."""
@@ -140,12 +168,14 @@ class WaitlistEntryAdmin(admin.ModelAdmin):
         entry.user_profile = profile
         entry.save()
 
-        # Send approval notification via WhatsApp
-        client = get_whatsapp_client()
-        try:
+        # Send approval notification via WhatsApp after the transaction commits
+        phone = entry.phone_number
+
+        def send_welcome():
+            client = get_whatsapp_client()
             close_old_connections()
             asyncio.run(client.send_message(
-                entry.phone_number,
+                phone,
                 f"Welcome to Auto Tuck Shop! Your account has been approved.\n\n"
                 f"Company: {company_name}\n\n"
                 f"You can now send sales messages to track your sales. For example:\n"
@@ -154,13 +184,9 @@ class WaitlistEntryAdmin(admin.ModelAdmin):
                 f"As an owner, you can also add assistants by sending messages like:\n"
                 f"'add assistant +27821234567'"
             ))
-            self.message_user(request, f"Approved {entry.phone_number} and sent WhatsApp notification.", messages.SUCCESS)
-        except Exception as e:
-            self.message_user(
-                request,
-                f"Approved {entry.phone_number} but failed to send WhatsApp notification: {e}",
-                messages.WARNING
-            )
+
+        transaction.on_commit(send_welcome)
+        self.message_user(request, f"Approved {entry.phone_number}.", messages.SUCCESS)
 
     @admin.action(description="Approve selected waitlist entries")
     def approve_entries(self, request, queryset):
