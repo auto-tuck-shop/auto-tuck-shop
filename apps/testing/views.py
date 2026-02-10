@@ -54,11 +54,19 @@ class OutboxView(View):
         return JsonResponse({"messages": messages, "buttons": buttons})
 
     def delete(self, request: HttpRequest) -> HttpResponse:
-        """DELETE /test/outbox/ — reset all mock state."""
+        """DELETE /test/outbox/ — reset mock state.
+
+        Pass ?phone=+27821234567 to reset only that phone's messages.
+        Omit phone to reset all state.
+        """
         err = _check_api_key(request)
         if err:
             return err
-        MockWhatsAppClient.reset()
+        phone = request.GET.get("phone", "")
+        if phone:
+            MockWhatsAppClient.reset_phone(phone)
+        else:
+            MockWhatsAppClient.reset()
         return HttpResponse("OK", status=200)
 
 

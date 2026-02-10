@@ -57,13 +57,33 @@ def http_client():
 
 
 # ---------------------------------------------------------------------------
-# Unique phone per test
+# Phone tracking & per-test cleanup
 # ---------------------------------------------------------------------------
 
 @pytest.fixture
-def unique_phone():
+def used_phones():
+    """Collects phone numbers used during a test for cleanup."""
+    return set()
+
+
+@pytest.fixture
+def unique_phone(used_phones):
     digits = "".join(random.choices("0123456789", k=7))
-    return f"+2782{digits}"
+    phone = f"+2782{digits}"
+    used_phones.add(phone)
+    return phone
+
+
+@pytest.fixture(autouse=True)
+def cleanup_outbox(request, http_client, staging_url, api_key, used_phones):
+    """After each test, delete outbox entries for every phone the test touched."""
+    yield
+    for phone in used_phones:
+        http_client.delete(
+            f"{staging_url}/test/outbox/",
+            params={"phone": phone},
+            headers={"X-Test-Api-Key": api_key},
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -207,9 +227,11 @@ def r2_audio(request, http_client, staging_url, api_key):
 # ---------------------------------------------------------------------------
 
 @pytest.fixture
-def onboard_user(send_webhook, poll_outbox, http_client, staging_url, api_key, app_secret):
+def onboard_user(send_webhook, poll_outbox, http_client, staging_url, api_key, app_secret, used_phones):
     """Onboard a user through the full waitlist → approve flow."""
     def _onboard(phone: str):
+        used_phones.add(phone)
+        used_phones.add(ADMIN_PHONE)
         # 1. Send a message from the unknown phone → triggers waitlist entry
         send_webhook(text_message_payload(phone, "Hello I want to register my shop"))
 

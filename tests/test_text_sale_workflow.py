@@ -1,20 +1,72 @@
-"""Test text message sale: send sale text → get confirmation buttons."""
+"""Test text message sale: send sale text → get confirmation buttons with parsed items."""
+
+import re
 
 from tests.conftest import text_message_payload
 
 
 def test_text_sale_sends_confirmation(send_webhook, poll_outbox, onboard_user, unique_phone):
-    """Onboarded user sends a sale message and gets confirmation buttons."""
+    """Onboarded user sends a sale message and gets confirmation buttons
+    whose body reflects the parsed items, quantities, and prices."""
     onboard_user(unique_phone)
 
     send_webhook(text_message_payload(unique_phone, "sold 2 cokes $5 each"))
 
-    def _has_confirmation_buttons(outbox):
+    # --- Wait for the confirmation button message ---
+    def _find_confirmation(outbox):
         for b in outbox.get("buttons", []):
-            button_text = str(b.get("buttons", [])).lower()
-            if "confirm" in button_text:
-                return True
+            button_ids = [btn.get("id", "") for btn in b.get("buttons", [])]
+            if any("confirm" in bid for bid in button_ids):
+                return b
         return None
 
-    result = poll_outbox(unique_phone, check=_has_confirmation_buttons, timeout=20.0)
-    assert result is True, f"Expected confirmation buttons for {unique_phone}. Outbox: {result}"
+    btn_msg = poll_outbox(unique_phone, check=_find_confirmation, timeout=20.0)
+    assert isinstance(btn_msg, dict), (
+        f"Expected confirmation buttons for {unique_phone}. Outbox: {btn_msg}"
+    )
+
+    body = btn_msg["body"].lower()
+
+    # The confirmation body should contain the parsed item details
+    assert "coke" in body, f"Expected 'coke' in confirmation body: {btn_msg['body']}"
+    assert "2" in body, f"Expected quantity '2' in confirmation body: {btn_msg['body']}"
+
+    # Should contain a price ($ or dollar amount)
+    assert "$" in btn_msg["body"] or "5" in body, (
+        f"Expected price in confirmation body: {btn_msg['body']}"
+    )
+
+    # --- Button structure ---
+    buttons = btn_msg["buttons"]
+    assert len(buttons) == 2, f"Expected 2 buttons (confirm + cancel), got {len(buttons)}"
+
+    button_ids = {b["id"] for b in buttons}
+    confirm_ids = [bid for bid in button_ids if bid.startswith("confirm_")]
+    cancel_ids = [bid for bid in button_ids if bid.startswith("cancel_")]
+    assert len(confirm_ids) == 1, f"Expected one confirm_<id> button, got {button_ids}"
+    assert len(cancel_ids) == 1, f"Expected one cancel_<id> button, got {button_ids}"
+
+    # Both buttons should reference the same sale ID
+    confirm_sale_id = confirm_ids[0].split("_", 1)[1]
+    cancel_sale_id = cancel_ids[0].split("_", 1)[1]
+    assert confirm_sale_id == cancel_sale_id, (
+        f"Confirm and cancel reference different sales: {confirm_sale_id} vs {cancel_sale_id}"
+    )
+
+    # --- Reply threading ---
+    # The confirmation should be threaded as a reply to the user's original message
+    # (reply_to will be the wamid we sent in the webhook)
+    assert btn_msg.get("reply_to") is not None, (
+        f"Expected confirmation to be a reply (reply_to set), got: {btn_msg}"
+    )
+
+    # --- No extra messages (no errors, no duplicates) ---
+    outbox = poll_outbox(unique_phone, check=lambda ob: ob if ob.get("buttons") else None)
+    # Should have exactly 1 button message (the confirmation) beyond the welcome
+    non_welcome_buttons = [
+        b for b in outbox["buttons"]
+        if not any(kw in b.get("body", "").lower() for kw in ("waitlist", "welcome", "approved"))
+    ]
+    assert len(non_welcome_buttons) == 1, (
+        f"Expected exactly 1 sale confirmation, got {len(non_welcome_buttons)}: {non_welcome_buttons}"
+    )

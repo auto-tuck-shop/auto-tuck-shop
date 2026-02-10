@@ -59,7 +59,14 @@ class MockWhatsAppClient:
 
     @classmethod
     def reset(cls):
-        """Reset state between tests."""
+        """Reset all state."""
         cls.sent_messages = []
         cls.sent_buttons = []
         cls.media_downloads = {}
+
+    @classmethod
+    def reset_phone(cls, phone: str):
+        """Reset state for a specific phone number."""
+        variants = {phone, phone.lstrip("+"), "+" + phone.lstrip("+")}
+        cls.sent_messages = [m for m in cls.sent_messages if m["to"] not in variants]
+        cls.sent_buttons = [b for b in cls.sent_buttons if b["to"] not in variants]
