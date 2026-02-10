@@ -142,7 +142,4 @@ class MockOutboxView(View):
             "total_buttons": len(buttons),
         })
 
-    def delete(self, request: HttpRequest) -> HttpResponse:
-        """Clear the outbox."""
-        MockWhatsAppClient.reset()
-        return HttpResponse("OK")
+

@@ -51,11 +51,6 @@ body {
     cursor: pointer;
 }
 .phone-selector button:hover { background: #00c49a; }
-.phone-selector .reset-btn {
-    background: #3b4a54;
-    color: #e9edef;
-}
-.phone-selector .reset-btn:hover { background: #4a5c6a; }
 
 /* ── Phone container ───────────────────────────────────── */
 .phone-container {
@@ -238,7 +233,6 @@ body {
     <label for="phoneInput">Phone:</label>
     <input type="text" id="phoneInput" placeholder="+27821234567" value="+15551234567">
     <button id="startBtn">Start Chat</button>
-    <button id="resetBtn" class="reset-btn">Reset</button>
     <span id="statusIndicator" style="color: #8696a0; font-size: 12px;"></span>
 </div>
 
@@ -287,7 +281,6 @@ class MockWhatsApp {
         this.$sendBtn = document.getElementById('sendBtn');
         this.$phoneInput = document.getElementById('phoneInput');
         this.$startBtn = document.getElementById('startBtn');
-        this.$resetBtn = document.getElementById('resetBtn');
         this.$status = document.getElementById('connectionStatus');
         this.$statusIndicator = document.getElementById('statusIndicator');
 
@@ -296,7 +289,6 @@ class MockWhatsApp {
 
     _bind() {
         this.$startBtn.addEventListener('click', () => this.startChat());
-        this.$resetBtn.addEventListener('click', () => this.resetChat());
         this.$phoneInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') this.startChat();
         });
@@ -326,18 +318,6 @@ class MockWhatsApp {
         this._addSystemMessage(`Chatting as ${phone}`);
 
         this._startPolling();
-    }
-
-    resetChat() {
-        this._stopPolling();
-        this.$messages.innerHTML = '';
-        this.$input.disabled = true;
-        this.$input.value = '';
-        this.$inputBar.classList.remove('has-text');
-        this.$status.textContent = 'Select a phone number';
-        this.seenMessages = 0;
-        this.seenButtons = 0;
-        this.phone = '';
     }
 
     // ── Send messages ──────────────────────────────────

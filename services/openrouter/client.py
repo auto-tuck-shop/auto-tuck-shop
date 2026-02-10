@@ -12,9 +12,17 @@ logger = logging.getLogger(__name__)
 
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 
+MAX_JSON_PARSE_RETRIES = 2
+
 
 class OpenRouterError(Exception):
     """Exception raised for OpenRouter API errors."""
+
+    pass
+
+
+class TruncatedResponseError(OpenRouterError):
+    """Raised when the LLM response was truncated (finish_reason=length)."""
 
     pass
 
@@ -102,10 +110,24 @@ class OpenRouterClient:
         data = response.json()
 
         try:
-            return data["choices"][0]["message"]["content"]
+            choice = data["choices"][0]
+            content = choice["message"]["content"]
+            finish_reason = choice.get("finish_reason")
         except (KeyError, IndexError) as e:
             logger.error(f"Unexpected OpenRouter response format: {data}")
             raise OpenRouterError("Unexpected response format") from e
+
+        if finish_reason == "length":
+            logger.warning(
+                f"OpenRouter response truncated (finish_reason=length). "
+                f"Content length: {len(content) if content else 0}"
+            )
+            raise TruncatedResponseError(
+                f"Response truncated (finish_reason=length), content length: "
+                f"{len(content) if content else 0}"
+            )
+
+        return content
 
     async def parse_json_response(
         self,
@@ -114,20 +136,45 @@ class OpenRouterClient:
         """
         Send a chat completion request and parse the response as JSON.
 
+        Retries up to MAX_JSON_PARSE_RETRIES times on truncated responses
+        or invalid JSON, since these are transient LLM generation failures.
+
         Args:
             messages: List of message dicts with 'role' and 'content' keys
 
         Returns:
             Parsed JSON response as a dictionary
         """
-        async with track("openrouter_llm"):
-            content = await self.chat_completion(
-                messages,
-                response_format={"type": "json_object"},
-            )
+        last_error = None
 
-            try:
-                return json.loads(content)
-            except json.JSONDecodeError as e:
-                logger.error(f"Failed to parse JSON response: {content}")
-                raise OpenRouterError(f"Invalid JSON response: {e}") from e
+        async with track("openrouter_llm"):
+            for attempt in range(1 + MAX_JSON_PARSE_RETRIES):
+                try:
+                    content = await self.chat_completion(
+                        messages,
+                        response_format={"type": "json_object"},
+                    )
+                except TruncatedResponseError as e:
+                    last_error = e
+                    logger.warning(
+                        f"Truncated response on attempt {attempt + 1}/"
+                        f"{1 + MAX_JSON_PARSE_RETRIES}, retrying"
+                    )
+                    continue
+
+                try:
+                    return json.loads(content)
+                except json.JSONDecodeError as e:
+                    last_error = OpenRouterError(f"Invalid JSON response: {e}")
+                    logger.warning(
+                        f"Invalid JSON on attempt {attempt + 1}/"
+                        f"{1 + MAX_JSON_PARSE_RETRIES}: {content[:200]}"
+                    )
+                    continue
+
+            # All retries exhausted
+            logger.error(
+                f"Failed to get valid JSON response after "
+                f"{1 + MAX_JSON_PARSE_RETRIES} attempts"
+            )
+            raise last_error
