@@ -45,6 +45,11 @@ class UserProfile(models.Model):
     )
     role = models.CharField(max_length=20, choices=Role.choices, default=Role.ASSISTANT)
     phone_number = models.CharField(max_length=25, unique=True)
+    language = models.CharField(
+        max_length=10,
+        default="sn",
+        help_text="User's preferred language (en, sn)",
+    )
 
     class Meta:
         ordering = ["user__username"]
@@ -72,6 +77,11 @@ class WaitlistEntry(models.Model):
     user_profile = models.ForeignKey(UserProfile, on_delete=models.CASCADE, null=True, blank=True)
     notes = models.TextField(blank=True)
     confirmation_message_sid = models.CharField(max_length=100, blank=True, null=True)
+    language = models.CharField(
+        max_length=10,
+        default="sn",
+        help_text="User's preferred language (en, sn)",
+    )
 
     class Meta:
         verbose_name_plural = "waitlist entries"

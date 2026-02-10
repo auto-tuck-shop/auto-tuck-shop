@@ -15,9 +15,10 @@ from apps.core.models import UserProfile, WaitlistEntry
 from apps.whatsapp.models import WhatsAppMessage
 from apps.whatsapp.services.webhook_handler import (
     handle_incoming_message,
+    handle_language_button_action,
     handle_new_waitlist_entry,
-    handle_sale_confirmation,
-    handle_waitlist_confirmation,
+    handle_sale_button_action,
+    handle_waitlist_button_action,
     handle_waitlisted_message,
 )
 
@@ -260,20 +261,30 @@ class WhatsAppWebhookView(View):
         )
 
         # Parse button ID to determine action type
-        # Format: "confirm_{sale_id}", "cancel_{sale_id}", "waitlist_approve_{entry_id}", "waitlist_reject_{entry_id}"
-        if button_id.startswith("confirm_") or button_id.startswith("cancel_"):
-            action = "confirm" if button_id.startswith("confirm_") else "cancel"
-            handle_sale_confirmation(
+        # Format: "mistake_{sale_id}", "cancel_{sale_id}", "waitlist_approve_{entry_id}", "waitlist_reject_{entry_id}"
+        if button_id.startswith("mistake_") or button_id.startswith("cancel_"):
+            action = "mistake" if button_id.startswith("mistake_") else "cancel"
+            handle_sale_button_action(
                 action=action,
                 sender=sender,
                 original_message_sid=original_message_id or None,
             )
         elif button_id.startswith("waitlist_approve_") or button_id.startswith("waitlist_reject_"):
             action = "approve" if button_id.startswith("waitlist_approve_") else "reject"
-            handle_waitlist_confirmation(
+            handle_waitlist_button_action(
                 action=action,
                 sender=sender,
                 original_message_sid=original_message_id or None,
+            )
+        elif button_id.startswith("lang_en_") or button_id.startswith("lang_sn_"):
+            # Language selection: "lang_en_{entry_id}" or "lang_sn_{entry_id}"
+            parts = button_id.split("_", 2)  # ["lang", "en", "123"]
+            lang = parts[1]
+            entry_id = int(parts[2])
+            handle_language_button_action(
+                lang=lang,
+                entry_id=entry_id,
+                sender=sender,
             )
         else:
             logger.warning(f"Unknown button ID format: {button_id}")

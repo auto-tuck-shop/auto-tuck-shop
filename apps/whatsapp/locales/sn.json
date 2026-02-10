@@ -1,6 +1,12 @@
 {
+  "language": {
+    "prompt": "Welcome! Please choose your language:\n\nMwakadini! Sarudzai mutauro wenyu:",
+    "btn_en": "English",
+    "btn_sn": "Shona",
+    "confirmed": "Mutauro wasarudzwa: Shona."
+  },
   "waitlist": {
-    "welcome": "Mwakadini! Waiswa pawaitlist yedu.\n\nMumwe wedu achaverenga chikumbiro chako ogamuchira account yako munguva pfupi. Tichakutumira message kana wagamuchirwa.\n\nPanguva ino, kana uchida kutipa zita reshop yako, tumira imwe message naro.\n\n(Hello! You've been added to our waitlist. An administrator will review your request and approve your account shortly. We'll send you a message when you're approved. In the meantime, if you'd like to provide a name for your shop, just send another message with it.)",
+    "welcome": "Mwaiswa pawaitlist yedu.\n\nMumwe wedu achaverenga chikumbiro chako ogamuchira account yako munguva pfupi. Tichakutumira message kana wagamuchirwa.\n\nPanguva ino, kana uchida kutipa zita reshop yako, tumira imwe message naro.",
     "shop_name_noted": "Thanks! We got your shop name \"{shop_name}\".\n\nYou're still waiting. We'll check your request soon.",
     "still_pending": "Thanks for your message! You're still waiting.\n\nWe'll check your request soon. We'll send you a message when you're approved.",
     "rejected": "Sorry, we can't approve your request. Please call us if this is wrong.",
@@ -14,7 +20,7 @@
     "btn_reject": "Cancel"
   },
   "approval": {
-    "welcome": "Mwakadini! Account yako yagamuchirwa paAuto Tuck Shop!\n\nShop: {company}\n\nUnokona kutumira voice note kana kunyora zvawatengesa nyamashi. Semuenzaniso:\n'sold 2 cokes R15 each, 1 chips R10'\n'3 waters R12 each, 2 chocolates R8 each'\n\nUnogona kuwedzera vanokubatsira nekutumira:\n'add assistant +27821234567'\n\n(Hello! Your account has been approved. You can send a voice note or type what you sold today.)"
+    "welcome": "Mwakadini! Account yako yagamuchirwa paAuto Tuck Shop!\n\nShop: {company}\n\nUnokona kutumira voice note kana kunyora zvawatengesa nyamashi. Semuenzaniso:\n'sold 2 cokes R15 each, 1 chips R10'\n'3 waters R12 each, 2 chocolates R8 each'\n\nUnogona kuwedzera vanokubatsira nekutumira:\n'add assistant +27821234567'"
   },
   "error": {
     "processing_failed": "Sorry, something went wrong. Please try again."
@@ -36,10 +42,10 @@
     "total": "\nTotal: {total}",
     "missing_prices_note": "\nSome items don't have prices. Press \"Start Over\" and send again with prices, like \"2x Pear @ R5\".",
     "unmatched": "\n⚠ Unmatched: {items}",
-    "confirmed": "✓ Confirmed",
+    "bot_mistake": "Sorry about that! We'll take a look. Send everything again to redo it.",
     "cancelled": "✗ This sale was thrown out. Send everything again to redo it.",
     "already_processed": "This sale was already done",
-    "btn_confirm": "Confirm",
+    "btn_mistake": "Bot mistake?",
     "btn_cancel": "Start Over"
   }
 }

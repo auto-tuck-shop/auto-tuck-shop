@@ -1,33 +1,37 @@
 """Test onboarding: unknown user → waitlist → admin approve → welcome."""
 
-from tests.conftest import ADMIN_PHONE, text_message_payload
+from tests.conftest import ADMIN_PHONE, text_message_payload, button_click_payload
 
 
-def test_unknown_user_gets_waitlisted(send_webhook, poll_outbox, unique_phone, used_phones):
-    """Unknown user's first message triggers a waitlist message to them
+def test_unknown_user_gets_language_choice(send_webhook, poll_outbox, unique_phone, used_phones):
+    """Unknown user's first message triggers language choice buttons
     and an admin notification with approve/reject buttons."""
     used_phones.add(ADMIN_PHONE)
 
     send_webhook(text_message_payload(unique_phone, "Hello I want to register"))
 
-    # --- User receives the waitlist welcome ---
-    def _has_waitlist_msg(outbox):
-        for m in outbox.get("messages", []):
-            if "waitlist" in m["text"].lower():
-                return m
+    # --- User receives language choice buttons ---
+    def _has_language_buttons(outbox):
+        for btn in outbox.get("buttons", []):
+            if btn.get("to", "").lstrip("+") == unique_phone.lstrip("+"):
+                button_ids = [b["id"] for b in btn.get("buttons", [])]
+                if any(bid.startswith("lang_en_") for bid in button_ids):
+                    return btn
         return None
 
-    msg = poll_outbox(unique_phone, check=_has_waitlist_msg)
-    assert isinstance(msg, dict), f"Expected waitlist message for {unique_phone}. Outbox: {msg}"
-
-    # The message should be the full waitlist welcome, not a fragment
-    assert "yagamuchirwa" in msg["text"].lower() or "waitlist" in msg["text"].lower()
-
-    # Exactly 1 message to the user (no duplicates, no errors)
-    outbox = poll_outbox(unique_phone, check=lambda ob: ob if ob.get("messages") else None)
-    assert len(outbox["messages"]) == 1, (
-        f"Expected exactly 1 message to {unique_phone}, got {len(outbox['messages'])}"
+    lang_msg = poll_outbox(unique_phone, check=_has_language_buttons)
+    assert isinstance(lang_msg, dict), (
+        f"Expected language buttons for {unique_phone}. Outbox: {lang_msg}"
     )
+
+    # Should have 2 buttons: English and Shona
+    assert len(lang_msg["buttons"]) == 2
+    button_ids = [b["id"] for b in lang_msg["buttons"]]
+    assert any(bid.startswith("lang_en_") for bid in button_ids)
+    assert any(bid.startswith("lang_sn_") for bid in button_ids)
+
+    # Body should contain the bilingual prompt
+    assert "language" in lang_msg["body"].lower() or "mutauro" in lang_msg["body"].lower()
 
     # --- Admin receives a notification with the user's phone and first message ---
     phone_plain = unique_phone.lstrip("+")
@@ -52,6 +56,77 @@ def test_unknown_user_gets_waitlisted(send_webhook, poll_outbox, unique_phone, u
     button_ids = [b["id"] for b in admin_btn["buttons"]]
     assert any(bid.startswith("waitlist_approve_") for bid in button_ids)
     assert any(bid.startswith("waitlist_reject_") for bid in button_ids)
+
+
+def test_language_selection_english(send_webhook, poll_outbox, unique_phone, used_phones):
+    """User selects English → gets confirmation and waitlist welcome in English."""
+    used_phones.add(ADMIN_PHONE)
+
+    send_webhook(text_message_payload(unique_phone, "Hi"))
+
+    # Wait for language buttons
+    def _has_language_buttons(outbox):
+        for btn in outbox.get("buttons", []):
+            if btn.get("to", "").lstrip("+") == unique_phone.lstrip("+"):
+                button_ids = [b["id"] for b in btn.get("buttons", [])]
+                if any(bid.startswith("lang_en_") for bid in button_ids):
+                    return btn
+        return None
+
+    lang_msg = poll_outbox(unique_phone, check=_has_language_buttons)
+    assert isinstance(lang_msg, dict), f"No language buttons found. Outbox: {lang_msg}"
+
+    # Find the English button and click it
+    en_button = next(b for b in lang_msg["buttons"] if b["id"].startswith("lang_en_"))
+    send_webhook(button_click_payload(unique_phone, en_button["id"], lang_msg["message_id"]))
+
+    # Should receive confirmation + waitlist welcome in English
+    def _has_english_waitlist(outbox):
+        msgs = outbox.get("messages", [])
+        for m in msgs:
+            text = m.get("text", "").lower()
+            if "waitlist" in text or "added" in text:
+                return m
+        return None
+
+    msg = poll_outbox(unique_phone, check=_has_english_waitlist)
+    assert isinstance(msg, dict), f"Expected English waitlist message. Outbox: {msg}"
+    assert "waitlist" in msg["text"].lower()
+
+
+def test_language_selection_shona(send_webhook, poll_outbox, unique_phone, used_phones):
+    """User selects Shona → gets confirmation and waitlist welcome in Shona."""
+    used_phones.add(ADMIN_PHONE)
+
+    send_webhook(text_message_payload(unique_phone, "Hi"))
+
+    # Wait for language buttons
+    def _has_language_buttons(outbox):
+        for btn in outbox.get("buttons", []):
+            if btn.get("to", "").lstrip("+") == unique_phone.lstrip("+"):
+                button_ids = [b["id"] for b in btn.get("buttons", [])]
+                if any(bid.startswith("lang_sn_") for bid in button_ids):
+                    return btn
+        return None
+
+    lang_msg = poll_outbox(unique_phone, check=_has_language_buttons)
+    assert isinstance(lang_msg, dict), f"No language buttons found. Outbox: {lang_msg}"
+
+    # Find the Shona button and click it
+    sn_button = next(b for b in lang_msg["buttons"] if b["id"].startswith("lang_sn_"))
+    send_webhook(button_click_payload(unique_phone, sn_button["id"], lang_msg["message_id"]))
+
+    # Should receive confirmation + waitlist welcome in Shona
+    def _has_shona_waitlist(outbox):
+        msgs = outbox.get("messages", [])
+        for m in msgs:
+            text = m.get("text", "").lower()
+            if "pawaitlist" in text or "mwaiswa" in text:
+                return m
+        return None
+
+    msg = poll_outbox(unique_phone, check=_has_shona_waitlist)
+    assert isinstance(msg, dict), f"Expected Shona waitlist message. Outbox: {msg}"
 
 
 def test_full_onboarding(send_webhook, poll_outbox, onboard_user, unique_phone):

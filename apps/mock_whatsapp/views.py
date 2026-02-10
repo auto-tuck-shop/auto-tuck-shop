@@ -39,7 +39,7 @@ class MockSendView(View):
 
     POST JSON: {"phone": "+27821234567", "text": "hello"}
     or:        {"phone": "+27821234567", "type": "audio"}
-    or:        {"phone": "+27821234567", "type": "button", "button_id": "confirm_123"}
+    or:        {"phone": "+27821234567", "type": "button", "button_id": "mistake_123"}
     """
 
     def post(self, request: HttpRequest) -> HttpResponse:

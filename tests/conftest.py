@@ -265,7 +265,7 @@ def onboard_user(send_webhook, poll_outbox, http_client, staging_url, api_key, a
         def _has_approval(outbox):
             for m in outbox.get("messages", []):
                 text = m.get("text", "").lower()
-                if "welcome" in text or "approved" in text:
+                if "welcome" in text or "approved" in text or "yagamuchirwa" in text:
                     return True
             return None
 

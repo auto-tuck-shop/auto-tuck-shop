@@ -81,13 +81,18 @@ def db_sync_to_async(func):
 
 # Load localization strings
 _LOCALES_DIR = Path(__file__).parent.parent / "locales"
-_strings = json.loads((_LOCALES_DIR / "sn.json").read_text())
+_ALL_STRINGS = {
+    "en": json.loads((_LOCALES_DIR / "en.json").read_text()),
+    "sn": json.loads((_LOCALES_DIR / "sn.json").read_text()),
+}
+DEFAULT_LANGUAGE = "sn"
 
 
-def t(key: str, **kwargs) -> str:
+def t(key: str, lang: str = DEFAULT_LANGUAGE, **kwargs) -> str:
     """Get localized string by dot-notation key, with optional format args."""
+    strings = _ALL_STRINGS.get(lang, _ALL_STRINGS[DEFAULT_LANGUAGE])
     keys = key.split(".")
-    value = _strings
+    value = strings
     for k in keys:
         value = value[k]
     return value.format(**kwargs) if kwargs else value
@@ -233,7 +238,7 @@ def handle_incoming_audio_message(
 
 
 async def _process_new_waitlist_entry_async(sender: str, text: str) -> None:
-    """Add a new user to the waitlist and send a welcome message."""
+    """Add a new user to the waitlist and send language choice buttons."""
     logger.info(f"[DEBUG] _process_new_waitlist_entry_async started for {sender}")
     phone_number = _extract_phone_number(sender)
     logger.info(f"[DEBUG] Phone number: {phone_number}")
@@ -243,27 +248,73 @@ async def _process_new_waitlist_entry_async(sender: str, text: str) -> None:
     entry = await _create_waitlist_entry(phone_number, text)
     logger.info(f"[DEBUG] Waitlist entry created: {entry.id if entry else 'None'}")
 
-    # Send welcome message
-    await _send_response(sender, t("waitlist.welcome"))
+    # Send language choice buttons (bilingual prompt since user hasn't chosen yet)
+    buttons = [
+        {"id": f"lang_en_{entry.id}", "title": t("language.btn_en")},
+        {"id": f"lang_sn_{entry.id}", "title": t("language.btn_sn")},
+    ]
+    message_sid = await _send_response_with_buttons(
+        sender, t("language.prompt"), buttons,
+    )
+
+    if message_sid:
+        await _store_waitlist_response_message_sid(entry.id, message_sid)
 
     # Send admin notification with approve/reject buttons
     await _send_waitlist_admin_notification(entry)
 
 
+def handle_language_button_action(
+    lang: str,
+    entry_id: int,
+    sender: str,
+) -> None:
+    """Handle a language selection button click from a waitlisted user."""
+    try:
+        close_old_connections()
+        run_async(_process_language_button_async(lang, entry_id, sender))
+    except Exception as e:
+        logger.exception(f"Error handling language selection for {sender}: {e}")
+
+
+async def _process_language_button_async(lang: str, entry_id: int, sender: str) -> None:
+    """Save language choice and send confirmation + waitlist welcome."""
+    await _update_waitlist_language(entry_id, lang)
+    await _send_response(sender, t("language.confirmed", lang=lang))
+    await _send_response(sender, t("waitlist.welcome", lang=lang))
+
+
+@db_sync_to_async
+def _update_waitlist_language(entry_id: int, language: str) -> None:
+    """Update the language on a waitlist entry."""
+    WaitlistEntry.objects.filter(id=entry_id).update(language=language)
+
+
+@db_sync_to_async
+def _get_waitlist_language(phone_number: str) -> str:
+    """Get the language for a waitlisted user."""
+    try:
+        entry = WaitlistEntry.objects.get(phone_number=phone_number)
+        return entry.language
+    except WaitlistEntry.DoesNotExist:
+        return DEFAULT_LANGUAGE
+
+
 async def _process_waitlisted_message_async(sender: str, text: str, waitlist_entry: WaitlistEntry) -> None:
     """Handle a message from a waitlisted user."""
+    lang = waitlist_entry.language
     if waitlist_entry.status == WaitlistEntry.Status.PENDING:
         # If they don't have a company name yet, save this message as their company name
         if not waitlist_entry.company_name and text.strip():
             await _update_waitlist_company_name(waitlist_entry.id, text.strip())
             await _send_response(
                 sender,
-                t("waitlist.shop_name_noted", shop_name=text.strip()),
+                t("waitlist.shop_name_noted", lang=lang, shop_name=text.strip()),
             )
         else:
-            await _send_response(sender, t("waitlist.still_pending"))
+            await _send_response(sender, t("waitlist.still_pending", lang=lang))
     elif waitlist_entry.status == WaitlistEntry.Status.REJECTED:
-        await _send_response(sender, t("waitlist.rejected"))
+        await _send_response(sender, t("waitlist.rejected", lang=lang))
 
 
 @db_sync_to_async
@@ -304,14 +355,14 @@ async def _send_waitlist_admin_notification(entry: WaitlistEntry) -> None:
         buttons,
     )
 
-    # Store the confirmation message SID for lookup when button is clicked
+    # Store the response message SID for lookup when button is clicked
     if message_sid:
-        await _store_waitlist_confirmation_sid(entry.id, message_sid)
+        await _store_waitlist_response_message_sid(entry.id, message_sid)
 
 
 @db_sync_to_async
-def _store_waitlist_confirmation_sid(entry_id: int, message_sid: str) -> None:
-    """Store the confirmation message SID on the waitlist entry."""
+def _store_waitlist_response_message_sid(entry_id: int, message_sid: str) -> None:
+    """Store the response message SID on the waitlist entry for button click lookup."""
     WaitlistEntry.objects.filter(id=entry_id).update(confirmation_message_sid=message_sid)
 
 
@@ -354,13 +405,14 @@ async def _process_message_async(
     start_tracking(request_id=message_id)
     try:
         company = user_profile.company if user_profile else None
+        lang = user_profile.language if user_profile else DEFAULT_LANGUAGE
 
         # UNIFIED: Single LLM call for intent + extraction
         try:
             result = await parse_message_unified(text, company=company)
         except Exception as e:
             logger.exception(f"LLM processing failed for message {message_id}: {e}")
-            await _send_response(sender, t("error.processing_failed"))
+            await _send_response(sender, t("error.processing_failed", lang=lang))
             return
 
         logger.info(f"Parsed message - intent: {result.intent}, confidence: {result.confidence}")
@@ -370,7 +422,7 @@ async def _process_message_async(
             return
 
         # Default: treat as sale
-        await _process_sale_message_unified(message_id, sender, text, company, result)
+        await _process_sale_message_unified(message_id, sender, text, company, result, lang=lang)
     finally:
         end_tracking()
 
@@ -395,6 +447,7 @@ async def _process_audio_message_async(
     start_tracking(request_id=message_id)
     try:
         company = user_profile.company if user_profile else None
+        lang = user_profile.language if user_profile else DEFAULT_LANGUAGE
         phone_number = _extract_phone_number(sender)
 
         # Step 1: Download audio from Meta CDN (we need the bytes for both transcription and R2)
@@ -402,7 +455,7 @@ async def _process_audio_message_async(
         media_result = await whatsapp_client.download_media(media_id)
 
         if not media_result:
-            await _send_response(sender, t("audio.download_failed"))
+            await _send_response(sender, t("audio.download_failed", lang=lang))
             return
 
         audio_data, mime_type = media_result
@@ -458,7 +511,7 @@ async def _process_audio_message_async(
 
         except ElevenLabsError as e:
             logger.exception(f"Failed to transcribe audio message {message_id}: {e}")
-            await _send_response(sender, t("audio.transcription_failed"))
+            await _send_response(sender, t("audio.transcription_failed", lang=lang))
             return
 
         # Step 4: Unified parse (intent + extraction)
@@ -466,7 +519,7 @@ async def _process_audio_message_async(
             result = await parse_message_unified(transcribed_text, company=company)
         except Exception as e:
             logger.exception(f"LLM processing failed for audio message {message_id}: {e}")
-            await _send_response(sender, t("error.processing_failed"))
+            await _send_response(sender, t("error.processing_failed", lang=lang))
             return
 
         logger.info(f"Parsed audio - intent: {result.intent}, confidence: {result.confidence}")
@@ -477,7 +530,7 @@ async def _process_audio_message_async(
 
         # Default: treat as sale
         await _process_sale_message_unified(
-            message_id, sender, transcribed_text, company, result, is_from_audio=True
+            message_id, sender, transcribed_text, company, result, is_from_audio=True, lang=lang
         )
     finally:
         end_tracking()
@@ -490,22 +543,24 @@ async def _handle_add_assistant(
     result,  # UnifiedMessageResult
 ) -> None:
     """Handle a request to add an assistant."""
+    lang = user_profile.language if user_profile else DEFAULT_LANGUAGE
+
     # Check if user is an owner
     if not user_profile or user_profile.role != UserProfile.Role.OWNER:
-        await _send_response(sender, t("assistant.not_owner"))
+        await _send_response(sender, t("assistant.not_owner", lang=lang))
         return
 
     # Get phone number from unified result
     phone_number = result.phone_number
     if not phone_number:
-        await _send_response(sender, t("assistant.missing_phone"))
+        await _send_response(sender, t("assistant.missing_phone", lang=lang))
         return
 
     # Check if phone number is already in use
     existing_profile = await _get_profile_by_phone(phone_number)
     if existing_profile:
         await _send_response(
-            sender, t("assistant.already_registered", phone=phone_number)
+            sender, t("assistant.already_registered", lang=lang, phone=phone_number)
         )
         return
 
@@ -515,7 +570,7 @@ async def _handle_add_assistant(
     # Notify the owner
     await _send_response(
         sender,
-        t("assistant.added", phone=phone_number, company=user_profile.company.name),
+        t("assistant.added", lang=lang, phone=phone_number, company=user_profile.company.name),
     )
 
 
@@ -567,6 +622,7 @@ async def _process_sale_message_unified(
     company: "Company | None",
     result,  # UnifiedMessageResult
     is_from_audio: bool = False,
+    lang: str = DEFAULT_LANGUAGE,
 ) -> None:
     """
     Process sale using already-parsed result.
@@ -578,10 +634,11 @@ async def _process_sale_message_unified(
         company: The company associated with the sender
         result: The unified parsing result with intent and extracted data
         is_from_audio: Whether this message came from audio transcription
+        lang: The user's preferred language
     """
     if not result.items:
         # No items found
-        response = t("sale.no_products")
+        response = t("sale.no_products", lang=lang)
         await _send_response(sender, response)
         return
 
@@ -603,38 +660,37 @@ async def _process_sale_message_unified(
     currencies_in_sale = set()
 
     if sale_items:
-        response_lines.append("")
         for item in sale_items:
             if item.unit_price is not None and item.currency:
                 item_currency = item.currency
                 currencies_in_sale.add(item_currency)
-                response_lines.append(t("sale.item_with_price", quantity=item.quantity, product=item.product.name, price=format_price(item.unit_price, item_currency)))
+                response_lines.append(t("sale.item_with_price", lang=lang, quantity=item.quantity, product=item.product.name, price=format_price(item.unit_price, item_currency)))
             else:
-                response_lines.append(t("sale.item_no_price", quantity=item.quantity, product=item.product.name))
+                response_lines.append(t("sale.item_no_price", lang=lang, quantity=item.quantity, product=item.product.name))
                 has_missing_prices = True
 
         # Only show total if all items have prices AND all are the same currency
         if not has_missing_prices and len(currencies_in_sale) == 1:
             sale_currency = currencies_in_sale.pop()
-            response_lines.append(t("sale.total", total=format_price(sale.total_amount, sale_currency)))
+            response_lines.append(t("sale.total", lang=lang, total=format_price(sale.total_amount, sale_currency)))
         elif has_missing_prices:
-            response_lines.append(t("sale.missing_prices_note"))
+            response_lines.append(t("sale.missing_prices_note", lang=lang))
 
     if unmatched:
-        response_lines.append(t("sale.unmatched", items=", ".join(unmatched)))
+        response_lines.append(t("sale.unmatched", lang=lang, items=", ".join(unmatched)))
 
-    # Send with confirm/cancel buttons, replying to the original message
+    # Send with "Bot mistake?" and "Start Over" buttons
     buttons = [
-        {"id": f"confirm_{sale.id}", "title": t("sale.btn_confirm")},
-        {"id": f"cancel_{sale.id}", "title": t("sale.btn_cancel")},
+        {"id": f"mistake_{sale.id}", "title": t("sale.btn_mistake", lang=lang)},
+        {"id": f"cancel_{sale.id}", "title": t("sale.btn_cancel", lang=lang)},
     ]
     message_sid = await _send_response_with_buttons(
         sender, "\n".join(response_lines), buttons, reply_to=message_id
     )
 
-    # Store the confirmation message SID for lookup when button is clicked
+    # Store the response message SID for lookup when button is clicked
     if message_sid:
-        await _store_confirmation_sid(sale.id, message_sid)
+        await _store_response_message_sid(sale.id, message_sid)
 
 
 async def _send_response(to: str, message: str, reply_to: str | None = None) -> None:
@@ -652,34 +708,34 @@ async def _send_response_with_buttons(
 
 
 @db_sync_to_async
-def _store_confirmation_sid(sale_id: int, message_sid: str) -> None:
-    """Store the confirmation message SID on the sale."""
+def _store_response_message_sid(sale_id: int, message_sid: str) -> None:
+    """Store the response message SID on the sale for button click lookup."""
     Sale.objects.filter(id=sale_id).update(confirmation_message_sid=message_sid)
 
 
-def handle_sale_confirmation(
+def handle_sale_button_action(
     action: str,
     sender: str,
     original_message_sid: str | None = None,
 ) -> None:
     """
-    Handle a sale confirmation/cancellation from WhatsApp button click.
+    Handle a sale button action (mistake/cancel) from WhatsApp button click.
 
     Args:
-        action: "confirm" or "cancel"
+        action: "mistake" or "cancel"
         sender: The sender's phone number (e.g., whatsapp:+1234567890)
         original_message_sid: The SID of the message being replied to
     """
     try:
         close_old_connections()
-        run_async(_process_sale_confirmation_async(action, sender, original_message_sid))
+        run_async(_process_sale_button_action_async(action, sender, original_message_sid))
     except Exception as e:
         logger.exception(f"Error handling sale {action}: {e}")
 
 
 @db_sync_to_async
-def _get_and_update_sale(original_message_sid: str | None, new_status: str) -> tuple[Sale, str | None] | None:
-    """Find the sale by confirmation message SID and update its status.
+def _get_and_update_sale(original_message_sid: str | None, new_status: str, bot_mistake: bool = False) -> tuple[Sale, str | None] | None:
+    """Find the sale by response message SID and update its status.
 
     Returns:
         A tuple of (sale, whatsapp_message_id) if found, None otherwise.
@@ -691,48 +747,51 @@ def _get_and_update_sale(original_message_sid: str | None, new_status: str) -> t
     try:
         sale = Sale.objects.get(
             confirmation_message_sid=original_message_sid,
-            status=Sale.Status.PENDING,
+            status=Sale.Status.CONFIRMED,
         )
         sale.status = new_status
-        sale.save(update_fields=["status"])
+        if bot_mistake:
+            sale.flagged_as_bot_mistake = True
+        sale.save(update_fields=["status", "flagged_as_bot_mistake"])
         return sale, sale.whatsapp_message_id
     except Sale.DoesNotExist:
-        logger.warning(f"No pending sale found for message SID: {original_message_sid}")
+        logger.warning(f"No confirmed sale found for message SID: {original_message_sid}")
         return None
 
 
-async def _process_sale_confirmation_async(
+async def _process_sale_button_action_async(
     action: str,
     sender: str,
     original_message_sid: str | None = None,
 ) -> None:
     """
-    Async processing of sale confirmation.
+    Async processing of sale button action.
 
     Args:
-        action: "confirm" or "cancel"
+        action: "mistake" or "cancel"
         sender: The sender's phone number
         original_message_sid: The SID of the message being replied to
     """
-    if action == "confirm":
-        new_status = Sale.Status.CONFIRMED
-        response_key = "sale.confirmed"
-    else:
-        new_status = Sale.Status.CANCELLED
-        response_key = "sale.cancelled"
+    phone_number = _extract_phone_number(sender)
+    profile = await _get_profile_by_phone(phone_number)
+    lang = profile.language if profile else DEFAULT_LANGUAGE
 
-    result = await _get_and_update_sale(original_message_sid, new_status)
+    bot_mistake = action == "mistake"
+    new_status = Sale.Status.CANCELLED
+    response_key = "sale.bot_mistake" if bot_mistake else "sale.cancelled"
+
+    result = await _get_and_update_sale(original_message_sid, new_status, bot_mistake=bot_mistake)
 
     if result:
         sale, original_whatsapp_message_id = result
         await _send_response(
-            sender, t(response_key), reply_to=original_whatsapp_message_id
+            sender, t(response_key, lang=lang), reply_to=original_whatsapp_message_id
         )
     else:
-        await _send_response(sender, t("sale.already_processed"))
+        await _send_response(sender, t("sale.already_processed", lang=lang))
 
 
-def handle_waitlist_confirmation(
+def handle_waitlist_button_action(
     action: str,
     sender: str,
     original_message_sid: str | None = None,
@@ -747,16 +806,16 @@ def handle_waitlist_confirmation(
     """
     try:
         close_old_connections()
-        run_async(_process_waitlist_confirmation_async(action, sender, original_message_sid))
+        run_async(_process_waitlist_button_action_async(action, sender, original_message_sid))
     except Exception as e:
         logger.exception(f"Error handling waitlist {action}: {e}")
 
 
 @db_sync_to_async
 def _get_and_update_waitlist_entry(original_message_sid: str | None, action: str) -> WaitlistEntry | None:
-    """Find the waitlist entry by confirmation message SID and update its status."""
+    """Find the waitlist entry by response message SID and update its status."""
     if not original_message_sid:
-        logger.warning("No original message SID provided for waitlist confirmation")
+        logger.warning("No original message SID provided for waitlist button action")
         return None
 
     try:
@@ -810,6 +869,7 @@ def _approve_waitlist_entry(entry: WaitlistEntry) -> tuple[Company, UserProfile]
         company=company,
         role=UserProfile.Role.OWNER,
         phone_number=entry.phone_number,
+        language=entry.language,
     )
 
     # Update waitlist entry
@@ -821,13 +881,13 @@ def _approve_waitlist_entry(entry: WaitlistEntry) -> tuple[Company, UserProfile]
     return company, profile
 
 
-async def _process_waitlist_confirmation_async(
+async def _process_waitlist_button_action_async(
     action: str,
     sender: str,
     original_message_sid: str | None = None,
 ) -> None:
     """
-    Async processing of waitlist confirmation.
+    Async processing of waitlist button action.
 
     Args:
         action: "approve" or "reject"
@@ -840,6 +900,8 @@ async def _process_waitlist_confirmation_async(
         await _send_response(sender, t("waitlist.already_processed"))
         return
 
+    lang = entry.language
+
     if action == "approve":
         # Run the full approval logic
         company, profile = await _approve_waitlist_entry(entry)
@@ -850,10 +912,10 @@ async def _process_waitlist_confirmation_async(
             t("waitlist_admin.approved", phone=entry.phone_number, company=company.name),
         )
 
-        # Send approval notification to the user
+        # Send approval notification to the user in their language
         await _send_response(
             entry.phone_number,
-            t("approval.welcome", company=company.name),
+            t("approval.welcome", lang=lang, company=company.name),
         )
     else:
         # Notify admin
@@ -862,5 +924,5 @@ async def _process_waitlist_confirmation_async(
             t("waitlist_admin.rejected", phone=entry.phone_number),
         )
 
-        # Notify the user
-        await _send_response(entry.phone_number, t("waitlist.rejected"))
+        # Notify the user in their language
+        await _send_response(entry.phone_number, t("waitlist.rejected", lang=lang))

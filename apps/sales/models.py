@@ -29,7 +29,11 @@ class Sale(models.Model):
     status = models.CharField(
         max_length=20,
         choices=Status.choices,
-        default=Status.PENDING,
+        default=Status.CONFIRMED,
+    )
+    flagged_as_bot_mistake = models.BooleanField(
+        default=False,
+        help_text="Flagged by user as a bot misinterpretation",
     )
 
     class Meta:

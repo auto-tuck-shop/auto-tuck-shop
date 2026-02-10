@@ -1,6 +1,12 @@
 {
+  "language": {
+    "prompt": "Welcome! Please choose your language:\n\nMwakadini! Sarudzai mutauro wenyu:",
+    "btn_en": "English",
+    "btn_sn": "Shona",
+    "confirmed": "Language set to English."
+  },
   "waitlist": {
-    "welcome": "Welcome! You've been added to our waitlist.\n\nAn administrator will review your request and approve your account shortly. We'll send you a message when you're approved.\n\nIn the meantime, if you'd like to provide a name for your shop, just send another message with it.",
+    "welcome": "You've been added to our waitlist.\n\nAn administrator will review your request and approve your account shortly. We'll send you a message when you're approved.\n\nIn the meantime, if you'd like to provide a name for your shop, just send another message with it.",
     "shop_name_noted": "Thanks! We've noted your shop name as \"{shop_name}\".\n\nYou're still on our waitlist. An administrator will review your request soon.",
     "still_pending": "Thanks for your message! You're still on our waitlist.\n\nAn administrator will review your request soon. We'll notify you when your account is approved.",
     "rejected": "Sorry, your request to join was not approved. Please contact support if you believe this is an error.",
@@ -36,10 +42,10 @@
     "total": "\nTotal: {total}",
     "missing_prices_note": "\nNote: Some items have no price set. Press \"Start Over\" and resend everything with prices included (e.g. \"2x Pear @ R5\").",
     "unmatched": "\n⚠ Unmatched: {items}",
-    "confirmed": "✓ Confirmed",
+    "bot_mistake": "Sorry about that! We'll take a look. Send everything again to redo it.",
     "cancelled": "✗ This sale has been thrown out. Send everything again to redo it.",
     "already_processed": "Sale already processed or not found",
-    "btn_confirm": "Confirm",
+    "btn_mistake": "Bot mistake?",
     "btn_cancel": "Start Over"
   }
 }

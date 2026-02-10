@@ -3,12 +3,12 @@
 from tests.conftest import audio_message_payload
 
 
-def test_audio_sale_gets_parsed_confirmation(
+def test_audio_sale_gets_parsed_receipt(
     send_webhook, poll_outbox, onboard_user, unique_phone, upload_mock_media, r2_audio
 ):
     """Onboarded user sends a voice note containing a sale description.
     The app should transcribe it, parse items, and respond with
-    confirmation buttons — not just 'any response'."""
+    receipt buttons (Bot mistake? + Start Over) — not just 'any response'."""
     onboard_user(unique_phone)
 
     audio_bytes, mime_type = r2_audio()
@@ -17,23 +17,17 @@ def test_audio_sale_gets_parsed_confirmation(
 
     send_webhook(audio_message_payload(unique_phone, media_id))
 
-    # --- Expect either a confirmation with buttons OR a "no products" message ---
+    # --- Expect either a receipt with buttons OR a "no products" message ---
     # Both are valid outcomes depending on the audio content.
     def _find_sale_response(outbox):
-        # Check for confirmation buttons (successful parse)
+        # Check for receipt buttons (successful parse)
         for b in outbox.get("buttons", []):
             button_ids = [btn.get("id", "") for btn in b.get("buttons", [])]
-            if any(bid.startswith("confirm_") for bid in button_ids):
-                return {"type": "confirmation", "data": b}
+            if any(bid.startswith("mistake_") for bid in button_ids):
+                return {"type": "receipt", "data": b}
 
         # Check for a text response (no_products, transcription_failed, etc.)
         # We look for messages beyond the welcome message
-        welcome_count = sum(
-            1 for m in outbox.get("messages", [])
-            if "yagamuchirwa" in m["text"].lower()
-            or "approved" in m["text"].lower()
-            or "welcome" in m["text"].lower()
-        )
         non_welcome = [
             m for m in outbox.get("messages", [])
             if "yagamuchirwa" not in m["text"].lower()
@@ -49,16 +43,18 @@ def test_audio_sale_gets_parsed_confirmation(
         f"Expected a response after audio for {unique_phone}. Outbox: {result}"
     )
 
-    if result["type"] == "confirmation":
+    if result["type"] == "receipt":
         btn_msg = result["data"]
-        # Confirmation should have confirm + cancel buttons
+        # Receipt should have mistake + cancel buttons
         button_ids = [b["id"] for b in btn_msg["buttons"]]
-        assert any(bid.startswith("confirm_") for bid in button_ids)
+        assert any(bid.startswith("mistake_") for bid in button_ids)
         assert any(bid.startswith("cancel_") for bid in button_ids)
+        # Should NOT have a confirm button
+        assert not any(bid.startswith("confirm_") for bid in button_ids)
 
         # Body should contain at least one item line (e.g. "2x ...")
         assert "x " in btn_msg["body"].lower() or "×" in btn_msg["body"], (
-            f"Confirmation body doesn't look like a parsed sale: {btn_msg['body']}"
+            f"Receipt body doesn't look like a parsed sale: {btn_msg['body']}"
         )
     else:
         # Text response — should be a known response, not an error stacktrace

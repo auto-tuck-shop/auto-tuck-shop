@@ -23,7 +23,7 @@ class WhatsAppMessage(models.Model):
 
     # Content
     content = models.TextField(blank=True, help_text="Message text content")
-    button_id = models.CharField(max_length=100, blank=True, help_text="Button ID for button responses (e.g., confirm_123)")
+    button_id = models.CharField(max_length=100, blank=True, help_text="Button ID for button responses (e.g., mistake_123, cancel_123)")
     whatsapp_message_id = models.CharField(max_length=100, blank=True, help_text="Meta API message ID")
     reply_to_message_id = models.CharField(max_length=100, blank=True, help_text="ID of message being replied to")
 
