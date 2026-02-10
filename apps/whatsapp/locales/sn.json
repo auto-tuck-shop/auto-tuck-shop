@@ -1,51 +1,52 @@
 {
-  "language": {
-    "prompt": "Welcome! Please choose your language:\n\nMwakadini! Sarudzai mutauro wenyu:",
-    "btn_en": "English",
-    "btn_sn": "Shona",
-    "confirmed": "Mutauro wasarudzwa: Shona."
-  },
-  "waitlist": {
-    "welcome": "Mwaiswa pawaitlist yedu.\n\nMumwe wedu achaverenga chikumbiro chako ogamuchira account yako munguva pfupi. Tichakutumira message kana wagamuchirwa.\n\nPanguva ino, kana uchida kutipa zita reshop yako, tumira imwe message naro.",
-    "shop_name_noted": "Thanks! We got your shop name \"{shop_name}\".\n\nYou're still waiting. We'll check your request soon.",
-    "still_pending": "Thanks for your message! You're still waiting.\n\nWe'll check your request soon. We'll send you a message when you're approved.",
-    "rejected": "Sorry, we can't approve your request. Please call us if this is wrong.",
-    "already_processed": "This request was already done"
-  },
-  "waitlist_admin": {
-    "new_request": "New person wants to join:\n\nPhone: {phone}\nMessage: {message}",
-    "approved": "✓ Approved {phone}\nShop: {company}",
-    "rejected": "✗ Rejected {phone}",
-    "btn_approve": "Confirm",
-    "btn_reject": "Cancel"
-  },
-  "approval": {
-    "welcome": "Mwakadini! Account yako yagamuchirwa paAuto Tuck Shop!\n\nShop: {company}\n\nUnokona kutumira voice note kana kunyora zvawatengesa nyamashi. Semuenzaniso:\n'sold 2 cokes R15 each, 1 chips R10'\n'3 waters R12 each, 2 chocolates R8 each'\n\nUnogona kuwedzera vanokubatsira nekutumira:\n'add assistant +27821234567'"
-  },
-  "error": {
-    "processing_failed": "Sorry, something went wrong. Please try again."
-  },
-  "audio": {
-    "download_failed": "Sorry, I couldn't get your voice note. Please try again or send a text message.",
-    "transcription_failed": "Sorry, I couldn't hear your voice note clearly. Please send a text message."
-  },
-  "assistant": {
-    "not_owner": "Sorry, only the shop owner can add helpers. Talk to the owner if you need help.",
-    "missing_phone": "I didn't see a phone number. Send the whole message again, like: 'add assistant +27821234567'",
-    "already_registered": "This phone number {phone} is already being used.",
-    "added": "Helper added!\n\nPhone: {phone}\nThey can now send sales for {company}."
-  },
-  "sale": {
-    "no_products": "I didn't see any items. Send everything you sold in one message, like: \"sold 2 cokes R15 each, 1 chips R10\"",
-    "item_with_price": "  {quantity}x {product} @ {price}",
-    "item_no_price": "  {quantity}x {product} (no price)",
-    "total": "\nTotal: {total}",
-    "missing_prices_note": "\nSome items don't have prices. Press \"Start Over\" and send again with prices, like \"2x Pear @ R5\".",
-    "unmatched": "\n⚠ Unmatched: {items}",
-    "bot_mistake": "Sorry about that! We'll take a look. Send everything again to redo it.",
-    "cancelled": "✗ This sale was thrown out. Send everything again to redo it.",
-    "already_processed": "This sale was already done",
-    "btn_mistake": "Bot mistake?",
-    "btn_cancel": "Start Over"
-  }
+    "language": {
+        "prompt": "Welcome! Please choose your language:\n\nMwakadini! Sarudzai mutauro wenyu:",
+        "btn_en": "English",
+        "btn_sn": "Shona",
+        "confirmed": "Mutauro wasarudzwa: Shona."
+    },
+    "waitlist": {
+        "welcome": "Mwaiswa pawaitlist yedu.\n\nMumwe wedu achaverenga chikumbiro chako ogamuchira account yako munguva pfupi. Tichakutumira message kana wagamuchirwa.\n\nPanguva ino, kana uchida kutipa zita reshop yako, tumira imwe message naro.",
+        "shop_name_noted": "Thanks! We got your shop name \"{shop_name}\".\n\nYou're still waiting. We'll check your request soon.",
+        "still_pending": "Thanks for your message! You're still waiting.\n\nWe'll check your request soon. We'll send you a message when you're approved.",
+        "rejected": "Sorry, we can't approve your request. Please call us if this is wrong.",
+        "already_processed": "This request was already done"
+    },
+    "waitlist_admin": {
+        "new_request": "New person wants to join:\n\nPhone: {phone}\nMessage: {message}",
+        "approved": "✓ Approved {phone}\nShop: {company}",
+        "rejected": "✗ Rejected {phone}",
+        "btn_approve": "Confirm",
+        "btn_reject": "Cancel"
+    },
+    "approval": {
+        "welcome": "Mwakadini! Account yako yagamuchirwa paAuto Tuck Shop!\n\nShop: {company}\n\nUnokona kutumira voice note kana kunyora zvawatengesa nyamashi. Semuenzaniso:\n'sold 2 cokes R15 each, 1 chips R10'\n'3 waters R12 each, 2 chocolates R8 each'\n\nUnogona kuwedzera vanokubatsira nekutumira:\n'add assistant +27821234567'"
+    },
+    "error": {
+        "processing_failed": "Sorry, something went wrong. Please try again."
+    },
+    "audio": {
+        "download_failed": "Sorry, I couldn't get your voice note. Please try again or send a text message.",
+        "transcription_failed": "Sorry, I couldn't hear your voice note clearly. Please send a text message."
+    },
+    "assistant": {
+        "not_owner": "Sorry, only the shop owner can add helpers. Talk to the owner if you need help.",
+        "missing_phone": "I didn't see a phone number. Send the whole message again, like: 'add assistant +27821234567'",
+        "already_registered": "This phone number {phone} is already being used.",
+        "added": "Helper added!\n\nPhone: {phone}\nThey can now send sales for {company}."
+    },
+    "sale": {
+        "no_products": "I didn't see any items. Send everything you sold in one message, like: \"sold 2 cokes R15 each, 1 chips R10\"",
+        "item_with_price": "  {quantity}x {product} @ {price}",
+        "item_no_price": "  {quantity}x {product} (no price)",
+        "total": "\nTotal: {total}",
+        "missing_prices_note": "\nSome items don't have prices. Press \"Start Over\" and send again with prices, like \"2x Pear @ R5\".",
+        "unmatched": "\n⚠ Unmatched: {items}",
+        "bot_mistake": "Sorry about that! We'll take a look. Send everything again to redo it.",
+        "cancelled": "✗ This sale was thrown out. Send everything again to redo it.",
+        "already_processed": "This sale was already done",
+        "btn_mistake": "Bot mistake?",
+        "btn_cancel": "Start Over",
+        "price_too_large": "One or more prices seem too large. Please double-check and resend, e.g. \"sold 2 cokes R15 each\""
+    }
 }

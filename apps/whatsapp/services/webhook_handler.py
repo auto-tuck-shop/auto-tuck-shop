@@ -19,7 +19,7 @@ from django.utils.text import slugify
 from apps.core.currencies import format_price
 from apps.core.models import Company, UserProfile, WaitlistEntry
 from apps.sales.models import Sale
-from apps.sales.services import create_sale_from_parsed_items
+from apps.sales.services import create_sale_from_parsed_items, PriceOverflowError
 from apps.whatsapp.services.message_parser import parse_message_unified
 from apps.whatsapp.services.whatsapp_client import get_whatsapp_client
 from services.openrouter.client import OpenRouterError
@@ -648,7 +648,13 @@ async def _process_sale_message_unified(
         company.currency = result.currency
 
     # Create sale
-    sale_result = await _create_sale(result.items, message_id, company, currency=result.currency)
+    try:
+        sale_result = await _create_sale(result.items, message_id, company, currency=result.currency)
+    except PriceOverflowError:
+        logger.warning("Price overflow for message %s from %s", message_id, sender)
+        response = t("sale.price_too_large", lang=lang)
+        await _send_response(sender, response, reply_to=message_id)
+        return
     sale = sale_result["sale"]
     unmatched = sale_result["unmatched_items"]
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from decimal import Decimal
 from typing import TYPE_CHECKING, TypedDict
 
@@ -10,6 +11,16 @@ from apps.sales.models import Sale, SaleItem
 
 if TYPE_CHECKING:
     from apps.core.models import Company
+
+logger = logging.getLogger(__name__)
+
+# DecimalField(max_digits=10, decimal_places=2) → max abs value is 10^8 - 0.01
+MAX_UNIT_PRICE = Decimal("99999999.99")
+
+
+class PriceOverflowError(ValueError):
+    """Raised when a parsed price exceeds the database field limit."""
+    pass
 
 
 class ParsedSaleItem(TypedDict):
@@ -48,6 +59,20 @@ def create_sale_from_parsed_items(
 
     Returns the created sale and a list of unmatched product names.
     """
+    # Validate prices before touching the database
+    for item in items:
+        price = item.get("unit_price")
+        if price is not None and abs(Decimal(str(price))) > MAX_UNIT_PRICE:
+            logger.warning(
+                "Price overflow rejected: product=%s, unit_price=%s",
+                item["product_name"],
+                price,
+            )
+            raise PriceOverflowError(
+                f"Price {price} for '{item['product_name']}' is too large. "
+                f"Maximum allowed is {MAX_UNIT_PRICE}."
+            )
+
     sale = Sale.objects.create(
         whatsapp_message_id=whatsapp_message_id,
         company=company,
