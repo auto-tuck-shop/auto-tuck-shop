@@ -23,4 +23,5 @@ urlpatterns = [
 if getattr(settings, "ENABLE_TEST_API", False):
     urlpatterns += [
         path("test/", include("apps.testing.urls")),
+        path("mock-whatsapp/", include("apps.mock_whatsapp.urls")),
     ]

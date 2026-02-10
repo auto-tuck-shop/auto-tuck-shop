@@ -7,7 +7,7 @@ USE_MOCK_WHATSAPP = True  # Mock WhatsApp only
 # Test API for staging integration tests
 ENABLE_TEST_API = True
 TEST_API_KEY = env("TEST_API_KEY", default="")
-INSTALLED_APPS += ["apps.testing"]  # noqa: F405
+INSTALLED_APPS += ["apps.testing", "apps.mock_whatsapp"]  # noqa: F405
 
 # R2 Configuration for staging
 # - Uploads go to staging bucket: auto-tuck-shop-staging

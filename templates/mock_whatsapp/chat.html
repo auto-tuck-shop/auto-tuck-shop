@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mock WhatsApp — Auto Tuck Shop</title>
+    <style>
+/* ── Reset & Body ──────────────────────────────────────── */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    background-color: #111b21;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+}
+
+/* ── Phone selector bar (top) ──────────────────────────── */
+.phone-selector {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    background: #202c33;
+    border-bottom: 1px solid #2a3942;
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    z-index: 2000;
+    justify-content: center;
+}
+.phone-selector label { color: #8696a0; font-size: 13px; }
+.phone-selector input, .phone-selector select {
+    background: #2a3942;
+    border: 1px solid #3b4a54;
+    border-radius: 6px;
+    color: #e9edef;
+    padding: 6px 10px;
+    font-size: 14px;
+    outline: none;
+}
+.phone-selector input:focus { border-color: #00a884; }
+.phone-selector button {
+    background: #00a884;
+    color: #111b21;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+.phone-selector button:hover { background: #00c49a; }
+.phone-selector .reset-btn {
+    background: #3b4a54;
+    color: #e9edef;
+}
+.phone-selector .reset-btn:hover { background: #4a5c6a; }
+
+/* ── Phone container ───────────────────────────────────── */
+.phone-container {
+    width: 390px;
+    height: calc(100vh - 60px);
+    max-height: 812px;
+    margin-top: 50px;
+    background-color: #0b141a;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+    border-radius: 12px;
+    border: 1px solid #2a3942;
+}
+
+/* ── Header ────────────────────────────────────────────── */
+.chat-header {
+    background-color: #202c33;
+    padding: 10px 6px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+}
+.avatar {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    background-color: #00a884;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: 500;
+    font-size: 18px;
+    flex-shrink: 0;
+    margin-left: 8px;
+}
+.contact-info { flex: 1; margin-left: 10px; }
+.contact-name { color: #e9edef; font-size: 16px; font-weight: 500; }
+.contact-status { color: #8696a0; font-size: 13px; }
+
+/* ── Messages Area ─────────────────────────────────────── */
+.messages-container {
+    flex: 1;
+    overflow-y: auto;
+    background-color: #0b141a;
+    background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23182229' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    padding: 8px 16px;
+}
+.messages {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding-bottom: 8px;
+}
+
+/* ── Message Bubbles ───────────────────────────────────── */
+.message { display: flex; flex-direction: column; max-width: 85%; position: relative; }
+.message.sent { align-self: flex-end; }
+.message.received { align-self: flex-start; }
+.bubble { padding: 6px 7px 8px 9px; border-radius: 7.5px; position: relative; word-wrap: break-word; }
+.message.sent .bubble { background-color: #005c4b; border-top-right-radius: 0; }
+.message.received .bubble { background-color: #202c33; border-top-left-radius: 0; }
+.message.sent .bubble::before {
+    content: ''; position: absolute; top: 0; right: -8px;
+    border-left: 8px solid #005c4b; border-top: 8px solid transparent;
+}
+.message.received .bubble::before {
+    content: ''; position: absolute; top: 0; left: -8px;
+    border-right: 8px solid #202c33; border-top: 8px solid transparent;
+}
+.message:not(.has-tail) .bubble::before { display: none; }
+.message:not(.has-tail).sent .bubble { border-top-right-radius: 7.5px; }
+.message:not(.has-tail).received .bubble { border-top-left-radius: 7.5px; }
+.message-text { color: #e9edef; font-size: 14.2px; line-height: 19px; white-space: pre-wrap; }
+.message-meta {
+    display: flex; align-items: center; justify-content: flex-end;
+    gap: 3px; margin-top: 2px; float: right; margin-left: 8px;
+    position: relative; top: 5px;
+}
+.timestamp { color: rgba(255,255,255,0.6); font-size: 11px; }
+.message.received .timestamp { color: #8696a0; }
+.read-receipts { display: flex; align-items: center; }
+.read-receipts svg { width: 16px; height: 16px; color: #53bdeb; }
+
+/* ── System Messages ───────────────────────────────────── */
+.message.system { align-self: center; max-width: none; }
+.message.system .bubble { background-color: #182229; border-radius: 7.5px; padding: 5px 12px; }
+.message.system .bubble::before { display: none; }
+.message.system .message-text { color: #8696a0; font-size: 12.5px; text-align: center; }
+
+/* ── Typing indicator ──────────────────────────────────── */
+.typing-indicator .bubble { padding: 12px 16px; }
+.typing-dots { display: flex; gap: 4px; align-items: center; }
+.typing-dots span {
+    width: 8px; height: 8px; background-color: #8696a0;
+    border-radius: 50%; animation: typing 1.4s infinite ease-in-out both;
+}
+.typing-dots span:nth-child(1) { animation-delay: -0.32s; }
+.typing-dots span:nth-child(2) { animation-delay: -0.16s; }
+@keyframes typing {
+    0%, 80%, 100% { transform: scale(0.6); opacity: 0.5; }
+    40% { transform: scale(1); opacity: 1; }
+}
+
+/* ── WhatsApp Reply Buttons ────────────────────────────── */
+.wa-reply-buttons { display: flex; gap: 8px; margin-top: 4px; flex-wrap: wrap; }
+.wa-reply-btn {
+    background-color: #202c33; border: 1px solid #2a3942; border-radius: 18px;
+    color: #00a884; font-size: 14px; padding: 8px 16px; cursor: pointer;
+    transition: background-color 0.2s;
+}
+.wa-reply-btn:hover { background-color: #2a3942; }
+
+/* ── Input Bar ─────────────────────────────────────────── */
+.input-bar {
+    background-color: #202c33;
+    padding: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+.input-btn {
+    background: none; border: none; color: #8696a0;
+    cursor: pointer; padding: 4px;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.message-input {
+    flex: 1; background-color: #2a3942; border: none; border-radius: 8px;
+    padding: 10px 12px; color: #e9edef; font-size: 15px; outline: none;
+}
+.message-input::placeholder { color: #8696a0; }
+.send-btn {
+    display: none; background-color: #00a884; border: none; border-radius: 50%;
+    width: 42px; height: 42px; cursor: pointer;
+    align-items: center; justify-content: center; flex-shrink: 0;
+}
+.send-btn svg { color: #111b21; width: 20px; height: 20px; }
+.input-bar.has-text .send-btn { display: flex; }
+
+/* ── Voice message bubble ──────────────────────────────── */
+.voice-bubble .voice-message {
+    display: flex; align-items: center; gap: 10px; min-width: 200px;
+}
+.voice-play-btn {
+    width: 34px; height: 34px; min-width: 34px; border-radius: 50%;
+    background-color: #00a884; border: none;
+    display: flex; align-items: center; justify-content: center; cursor: pointer;
+}
+.voice-play-btn svg { color: white; margin-left: 2px; }
+.voice-waveform { display: flex; align-items: center; gap: 2px; flex: 1; height: 24px; }
+.waveform-bar {
+    width: 3px; background-color: #8696a0; border-radius: 2px;
+}
+.message.sent .waveform-bar { background-color: rgba(255,255,255,0.5); }
+.voice-duration { color: #8696a0; font-size: 11px; min-width: 30px; }
+
+/* ── Scrollbar ─────────────────────────────────────────── */
+.messages-container::-webkit-scrollbar { width: 6px; }
+.messages-container::-webkit-scrollbar-track { background: transparent; }
+.messages-container::-webkit-scrollbar-thumb { background-color: #374045; border-radius: 3px; }
+
+/* ── Status toast ──────────────────────────────────────── */
+.status-toast {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    background: #005c4b; color: #e9edef; padding: 8px 20px;
+    border-radius: 8px; font-size: 13px; z-index: 3000;
+    opacity: 0; transition: opacity 0.3s;
+    pointer-events: none;
+}
+.status-toast.visible { opacity: 1; }
+    </style>
+</head>
+<body>
+
+<!-- Phone selector bar -->
+<div class="phone-selector">
+    <label for="phoneInput">Phone:</label>
+    <input type="text" id="phoneInput" placeholder="+27821234567" value="+15551234567">
+    <button id="startBtn">Start Chat</button>
+    <button id="resetBtn" class="reset-btn">Reset</button>
+    <span id="statusIndicator" style="color: #8696a0; font-size: 12px;"></span>
+</div>
+
+<!-- Chat container -->
+<div class="phone-container">
+    <header class="chat-header">
+        <div class="avatar">A</div>
+        <div class="contact-info">
+            <span class="contact-name">Auto Tuck Shop</span>
+            <span class="contact-status" id="connectionStatus">Select a phone number</span>
+        </div>
+    </header>
+
+    <main class="messages-container" id="messagesContainer">
+        <div class="messages" id="messages"></div>
+    </main>
+
+    <footer class="input-bar" id="inputBar">
+        <input type="text" class="message-input" id="messageInput" placeholder="Message" autocomplete="off" disabled>
+        <button class="send-btn" id="sendBtn">
+            <svg viewBox="0 0 24 24" width="20" height="20">
+                <path fill="currentColor" d="M1.101 21.757L23.8 12.028 1.101 2.3l.011 7.912 13.623 1.816-13.623 1.817-.011 7.912z"/>
+            </svg>
+        </button>
+    </footer>
+</div>
+
+<div class="status-toast" id="statusToast"></div>
+
+<script>
+const CSRF_TOKEN = '{{ csrf_token }}';
+
+class MockWhatsApp {
+    constructor() {
+        this.phone = '';
+        this.polling = false;
+        this.pollTimer = null;
+        this.seenMessages = 0;
+        this.seenButtons = 0;
+        this.waitingForReply = false;
+
+        this.$messages = document.getElementById('messages');
+        this.$container = document.getElementById('messagesContainer');
+        this.$input = document.getElementById('messageInput');
+        this.$inputBar = document.getElementById('inputBar');
+        this.$sendBtn = document.getElementById('sendBtn');
+        this.$phoneInput = document.getElementById('phoneInput');
+        this.$startBtn = document.getElementById('startBtn');
+        this.$resetBtn = document.getElementById('resetBtn');
+        this.$status = document.getElementById('connectionStatus');
+        this.$statusIndicator = document.getElementById('statusIndicator');
+
+        this._bind();
+    }
+
+    _bind() {
+        this.$startBtn.addEventListener('click', () => this.startChat());
+        this.$resetBtn.addEventListener('click', () => this.resetChat());
+        this.$phoneInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') this.startChat();
+        });
+        this.$input.addEventListener('input', () => {
+            this.$inputBar.classList.toggle('has-text', !!this.$input.value.trim());
+        });
+        this.$input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); this.sendText(); }
+        });
+        this.$sendBtn.addEventListener('click', () => this.sendText());
+    }
+
+    // ── Chat lifecycle ─────────────────────────────────
+
+    startChat() {
+        const phone = this.$phoneInput.value.trim();
+        if (!phone) return;
+        this.phone = phone;
+        this.$input.disabled = false;
+        this.$input.focus();
+        this.$status.textContent = `Connected as ${phone}`;
+        this.$messages.innerHTML = '';
+        this.seenMessages = 0;
+        this.seenButtons = 0;
+
+        // Add system message
+        this._addSystemMessage(`Chatting as ${phone}`);
+
+        this._startPolling();
+    }
+
+    resetChat() {
+        this._stopPolling();
+        this.$messages.innerHTML = '';
+        this.$input.disabled = true;
+        this.$input.value = '';
+        this.$inputBar.classList.remove('has-text');
+        this.$status.textContent = 'Select a phone number';
+        this.seenMessages = 0;
+        this.seenButtons = 0;
+        this.phone = '';
+    }
+
+    // ── Send messages ──────────────────────────────────
+
+    async sendText() {
+        const text = this.$input.value.trim();
+        if (!text || !this.phone) return;
+
+        this._addSentMessage(text);
+        this.$input.value = '';
+        this.$inputBar.classList.remove('has-text');
+
+        this.waitingForReply = true;
+        this._showTyping();
+
+        try {
+            const res = await fetch('/mock-whatsapp/send/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': CSRF_TOKEN,
+                },
+                body: JSON.stringify({ phone: this.phone, type: 'text', text }),
+            });
+            if (!res.ok) {
+                const err = await res.text();
+                this._toast(`Error: ${err}`);
+                this._hideTyping();
+                this.waitingForReply = false;
+            }
+        } catch (e) {
+            this._toast(`Network error: ${e.message}`);
+            this._hideTyping();
+            this.waitingForReply = false;
+        }
+    }
+
+    async sendButton(buttonId, originalMessageId) {
+        this.waitingForReply = true;
+        this._showTyping();
+
+        try {
+            await fetch('/mock-whatsapp/send/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': CSRF_TOKEN,
+                },
+                body: JSON.stringify({
+                    phone: this.phone,
+                    type: 'button',
+                    button_id: buttonId,
+                    original_message_id: originalMessageId || '',
+                }),
+            });
+        } catch (e) {
+            this._toast(`Network error: ${e.message}`);
+            this._hideTyping();
+            this.waitingForReply = false;
+        }
+    }
+
+    // ── Polling ────────────────────────────────────────
+
+    _startPolling() {
+        this._stopPolling();
+        this.polling = true;
+        this._poll();
+    }
+
+    _stopPolling() {
+        this.polling = false;
+        if (this.pollTimer) { clearTimeout(this.pollTimer); this.pollTimer = null; }
+    }
+
+    async _poll() {
+        if (!this.polling) return;
+
+        try {
+            const url = `/mock-whatsapp/outbox/?phone=${encodeURIComponent(this.phone)}&since_messages=${this.seenMessages}&since_buttons=${this.seenButtons}`;
+            const res = await fetch(url);
+            if (res.ok) {
+                const data = await res.json();
+                let gotNew = false;
+
+                // Process new text messages
+                for (const msg of data.messages) {
+                    this._addReceivedMessage(msg.text);
+                    gotNew = true;
+                }
+
+                // Process new button messages
+                for (const btn of data.buttons) {
+                    this._addReceivedButtonMessage(btn.body, btn.buttons, btn.message_id);
+                    gotNew = true;
+                }
+
+                if (gotNew) {
+                    this._hideTyping();
+                    this.waitingForReply = false;
+                }
+
+                this.seenMessages = data.total_messages;
+                this.seenButtons = data.total_buttons;
+            }
+        } catch (e) {
+            // silent
+        }
+
+        // Poll faster when waiting for a reply
+        const interval = this.waitingForReply ? 500 : 2000;
+        this.pollTimer = setTimeout(() => this._poll(), interval);
+    }
+
+    // ── DOM helpers ────────────────────────────────────
+
+    _addSentMessage(text) {
+        const el = document.createElement('div');
+        el.className = 'message sent has-tail';
+        el.innerHTML = `
+            <div class="bubble">
+                <span class="message-text">${this._esc(text)}</span>
+                <span class="message-meta">
+                    <span class="timestamp">${this._time()}</span>
+                    <span class="read-receipts">
+                        <svg viewBox="0 0 16 11" width="16" height="11">
+                            <path fill="currentColor" d="M11.071.653a.457.457 0 00-.304-.102.493.493 0 00-.381.178l-6.19 7.636-2.405-2.272a.463.463 0 00-.336-.146.47.47 0 00-.343.146l-.311.31a.445.445 0 00-.14.337c0 .136.047.25.14.343l2.996 2.996a.724.724 0 00.508.217.778.778 0 00.56-.217l6.817-8.347a.442.442 0 00.127-.326.457.457 0 00-.14-.343l-.298-.31zm3.583 0a.457.457 0 00-.304-.102.493.493 0 00-.381.178L7.778 8.365l-.637-.637-.31.31a.445.445 0 00-.14.337c0 .136.047.25.14.343l.927.927a.724.724 0 00.508.217.778.778 0 00.56-.217l6.817-8.347a.442.442 0 00.127-.326.457.457 0 00-.14-.343l-.298-.31z"/>
+                        </svg>
+                    </span>
+                </span>
+            </div>`;
+        this.$messages.appendChild(el);
+        this._scroll();
+    }
+
+    _addReceivedMessage(text) {
+        const el = document.createElement('div');
+        el.className = 'message received has-tail';
+        el.innerHTML = `
+            <div class="bubble">
+                <span class="message-text">${this._formatWA(text)}</span>
+                <span class="message-meta">
+                    <span class="timestamp">${this._time()}</span>
+                </span>
+            </div>`;
+        this.$messages.appendChild(el);
+        this._scroll();
+    }
+
+    _addReceivedButtonMessage(body, buttons, messageId) {
+        const el = document.createElement('div');
+        el.className = 'message received has-tail';
+
+        const buttonsHTML = buttons.map(btn => {
+            const title = btn.title || btn.reply?.title || '';
+            const id = btn.id || btn.reply?.id || '';
+            return `<button class="wa-reply-btn" data-button-id="${this._esc(id)}" data-message-id="${this._esc(messageId)}">${this._esc(title)}</button>`;
+        }).join('');
+
+        el.innerHTML = `
+            <div class="bubble">
+                <span class="message-text">${this._formatWA(body)}</span>
+                <span class="message-meta">
+                    <span class="timestamp">${this._time()}</span>
+                </span>
+            </div>
+            <div class="wa-reply-buttons">${buttonsHTML}</div>`;
+
+        // Wire up button clicks
+        el.querySelectorAll('.wa-reply-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const buttonId = btn.dataset.buttonId;
+                const msgId = btn.dataset.messageId;
+                // Visually show the button was clicked
+                this._addSentMessage(btn.textContent);
+                // Disable all buttons in this group
+                el.querySelectorAll('.wa-reply-btn').forEach(b => { b.disabled = true; b.style.opacity = '0.5'; });
+                this.sendButton(buttonId, msgId);
+            });
+        });
+
+        this.$messages.appendChild(el);
+        this._scroll();
+    }
+
+    _addSystemMessage(text) {
+        const el = document.createElement('div');
+        el.className = 'message system';
+        el.innerHTML = `<div class="bubble"><span class="message-text">${this._esc(text)}</span></div>`;
+        this.$messages.appendChild(el);
+        this._scroll();
+    }
+
+    _showTyping() {
+        if (document.getElementById('typingIndicator')) return;
+        const el = document.createElement('div');
+        el.className = 'message received has-tail typing-indicator';
+        el.id = 'typingIndicator';
+        el.innerHTML = `<div class="bubble"><div class="typing-dots"><span></span><span></span><span></span></div></div>`;
+        this.$messages.appendChild(el);
+        this._scroll();
+    }
+
+    _hideTyping() {
+        const el = document.getElementById('typingIndicator');
+        if (el) el.remove();
+    }
+
+    _toast(msg) {
+        const el = document.getElementById('statusToast');
+        el.textContent = msg;
+        el.classList.add('visible');
+        setTimeout(() => el.classList.remove('visible'), 3000);
+    }
+
+    _scroll() {
+        requestAnimationFrame(() => {
+            this.$container.scrollTop = this.$container.scrollHeight;
+        });
+    }
+
+    _time() {
+        return new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }).toLowerCase();
+    }
+
+    _esc(text) {
+        const d = document.createElement('div');
+        d.textContent = text;
+        return d.innerHTML;
+    }
+
+    _formatWA(text) {
+        let html = this._esc(text);
+        html = html.replace(/\*([^*]+)\*/g, '<strong>$1</strong>');
+        html = html.replace(/_([^_]+)_/g, '<em>$1</em>');
+        html = html.replace(/\n/g, '<br>');
+        return html;
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => { window.chat = new MockWhatsApp(); });
+</script>
+</body>
+</html>
