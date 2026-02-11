@@ -15,12 +15,16 @@ class MockWhatsAppClient:
     # Class-level storage for verification
     sent_messages = []
     sent_buttons = []
+    inbound_messages = []  # user-sent messages for chat history
+    timeline = []  # ordered list of {"type": "inbound"|"outbound"|"buttons", "index": N}
     media_downloads = {}  # media_id -> (audio_data, mime_type)
 
     async def send_message(self, to: str, text: str, reply_to: str | None = None) -> bool:
         """Mock send_message - logs but doesn't send."""
         logger.info(f"[MOCK] Would send WhatsApp message to {to}: {text[:50]}...")
+        idx = len(self.sent_messages)
         self.sent_messages.append({"to": to, "text": text, "reply_to": reply_to})
+        self.timeline.append({"type": "outbound", "index": idx, "phone": to})
         return True
 
     async def send_message_with_buttons(
@@ -29,6 +33,7 @@ class MockWhatsAppClient:
         """Mock send_message_with_buttons - logs but doesn't send."""
         message_id = f"wamid.mock_{uuid.uuid4().hex[:12]}"
         logger.info(f"[MOCK] Would send button message to {to}: {body[:50]}...")
+        idx = len(self.sent_buttons)
         self.sent_buttons.append({
             "to": to,
             "body": body,
@@ -36,6 +41,7 @@ class MockWhatsAppClient:
             "message_id": message_id,
             "reply_to": reply_to
         })
+        self.timeline.append({"type": "buttons", "index": idx, "phone": to})
         return message_id
 
     async def download_media(self, media_id: str) -> tuple[bytes, str] | None:
@@ -58,10 +64,19 @@ class MockWhatsAppClient:
         return (f"https://mock-cdn.example.com/{media_id}.ogg", "audio/ogg")
 
     @classmethod
+    def add_inbound(cls, phone: str, text: str):
+        """Record an inbound (user-sent) message for chat history."""
+        idx = len(cls.inbound_messages)
+        cls.inbound_messages.append({"from": phone, "text": text})
+        cls.timeline.append({"type": "inbound", "index": idx, "phone": phone})
+
+    @classmethod
     def reset(cls):
         """Reset all state."""
         cls.sent_messages = []
         cls.sent_buttons = []
+        cls.inbound_messages = []
+        cls.timeline = []
         cls.media_downloads = {}
 
     @classmethod
@@ -70,3 +85,4 @@ class MockWhatsAppClient:
         variants = {phone, phone.lstrip("+"), "+" + phone.lstrip("+")}
         cls.sent_messages = [m for m in cls.sent_messages if m["to"] not in variants]
         cls.sent_buttons = [b for b in cls.sent_buttons if b["to"] not in variants]
+        cls.inbound_messages = [m for m in cls.inbound_messages if m["from"] not in variants]

@@ -96,6 +96,14 @@ class MockSendView(View):
         else:
             return HttpResponse(f"Unknown message type: {msg_type}", status=400)
 
+        # Record inbound message for chat history
+        if msg_type == "text":
+            inbound_text = data.get("text", "").strip()
+            MockWhatsAppClient.add_inbound(phone, inbound_text)
+        elif msg_type == "button":
+            button_id = data.get("button_id", "")
+            MockWhatsAppClient.add_inbound(phone, f"[Button: {button_id}]")
+
         # Feed directly into the webhook handler
         view = WhatsAppWebhookView()
         view._handle_message(message)
@@ -121,6 +129,7 @@ class MockOutboxView(View):
         phone = request.GET.get("phone", "")
         since_messages = int(request.GET.get("since_messages", 0))
         since_buttons = int(request.GET.get("since_buttons", 0))
+        since_inbound = int(request.GET.get("since_inbound", 0))
 
         if not phone:
             return JsonResponse({"error": "phone is required"}, status=400)
@@ -130,16 +139,27 @@ class MockOutboxView(View):
 
         messages = [m for m in MockWhatsAppClient.sent_messages if m["to"] in variants]
         buttons = [b for b in MockWhatsAppClient.sent_buttons if b["to"] in variants]
+        inbound = [m for m in MockWhatsAppClient.inbound_messages if m["from"] in variants]
 
-        # Return only new messages since the given index
+        # Return only new items since the given index
         new_messages = messages[since_messages:]
         new_buttons = buttons[since_buttons:]
+        new_inbound = inbound[since_inbound:]
+
+        # Build timeline for this phone (for history loading)
+        phone_timeline = [
+            t for t in MockWhatsAppClient.timeline
+            if t["phone"] in variants
+        ]
 
         return JsonResponse({
             "messages": new_messages,
             "buttons": new_buttons,
+            "inbound": new_inbound,
+            "timeline": phone_timeline,
             "total_messages": len(messages),
             "total_buttons": len(buttons),
+            "total_inbound": len(inbound),
         })
 
 

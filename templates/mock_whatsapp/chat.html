@@ -272,6 +272,7 @@ class MockWhatsApp {
         this.pollTimer = null;
         this.seenMessages = 0;
         this.seenButtons = 0;
+        this.seenInbound = 0;
         this.waitingForReply = false;
 
         this.$messages = document.getElementById('messages');
@@ -303,7 +304,7 @@ class MockWhatsApp {
 
     // ── Chat lifecycle ─────────────────────────────────
 
-    startChat() {
+    async startChat() {
         const phone = this.$phoneInput.value.trim();
         if (!phone) return;
         this.phone = phone;
@@ -313,11 +314,44 @@ class MockWhatsApp {
         this.$messages.innerHTML = '';
         this.seenMessages = 0;
         this.seenButtons = 0;
+        this.seenInbound = 0;
 
         // Add system message
         this._addSystemMessage(`Chatting as ${phone}`);
 
+        // Load existing chat history
+        await this._loadHistory();
+
         this._startPolling();
+    }
+
+    async _loadHistory() {
+        try {
+            const url = `/mock-whatsapp/outbox/?phone=${encodeURIComponent(this.phone)}&since_messages=0&since_buttons=0&since_inbound=0`;
+            const res = await fetch(url);
+            if (!res.ok) return;
+            const data = await res.json();
+
+            // Use timeline to show messages in correct order
+            for (const entry of (data.timeline || [])) {
+                if (entry.type === 'inbound') {
+                    const m = data.inbound[entry.index];
+                    if (m) this._addSentMessage(m.text);
+                } else if (entry.type === 'outbound') {
+                    const m = data.messages[entry.index];
+                    if (m) this._addReceivedMessage(m.text);
+                } else if (entry.type === 'buttons') {
+                    const b = data.buttons[entry.index];
+                    if (b) this._addReceivedButtonMessage(b.body, b.buttons, b.message_id);
+                }
+            }
+
+            this.seenMessages = data.total_messages;
+            this.seenButtons = data.total_buttons;
+            this.seenInbound = data.total_inbound;
+        } catch (e) {
+            // silent
+        }
     }
 
     // ── Send messages ──────────────────────────────────
@@ -397,7 +431,7 @@ class MockWhatsApp {
         if (!this.polling) return;
 
         try {
-            const url = `/mock-whatsapp/outbox/?phone=${encodeURIComponent(this.phone)}&since_messages=${this.seenMessages}&since_buttons=${this.seenButtons}`;
+            const url = `/mock-whatsapp/outbox/?phone=${encodeURIComponent(this.phone)}&since_messages=${this.seenMessages}&since_buttons=${this.seenButtons}&since_inbound=${this.seenInbound}`;
             const res = await fetch(url);
             if (res.ok) {
                 const data = await res.json();
@@ -422,6 +456,7 @@ class MockWhatsApp {
 
                 this.seenMessages = data.total_messages;
                 this.seenButtons = data.total_buttons;
+                this.seenInbound = data.total_inbound;
             }
         } catch (e) {
             // silent
