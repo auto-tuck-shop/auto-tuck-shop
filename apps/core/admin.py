@@ -130,10 +130,19 @@ class WaitlistEntryAdmin(admin.ModelAdmin):
 
     def _approve_entry(self, request, entry):
         """Run the full approval logic for a single entry."""
-        from apps.core.services import approve_waitlist_entry
+        from apps.core.services import approve_waitlist_entry, PhoneNumberAlreadyRegisteredError
         from apps.whatsapp.services.whatsapp_client import get_whatsapp_client
 
-        company, profile = approve_waitlist_entry(entry, approved_by=request.user)
+        try:
+            company, profile = approve_waitlist_entry(entry, approved_by=request.user)
+        except PhoneNumberAlreadyRegisteredError:
+            entry.status = WaitlistEntry.Status.PENDING  # revert status change
+            self.message_user(
+                request,
+                f"Cannot approve {entry.phone_number}: a user with this phone number already exists.",
+                messages.ERROR,
+            )
+            return
 
         # Send approval notification via WhatsApp after the transaction commits
         phone = entry.phone_number

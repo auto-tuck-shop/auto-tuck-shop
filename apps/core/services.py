@@ -5,10 +5,16 @@ the Django admin (sync) and the webhook handler (via sync_to_async).
 """
 
 from django.contrib.auth.models import User
+from django.db import IntegrityError
 from django.utils import timezone
 from django.utils.text import slugify
 
 from apps.core.models import Company, UserProfile, WaitlistEntry
+
+
+class PhoneNumberAlreadyRegisteredError(ValueError):
+    """Raised when trying to approve a waitlist entry for a phone number that already has a profile."""
+    pass
 
 
 def approve_waitlist_entry(
@@ -27,6 +33,12 @@ def approve_waitlist_entry(
     Returns:
         Tuple of (company, user_profile).
     """
+    # Guard: reject if a profile with this phone number already exists
+    if UserProfile.objects.filter(phone_number=entry.phone_number).exists():
+        raise PhoneNumberAlreadyRegisteredError(
+            f"A user profile with phone number {entry.phone_number} already exists."
+        )
+
     # Create company name from entry or generate fallback
     company_name = entry.company_name.strip() if entry.company_name else "Unnamed Shop"
 
