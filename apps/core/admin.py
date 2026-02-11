@@ -4,9 +4,6 @@ from django.contrib import admin, messages
 from django.db import close_old_connections, transaction
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.models import User
-from django.utils import timezone
-from django.utils.text import slugify
-
 from apps.core.models import Company, UserProfile, WaitlistEntry
 
 
@@ -133,56 +130,23 @@ class WaitlistEntryAdmin(admin.ModelAdmin):
 
     def _approve_entry(self, request, entry):
         """Run the full approval logic for a single entry."""
+        from apps.core.services import approve_waitlist_entry
         from apps.whatsapp.services.whatsapp_client import get_whatsapp_client
 
-        # Create company name from entry or generate fallback
-        company_name = entry.company_name.strip() if entry.company_name else "Unnamed Shop"
-
-        # Generate unique slug
-        base_slug = slugify(company_name)
-        slug = base_slug
-        counter = 1
-        while Company.objects.filter(slug=slug).exists():
-            slug = f"{base_slug}-{counter}"
-            counter += 1
-
-        # Create company
-        company = Company.objects.create(name=company_name, slug=slug)
-
-        # Create user (username from phone, removing non-alphanumeric)
-        username = "".join(c for c in entry.phone_number if c.isalnum())
-        user = User.objects.create_user(username=username)
-
-        # Create user profile as owner
-        profile = UserProfile.objects.create(
-            user=user,
-            company=company,
-            role=UserProfile.Role.OWNER,
-            phone_number=entry.phone_number,
-        )
-
-        # Update waitlist entry
-        entry.approved_at = timezone.now()
-        entry.approved_by = request.user
-        entry.company = company
-        entry.user_profile = profile
-        entry.save()
+        company, profile = approve_waitlist_entry(entry, approved_by=request.user)
 
         # Send approval notification via WhatsApp after the transaction commits
         phone = entry.phone_number
+        lang = entry.language
+        company_name = company.name
 
         def send_welcome():
+            from apps.whatsapp.services.webhook_handler import t
             client = get_whatsapp_client()
             close_old_connections()
             asyncio.run(client.send_message(
                 phone,
-                f"Welcome to Auto Tuck Shop! Your account has been approved.\n\n"
-                f"Company: {company_name}\n\n"
-                f"You can now send sales messages to track your sales. For example:\n"
-                f"'sold 2 cokes R15 each, 1 chips R10'\n"
-                f"'3 waters R12 each, 2 chocolates R8 each'\n\n"
-                f"As an owner, you can also add assistants by sending messages like:\n"
-                f"'add assistant +27821234567'"
+                t("approval.welcome", lang=lang, company=company_name),
             ))
 
         transaction.on_commit(send_welcome)

@@ -14,8 +14,6 @@ import django.db.utils
 from django.db import close_old_connections, connections
 import functools
 from django.utils import timezone
-from django.utils.text import slugify
-
 from apps.core.currencies import format_price
 from apps.core.models import Company, UserProfile, WaitlistEntry
 from apps.sales.models import Sale
@@ -280,6 +278,14 @@ def handle_language_button_action(
 async def _process_language_button_async(lang: str, entry_id: int, sender: str) -> None:
     """Save language choice and send confirmation + waitlist welcome."""
     await _update_waitlist_language(entry_id, lang)
+
+    # Also update UserProfile if user was already approved (race condition:
+    # admin may approve before user clicks the language button).
+    phone_number = _extract_phone_number(sender)
+    profile = await _get_profile_by_phone(phone_number)
+    if profile:
+        await _update_profile_language(profile.id, lang)
+
     await _send_response(sender, t("language.confirmed", lang=lang))
     await _send_response(sender, t("waitlist.welcome", lang=lang))
 
@@ -288,6 +294,12 @@ async def _process_language_button_async(lang: str, entry_id: int, sender: str) 
 def _update_waitlist_language(entry_id: int, language: str) -> None:
     """Update the language on a waitlist entry."""
     WaitlistEntry.objects.filter(id=entry_id).update(language=language)
+
+
+@db_sync_to_async
+def _update_profile_language(profile_id: int, language: str) -> None:
+    """Update the language on a user profile."""
+    UserProfile.objects.filter(id=profile_id).update(language=language)
 
 
 @db_sync_to_async
@@ -687,8 +699,8 @@ async def _process_sale_message_unified(
 
     # Send with "Bot mistake?" and "Start Over" buttons
     buttons = [
-        {"id": f"mistake_{sale.id}", "title": t("sale.btn_mistake", lang=lang)},
-        {"id": f"cancel_{sale.id}", "title": t("sale.btn_cancel", lang=lang)},
+        {"id": f"confirm_{sale.id}", "title": t("sale.btn_confirm", lang=lang)},
+        {"id": f"fix_{sale.id}", "title": t("sale.btn_fix", lang=lang)},
     ]
     message_sid = await _send_response_with_buttons(
         sender, "\n".join(response_lines), buttons, reply_to=message_id
@@ -725,10 +737,10 @@ def handle_sale_button_action(
     original_message_sid: str | None = None,
 ) -> None:
     """
-    Handle a sale button action (mistake/cancel) from WhatsApp button click.
+    Handle a sale button action (confirm/fix) from WhatsApp button click.
 
     Args:
-        action: "mistake" or "cancel"
+        action: "confirm" or "fix"
         sender: The sender's phone number (e.g., whatsapp:+1234567890)
         original_message_sid: The SID of the message being replied to
     """
@@ -737,6 +749,28 @@ def handle_sale_button_action(
         run_async(_process_sale_button_action_async(action, sender, original_message_sid))
     except Exception as e:
         logger.exception(f"Error handling sale {action}: {e}")
+
+
+@db_sync_to_async
+def _get_confirmed_sale(original_message_sid: str | None) -> tuple[Sale, str | None] | None:
+    """Find a confirmed sale by response message SID (read-only, no status change).
+
+    Returns:
+        A tuple of (sale, whatsapp_message_id) if found, None otherwise.
+    """
+    if not original_message_sid:
+        logger.warning("No original message SID provided")
+        return None
+
+    try:
+        sale = Sale.objects.get(
+            confirmation_message_sid=original_message_sid,
+            status=Sale.Status.CONFIRMED,
+        )
+        return sale, sale.whatsapp_message_id
+    except Sale.DoesNotExist:
+        logger.warning(f"No confirmed sale found for message SID: {original_message_sid}")
+        return None
 
 
 @db_sync_to_async
@@ -774,7 +808,7 @@ async def _process_sale_button_action_async(
     Async processing of sale button action.
 
     Args:
-        action: "mistake" or "cancel"
+        action: "confirm" or "fix"
         sender: The sender's phone number
         original_message_sid: The SID of the message being replied to
     """
@@ -782,19 +816,26 @@ async def _process_sale_button_action_async(
     profile = await _get_profile_by_phone(phone_number)
     lang = profile.language if profile else DEFAULT_LANGUAGE
 
-    bot_mistake = action == "mistake"
-    new_status = Sale.Status.CANCELLED
-    response_key = "sale.bot_mistake" if bot_mistake else "sale.cancelled"
-
-    result = await _get_and_update_sale(original_message_sid, new_status, bot_mistake=bot_mistake)
-
-    if result:
-        sale, original_whatsapp_message_id = result
-        await _send_response(
-            sender, t(response_key, lang=lang), reply_to=original_whatsapp_message_id
-        )
+    if action == "confirm":
+        # Sale is already confirmed, just acknowledge
+        result = await _get_confirmed_sale(original_message_sid)
+        if result:
+            sale, original_whatsapp_message_id = result
+            await _send_response(
+                sender, t("sale.confirmed_ok", lang=lang), reply_to=original_whatsapp_message_id
+            )
+        else:
+            await _send_response(sender, t("sale.already_processed", lang=lang))
     else:
-        await _send_response(sender, t("sale.already_processed", lang=lang))
+        # "fix" — cancel the sale and flag as bot mistake
+        result = await _get_and_update_sale(original_message_sid, Sale.Status.CANCELLED, bot_mistake=True)
+        if result:
+            sale, original_whatsapp_message_id = result
+            await _send_response(
+                sender, t("sale.bot_mistake", lang=lang), reply_to=original_whatsapp_message_id
+            )
+        else:
+            await _send_response(sender, t("sale.already_processed", lang=lang))
 
 
 def handle_waitlist_button_action(
@@ -842,49 +883,9 @@ def _get_and_update_waitlist_entry(original_message_sid: str | None, action: str
 
 @db_sync_to_async
 def _approve_waitlist_entry(entry: WaitlistEntry) -> tuple[Company, UserProfile]:
-    """Run the full approval logic for a waitlist entry."""
-    # Create company name from entry or generate fallback
-    company_name = entry.company_name.strip() if entry.company_name else "Unnamed Shop"
-
-    # Generate unique slug
-    base_slug = slugify(company_name)
-    slug = base_slug or "shop"
-    counter = 1
-    while Company.objects.filter(slug=slug).exists():
-        slug = f"{base_slug or 'shop'}-{counter}"
-        counter += 1
-
-    # Create company
-    company = Company.objects.create(name=company_name, slug=slug)
-
-    # Create user (username from phone, removing non-alphanumeric)
-    username = "".join(c for c in entry.phone_number if c.isalnum())
-
-    # Ensure unique username
-    base_username = username
-    counter = 1
-    while User.objects.filter(username=username).exists():
-        username = f"{base_username}_{counter}"
-        counter += 1
-
-    user = User.objects.create_user(username=username)
-
-    # Create user profile as owner
-    profile = UserProfile.objects.create(
-        user=user,
-        company=company,
-        role=UserProfile.Role.OWNER,
-        phone_number=entry.phone_number,
-        language=entry.language,
-    )
-
-    # Update waitlist entry
-    entry.approved_at = timezone.now()
-    entry.company = company
-    entry.user_profile = profile
-    entry.save(update_fields=["approved_at", "company", "user_profile"])
-
-    return company, profile
+    """Run the full approval logic for a waitlist entry (async wrapper)."""
+    from apps.core.services import approve_waitlist_entry
+    return approve_waitlist_entry(entry)
 
 
 async def _process_waitlist_button_action_async(
