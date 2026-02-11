@@ -16,7 +16,7 @@ def test_text_sale_sends_receipt(send_webhook, poll_outbox, onboard_user, unique
     def _find_receipt(outbox):
         for b in outbox.get("buttons", []):
             button_ids = [btn.get("id", "") for btn in b.get("buttons", [])]
-            if any("mistake" in bid for bid in button_ids):
+            if any(bid.startswith("confirm_") for bid in button_ids):
                 return b
         return None
 
@@ -38,19 +38,19 @@ def test_text_sale_sends_receipt(send_webhook, poll_outbox, onboard_user, unique
 
     # --- Button structure ---
     buttons = btn_msg["buttons"]
-    assert len(buttons) == 2, f"Expected 2 buttons (mistake + cancel), got {len(buttons)}"
+    assert len(buttons) == 2, f"Expected 2 buttons (confirm + fix), got {len(buttons)}"
 
     button_ids = {b["id"] for b in buttons}
-    mistake_ids = [bid for bid in button_ids if bid.startswith("mistake_")]
-    cancel_ids = [bid for bid in button_ids if bid.startswith("cancel_")]
-    assert len(mistake_ids) == 1, f"Expected one mistake_<id> button, got {button_ids}"
-    assert len(cancel_ids) == 1, f"Expected one cancel_<id> button, got {button_ids}"
+    confirm_ids = [bid for bid in button_ids if bid.startswith("confirm_")]
+    fix_ids = [bid for bid in button_ids if bid.startswith("fix_")]
+    assert len(confirm_ids) == 1, f"Expected one confirm_<id> button, got {button_ids}"
+    assert len(fix_ids) == 1, f"Expected one fix_<id> button, got {button_ids}"
 
     # Both buttons should reference the same sale ID
-    mistake_sale_id = mistake_ids[0].split("_", 1)[1]
-    cancel_sale_id = cancel_ids[0].split("_", 1)[1]
-    assert mistake_sale_id == cancel_sale_id, (
-        f"Mistake and cancel reference different sales: {mistake_sale_id} vs {cancel_sale_id}"
+    confirm_sale_id = confirm_ids[0].split("_", 1)[1]
+    fix_sale_id = fix_ids[0].split("_", 1)[1]
+    assert confirm_sale_id == fix_sale_id, (
+        f"Confirm and fix reference different sales: {confirm_sale_id} vs {fix_sale_id}"
     )
 
     # --- Reply threading ---

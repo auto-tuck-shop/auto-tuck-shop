@@ -261,9 +261,9 @@ class WhatsAppWebhookView(View):
         )
 
         # Parse button ID to determine action type
-        # Format: "mistake_{sale_id}", "cancel_{sale_id}", "waitlist_approve_{entry_id}", "waitlist_reject_{entry_id}"
-        if button_id.startswith("mistake_") or button_id.startswith("cancel_"):
-            action = "mistake" if button_id.startswith("mistake_") else "cancel"
+        # Format: "confirm_{sale_id}", "fix_{sale_id}", "waitlist_approve_{entry_id}", "waitlist_reject_{entry_id}"
+        if button_id.startswith("confirm_") or button_id.startswith("fix_"):
+            action = "confirm" if button_id.startswith("confirm_") else "fix"
             handle_sale_button_action(
                 action=action,
                 sender=sender,

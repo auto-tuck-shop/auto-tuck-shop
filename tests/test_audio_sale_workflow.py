@@ -8,7 +8,7 @@ def test_audio_sale_gets_parsed_receipt(
 ):
     """Onboarded user sends a voice note containing a sale description.
     The app should transcribe it, parse items, and respond with
-    receipt buttons (Bot mistake? + Start Over) — not just 'any response'."""
+    receipt buttons (Looks good + Fix mistake) — not just 'any response'."""
     onboard_user(unique_phone)
 
     audio_bytes, mime_type = r2_audio()
@@ -23,7 +23,7 @@ def test_audio_sale_gets_parsed_receipt(
         # Check for receipt buttons (successful parse)
         for b in outbox.get("buttons", []):
             button_ids = [btn.get("id", "") for btn in b.get("buttons", [])]
-            if any(bid.startswith("mistake_") for bid in button_ids):
+            if any(bid.startswith("confirm_") for bid in button_ids):
                 return {"type": "receipt", "data": b}
 
         # Check for a text response (no_products, transcription_failed, etc.)
@@ -45,12 +45,10 @@ def test_audio_sale_gets_parsed_receipt(
 
     if result["type"] == "receipt":
         btn_msg = result["data"]
-        # Receipt should have mistake + cancel buttons
+        # Receipt should have confirm + fix buttons
         button_ids = [b["id"] for b in btn_msg["buttons"]]
-        assert any(bid.startswith("mistake_") for bid in button_ids)
-        assert any(bid.startswith("cancel_") for bid in button_ids)
-        # Should NOT have a confirm button
-        assert not any(bid.startswith("confirm_") for bid in button_ids)
+        assert any(bid.startswith("confirm_") for bid in button_ids)
+        assert any(bid.startswith("fix_") for bid in button_ids)
 
         # Body should contain at least one item line (e.g. "2x ...")
         assert "x " in btn_msg["body"].lower() or "×" in btn_msg["body"], (

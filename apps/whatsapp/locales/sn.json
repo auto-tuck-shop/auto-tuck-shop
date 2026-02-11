@@ -40,13 +40,14 @@
         "item_with_price": "  {quantity}x {product} @ {price}",
         "item_no_price": "  {quantity}x {product} (no price)",
         "total": "\nTotal: {total}",
-        "missing_prices_note": "\nSome items don't have prices. Press \"Start Over\" and send again with prices, like \"2x Pear @ R5\".",
+        "missing_prices_note": "\nSome items don't have prices. Press \"Paita Mistake\" and send again with prices, like \"2x Pear @ R5\".",
         "unmatched": "\n⚠ Unmatched: {items}",
-        "bot_mistake": "Sorry about that! We'll take a look. Send everything again to redo it.",
+        "bot_mistake": "Sale thrown away. Send your items again to redo.",
+        "confirmed_ok": "✓ Zvaitwa, sale yarecordwa!",
         "cancelled": "✗ This sale was thrown out. Send everything again to redo it.",
         "already_processed": "This sale was already done",
-        "btn_mistake": "Bot mistake?",
-        "btn_cancel": "Start Over",
+        "btn_confirm": "Ndizvo",
+        "btn_fix": "Paita Mistake",
         "price_too_large": "One or more prices seem too large. Please double-check and resend, e.g. \"sold 2 cokes R15 each\""
     }
 }

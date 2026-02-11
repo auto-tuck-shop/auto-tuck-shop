@@ -40,13 +40,14 @@
         "item_with_price": "  {quantity}x {product} @ {price}",
         "item_no_price": "  {quantity}x {product} (no price)",
         "total": "\nTotal: {total}",
-        "missing_prices_note": "\nNote: Some items have no price set. Press \"Start Over\" and resend everything with prices included (e.g. \"2x Pear @ R5\").",
+        "missing_prices_note": "\nNote: Some items have no price set. Press \"Fix mistake\" and resend everything with prices included (e.g. \"2x Pear @ R5\").",
         "unmatched": "\n⚠ Unmatched: {items}",
-        "bot_mistake": "Sorry about that! We'll take a look. Send everything again to redo it.",
+        "bot_mistake": "Sale thrown away. Send your items again to redo.",
+        "confirmed_ok": "✓ Great, sale recorded!",
         "cancelled": "✗ This sale has been thrown out. Send everything again to redo it.",
         "already_processed": "Sale already processed or not found",
-        "btn_mistake": "Bot mistake?",
-        "btn_cancel": "Start Over",
+        "btn_confirm": "Looks good",
+        "btn_fix": "Fix mistake",
         "price_too_large": "One or more prices seem too large. Please double-check and resend, e.g. \"sold 2 cokes R15 each\""
     }
 }
