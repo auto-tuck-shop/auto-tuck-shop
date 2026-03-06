@@ -154,6 +154,9 @@ META_WHATSAPP_PHONE_NUMBER_ID = env("META_WHATSAPP_PHONE_NUMBER_ID", default="")
 META_WHATSAPP_VERIFY_TOKEN = env("META_WHATSAPP_VERIFY_TOKEN", default="")  # Token for webhook verification
 META_WHATSAPP_APP_SECRET = env("META_WHATSAPP_APP_SECRET", default="")  # For signature verification
 
+# Admin Configuration
+ADMIN_PHONE_NUMBER = env("ADMIN_PHONE_NUMBER", default=None)  # Receives waitlist approval notifications
+
 # OpenRouter Configuration
 OPENROUTER_API_KEY = env("OPENROUTER_API_KEY", default="")
 OPENROUTER_MODEL = env("OPENROUTER_MODEL", default="google/gemini-2.5-flash-lite")

@@ -1,6 +1,18 @@
-# Auto Tuck Shop
+# 🏪 Auto Tuck Shop
 
-WhatsApp-based sales tracking for small shops. Shop owners send text or voice messages describing what they sold, and the app parses items, prices, and quantities into structured sales records.
+AI-powered WhatsApp assistant for tuckshops in Zimbabwe. Shop owners text or voice message what they sold (like "2 cokes $1 each"), and the bot automatically records sales, tracks inventory, and provides insights.
+
+**New here?** → Check out **[ONBOARDING.md](ONBOARDING.md)** for a complete setup guide.
+
+## Tech Stack
+
+- **Django** - Backend framework
+- **WhatsApp Business API** (Meta) - Messaging platform
+- **OpenRouter** (Gemini) - AI parsing and conversation
+- **ElevenLabs** - Voice-to-text
+- **Cloudflare R2** - Media storage
+- **Fly.io** - Hosting
+- **PostgreSQL** - Database
 
 ## Development
 
