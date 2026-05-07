@@ -2,6 +2,11 @@
 
 AI-powered WhatsApp assistant for tuckshops in Zimbabwe. Shop owners text or voice message what they sold (like "2 cokes $1 each"), and the bot automatically records sales, tracks inventory, and provides insights.
 
+**Planning or contributing?** Start with **[docs/README.md](docs/README.md)**.
+The docs define the current pilot phase, system architecture, operations, and
+deferred improvement backlog so work stays focused on shipping the first live
+pilot.
+
 **New here?** → Check out **[ONBOARDING.md](ONBOARDING.md)** for a complete setup guide.
 
 ## Tech Stack
