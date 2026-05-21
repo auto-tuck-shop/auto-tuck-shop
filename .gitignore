@@ -52,3 +52,4 @@ Thumbs.db
 
 # Staging test env
 .env.staging
+sqlite_data.json
