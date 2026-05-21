@@ -1,0 +1,246 @@
+@startuml Auto_Tuck_Shop_Database_Schema
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam EntityBackgroundColor #E8F4F8
+skinparam EntityBorderColor #2E7D9A
+skinparam AttributeFontColor #000000
+
+entity "company" as COMPANY {
+    *id : int <<PK>>
+    --
+    name : string
+    slug : string
+    currency : string[3]
+    active : bool
+    created_at : datetime
+}
+
+entity "auth_user" as AUTH_USER {
+    *id : int <<PK>>
+    --
+    username : string
+    email : string
+    password : string
+    is_superuser : bool
+}
+
+entity "core_userprofile" as USERPROFILE {
+    *id : int <<PK>>
+    --
+    user_id : int <<FK>>
+    company_id : int <<FK>>
+    role : enum(owner, assistant)
+    phone_number : string
+    language : enum(en, sn)
+}
+
+entity "core_waitlistentry" as WAITLIST {
+    *id : int <<PK>>
+    --
+    phone_number : string
+    first_message : text
+    company_name : string
+    status : enum(pending, approved, rejected)
+    language : enum(en, sn)
+    company_id : int <<FK>>
+    user_profile_id : int <<FK>>
+    created_at : datetime
+    approved_at : datetime
+}
+
+entity "catalog_category" as CATEGORY {
+    *id : int <<PK>>
+    --
+    company_id : int <<FK>>
+    name : string
+}
+
+entity "catalog_product" as PRODUCT {
+    *id : int <<PK>>
+    --
+    company_id : int <<FK>>
+    category_id : int <<FK>>
+    name : string
+    sku : string
+    cost : decimal
+    active : bool
+}
+
+entity "catalog_productprice" as PRODUCTPRICE {
+    *id : int <<PK>>
+    --
+    product_id : int <<FK>>
+    price : decimal
+    currency : string[3]
+    effective_from : datetime
+}
+
+entity "inventory_inventoryadjustment" as INVENTORYADJ {
+    *id : int <<PK>>
+    --
+    product_id : int <<FK>>
+    quantity_delta : int
+    reason : enum(purchase, return, damage, correction, initial)
+    created_at : datetime
+}
+
+entity "sales_sale" as SALE {
+    *id : int <<PK>>
+    --
+    company_id : int <<FK>>
+    sale_timestamp : datetime
+    total_amount : decimal [NULL]
+    status : enum(pending, confirmed, cancelled)
+    flagged_as_bot_mistake : bool
+    whatsapp_message_id : string
+    confirmation_message_sid : string
+}
+
+entity "sales_saleitem" as SALEITEM {
+    *id : int <<PK>>
+    --
+    sale_id : int <<FK>>
+    product_id : int <<FK>>
+    quantity : int
+    unit_price : decimal [NULL]
+    currency : string[3] [NULL]
+}
+
+entity "sales_draftsale" as DRAFTSALE {
+    *id : int <<PK>>
+    --
+    company_id : int <<FK>>
+    phone_number : string
+    currency : string[3]
+    active : bool
+    created_at : datetime
+    updated_at : datetime
+}
+
+entity "sales_draftsaleitem" as DRAFTSALEITEM {
+    *id : int <<PK>>
+    --
+    draft_sale_id : int <<FK>>
+    product_name : string
+    quantity : int
+    unit_price : decimal [NULL]
+}
+
+entity "sales_changerecord" as CHANGERECORD {
+    *id : int <<PK>>
+    --
+    sale_id : int <<FK>>
+    company_id : int <<FK>>
+    phone_number : string
+    customer_name : string
+    amount : decimal
+    currency : string[3]
+    recorded_at : datetime
+}
+
+entity "sales_debtorrecord" as DEBTORRECORD {
+    *id : int <<PK>>
+    --
+    sale_id : int <<FK>>
+    company_id : int <<FK>>
+    phone_number : string
+    debtor_name : string
+    amount : decimal
+    currency : string[3]
+    recorded_at : datetime
+}
+
+entity "sales_customercreditbalance" as CREDITBALANCE {
+    *id : int <<PK>>
+    --
+    company_id : int <<FK>>
+    phone_number : string
+    currency : string[3]
+    balance : decimal
+    updated_at : datetime
+    --
+    unique(company, phone_number, currency)
+}
+
+entity "sales_customercredittransaction" as CREDITTRANSACTION {
+    *id : int <<PK>>
+    --
+    company_id : int <<FK>>
+    sale_id : int <<FK>>
+    phone_number : string
+    kind : enum(credit_added, credit_used)
+    amount : decimal
+    currency : string[3]
+    note : string
+    created_at : datetime
+}
+
+entity "whatsapp_whatsappmessage" as WHATSAPPMSG {
+    *id : int <<PK>>
+    --
+    direction : enum(inbound, outbound)
+    message_type : enum(text, audio, interactive_button, button_response)
+    phone_number : string
+    content : text
+    whatsapp_message_id : string [UNIQUE, NULL]
+    media_id : string
+    transcribed_text : text
+    button_id : string
+    timestamp : datetime
+    company_id : int <<FK>>
+    user_profile_id : int <<FK>>
+    sale_id : int <<FK>>
+    waitlist_entry_id : int <<FK>>
+}
+
+entity "whatsapp_pendingaction" as PENDINGACTION {
+    *id : int <<PK>>
+    --
+    company_id : int <<FK>>
+    phone_number : string
+    action_type : enum(record_change_name, record_debtor_name)
+    payload : JSON
+    created_at : datetime
+    --
+    unique(company, phone_number, action_type)
+}
+
+%% Relationships - Company (central hub)
+COMPANY ||--o{ USERPROFILE
+COMPANY ||--o{ PRODUCT
+COMPANY ||--o{ CATEGORY
+COMPANY ||--o{ SALE
+COMPANY ||--o{ DRAFTSALE
+COMPANY ||--o{ CHANGERECORD
+COMPANY ||--o{ DEBTORRECORD
+COMPANY ||--o{ CREDITBALANCE
+COMPANY ||--o{ CREDITTRANSACTION
+COMPANY ||--o{ WHATSAPPMSG
+COMPANY ||--o{ PENDINGACTION
+COMPANY ||--o{ WAITLIST
+
+%% Auth relationships
+AUTH_USER ||--o| USERPROFILE
+
+%% Catalog relationships
+CATEGORY ||--o{ PRODUCT
+PRODUCT ||--o{ PRODUCTPRICE
+PRODUCT ||--o{ INVENTORYADJ
+
+%% Sales relationships
+SALE ||--o{ SALEITEM
+SALEITEM }o--|| PRODUCT
+SALE ||--o{ CHANGERECORD
+SALE ||--o{ DEBTORRECORD
+SALE ||--o{ CREDITTRANSACTION
+
+%% Draft relationships
+DRAFTSALE ||--o{ DRAFTSALEITEM
+
+%% WhatsApp relationships
+USERPROFILE ||--o{ WHATSAPPMSG
+WAITLIST ||--o{ WHATSAPPMSG
+SALE ||--o{ WHATSAPPMSG
+CREDITBALANCE ||--o{ CREDITTRANSACTION
+
+@enduml

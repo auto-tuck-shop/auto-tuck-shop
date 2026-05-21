@@ -1,0 +1,162 @@
+@startuml Auto_Tuck_Shop_Message_Processing
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam sequenceActorBackgroundColor #B4D7EE
+skinparam sequenceParticipantBackgroundColor #E8F4F8
+skinparam sequenceBorderColor #2E7D9A
+
+actor User as USER
+participant "Meta\nCloud API" as META
+participant "Django\nWebhook View" as WEBHOOK
+participant "Message\nHandler" as HANDLER
+participant "Message\nParser" as PARSER
+participant "OpenRouter\nAPI" as OPENROUTER
+participant "Sales\nService" as SALES
+participant "Database" as DB
+participant "WhatsApp\nClient" as WHATSAPP
+
+USER ->> META: Send Text/Audio\n(e.g., "sold 2 cokes $5")
+META ->> WEBHOOK: POST /webhook\n(inbound message)
+activate WEBHOOK
+
+WEBHOOK ->> WEBHOOK: Authenticate\nMeta signature
+WEBHOOK ->> DB: Check if duplicate\ninbound message
+activate DB
+DB -->> WEBHOOK: Message ID status
+deactivate DB
+
+WEBHOOK ->> HANDLER: handle_incoming_message()\nphone, text/audio
+activate HANDLER
+
+alt Message Type: AUDIO
+    HANDLER ->> HANDLER: Download audio\nfrom media_id
+    HANDLER ->> HANDLER: Call ElevenLabs\ntranscribe_audio()
+    HANDLER ->> HANDLER: Extract text\nfrom transcription
+end
+
+alt Message Type: TEXT or TRANSCRIBED
+    HANDLER ->> PARSER: parse_message_unified()\ntext, language
+    activate PARSER
+    
+    PARSER ->> OPENROUTER: Send to LLM\nwith system prompt
+    activate OPENROUTER
+    OPENROUTER ->> OPENROUTER: Extract intent\n(sale|add_assistant|query)
+    OPENROUTER -->> PARSER: Return parsed\nJSON
+    deactivate OPENROUTER
+    
+    PARSER ->> PARSER: Apply rule-based\nhints (disabled)
+    PARSER -->> HANDLER: Return parsed\nitems, intent
+    deactivate PARSER
+end
+
+alt Intent: SALE
+    HANDLER ->> SALES: create_sale_from_parsed_items()
+    activate SALES
+    
+    SALES ->> DB: Find or create\nProducts
+    activate DB
+    DB -->> SALES: Product objects
+    deactivate DB
+    
+    SALES ->> DB: Create Sale\nrecord
+    activate DB
+    DB -->> SALES: Sale object\n(ID, status=confirmed)
+    deactivate DB
+    
+    SALES ->> DB: Create SaleItems\nfor each item
+    activate DB
+    DB -->> SALES: SaleItem records
+    deactivate DB
+    
+    SALES -->> HANDLER: Return Sale
+    deactivate SALES
+    
+    HANDLER ->> HANDLER: Format receipt\nmessage
+    HANDLER ->> WHATSAPP: send_interactive_button()\nreceipt + Confirm/Fix
+    activate WHATSAPP
+    WHATSAPP ->> META: POST to\nMeta API
+    WHATSAPP ->> DB: Record outbound\nmessage
+    WHATSAPP -->> HANDLER: Return success
+    deactivate WHATSAPP
+    
+    HANDLER ->> DB: Record inbound\nmessage
+    activate DB
+    deactivate DB
+    
+else Intent: ADD_ASSISTANT
+    HANDLER ->> HANDLER: Extract phone\nnumber
+    HANDLER ->> DB: Create new\nUserProfile
+    activate DB
+    DB -->> HANDLER: New assistant\nprofile
+    deactivate DB
+    
+    HANDLER ->> WHATSAPP: send_text()\nconfirmation
+    activate WHATSAPP
+    WHATSAPP ->> META: Send message
+    WHATSAPP -->> HANDLER: Success
+    deactivate WHATSAPP
+    
+else Intent: QUERY
+    HANDLER ->> DB: Query sales\nby timeframe/product
+    activate DB
+    DB -->> HANDLER: Aggregated\nsales data
+    deactivate DB
+    
+    HANDLER ->> WHATSAPP: send_text()\nquery results
+    activate WHATSAPP
+    WHATSAPP ->> META: Send message
+    WHATSAPP -->> HANDLER: Success
+    deactivate WHATSAPP
+    
+else Intent: OTHER/UNKNOWN
+    HANDLER ->> WHATSAPP: send_text()\nguidance message
+    activate WHATSAPP
+    WHATSAPP ->> META: Send message
+    WHATSAPP -->> HANDLER: Success
+    deactivate WHATSAPP
+end
+
+HANDLER -->> WEBHOOK: Processing\ncomplete
+deactivate HANDLER
+
+WEBHOOK -->> META: HTTP 200 OK
+deactivate WEBHOOK
+
+USER ->> USER: Receive\nreceipt message
+
+alt User Action: Click "Confirm"
+    USER ->> META: Button response\nbutton_id=confirm_X
+    META ->> WEBHOOK: POST /webhook\n(button_response)
+    activate WEBHOOK
+    WEBHOOK ->> HANDLER: _handle_button_response()
+    activate HANDLER
+    HANDLER ->> DB: Update Sale\nstatus=confirmed
+    activate DB
+    DB -->> HANDLER: Updated Sale
+    deactivate DB
+    HANDLER ->> WHATSAPP: send_text()\n"✓ Sale recorded"
+    WHATSAPP ->> META: Send confirmation
+    HANDLER -->> WEBHOOK: Done
+    deactivate HANDLER
+    WEBHOOK -->> META: HTTP 200 OK
+    deactivate WEBHOOK
+    
+else User Action: Click "Fix"
+    USER ->> META: Button response\nbutton_id=fix_X
+    META ->> WEBHOOK: POST /webhook
+    activate WEBHOOK
+    WEBHOOK ->> HANDLER: _handle_button_response()
+    activate HANDLER
+    HANDLER ->> DB: Update Sale\nstatus=cancelled\nflagged_as_bot_mistake=true
+    activate DB
+    DB -->> HANDLER: Updated Sale
+    deactivate DB
+    HANDLER ->> WHATSAPP: send_text()\n"Sale discarded, send again"
+    WHATSAPP ->> META: Send message
+    HANDLER -->> WEBHOOK: Done
+    deactivate HANDLER
+    WEBHOOK -->> META: HTTP 200 OK
+    deactivate WEBHOOK
+end
+
+@enduml

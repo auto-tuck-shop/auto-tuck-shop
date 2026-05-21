@@ -1,0 +1,195 @@
+@startuml Auto_Tuck_Shop_Classes
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam classBackgroundColor #E8F4F8
+skinparam classBorderColor #2E7D9A
+
+package "Organization" {
+    class Company {
+        -id: int
+        -name: string
+        -slug: string
+        -currency: string
+        -active: bool
+        -created_at: datetime
+    }
+
+    class UserProfile {
+        -id: int
+        -phone_number: string
+        -role: enum(owner|assistant)
+        -language: enum(en|sn)
+        -created_at: datetime
+    }
+
+    class WaitlistEntry {
+        -id: int
+        -phone_number: string
+        -first_message: string
+        -company_name: string
+        -status: enum(pending|approved|rejected)
+        -language: enum(en|sn)
+        -created_at: datetime
+        -approved_at: datetime
+    }
+}
+
+package "Catalog Management" {
+    class Category {
+        -id: int
+        -name: string
+    }
+
+    class Product {
+        -id: int
+        -name: string
+        -sku: string
+        -cost: decimal
+        -active: bool
+        -created_at: datetime
+    }
+
+    class ProductPrice {
+        -id: int
+        -price: decimal
+        -currency: string
+        -effective_from: datetime
+    }
+
+    class InventoryAdjustment {
+        -id: int
+        -quantity_delta: int
+        -reason: enum(purchase|return|damage|correction|initial)
+        -created_at: datetime
+    }
+}
+
+package "Sales Recording" {
+    class Sale {
+        -id: int
+        -sale_timestamp: datetime
+        -total_amount: decimal
+        -status: enum(pending|confirmed|cancelled)
+        -flagged_as_bot_mistake: bool
+        -whatsapp_message_id: string
+        -created_at: datetime
+    }
+
+    class SaleItem {
+        -id: int
+        -quantity: int
+        -unit_price: decimal
+        -currency: string
+    }
+
+    class DraftSale {
+        -id: int
+        -phone_number: string
+        -currency: string
+        -active: bool
+        -created_at: datetime
+        -updated_at: datetime
+    }
+
+    class DraftSaleItem {
+        -id: int
+        -product_name: string
+        -quantity: int
+        -unit_price: decimal
+    }
+}
+
+package "Financial Tracking" {
+    class ChangeRecord {
+        -id: int
+        -phone_number: string
+        -customer_name: string
+        -amount: decimal
+        -currency: string
+        -recorded_at: datetime
+    }
+
+    class DebtorRecord {
+        -id: int
+        -phone_number: string
+        -debtor_name: string
+        -amount: decimal
+        -currency: string
+        -recorded_at: datetime
+    }
+
+    class CustomerCreditBalance {
+        -id: int
+        -phone_number: string
+        -currency: string
+        -balance: decimal
+        -updated_at: datetime
+    }
+
+    class CustomerCreditTransaction {
+        -id: int
+        -phone_number: string
+        -kind: enum(credit_added|credit_used)
+        -amount: decimal
+        -currency: string
+        -note: string
+        -created_at: datetime
+    }
+}
+
+package "WhatsApp Integration" {
+    class WhatsAppMessage {
+        -id: int
+        -direction: enum(inbound|outbound)
+        -message_type: enum(text|audio|interactive_button|button_response)
+        -phone_number: string
+        -content: string
+        -whatsapp_message_id: string
+        -media_id: string
+        -transcribed_text: string
+        -button_id: string
+        -timestamp: datetime
+    }
+
+    class PendingAction {
+        -id: int
+        -phone_number: string
+        -action_type: enum(record_change_name|record_debtor_name)
+        -payload: JSON
+        -created_at: datetime
+    }
+}
+
+%% Relationships
+Company "1" -- "*" UserProfile
+Company "1" -- "*" Product
+Company "1" -- "*" Category
+Company "1" -- "*" Sale
+Company "1" -- "*" DraftSale
+Company "1" -- "*" ChangeRecord
+Company "1" -- "*" DebtorRecord
+Company "1" -- "*" CustomerCreditBalance
+Company "1" -- "*" CustomerCreditTransaction
+Company "1" -- "*" InventoryAdjustment
+Company "1" -- "*" WhatsAppMessage
+Company "1" -- "*" PendingAction
+Company "1" -- "*" WaitlistEntry
+
+Category "1" -- "*" Product
+Product "1" -- "*" ProductPrice
+Product "1" -- "*" SaleItem
+Product "1" -- "*" InventoryAdjustment
+
+Sale "1" -- "*" SaleItem
+Sale "1" -- "*" ChangeRecord
+Sale "1" -- "*" DebtorRecord
+Sale "1" -- "*" CustomerCreditTransaction
+
+DraftSale "1" -- "*" DraftSaleItem
+
+UserProfile "1" -- "*" WhatsAppMessage
+WaitlistEntry "1" -- "*" WhatsAppMessage
+
+CustomerCreditBalance "1" -- "*" CustomerCreditTransaction
+
+@enduml

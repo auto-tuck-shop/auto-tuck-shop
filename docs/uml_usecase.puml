@@ -1,0 +1,63 @@
+@startuml Auto_Tuck_Shop_Use_Cases
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam actorStyle awesome
+
+actor "Shop Owner" as OWNER
+actor "Shop Assistant" as ASSISTANT
+actor "Admin" as ADMIN
+participant "WhatsApp Bot" as BOT
+participant "OpenRouter API" as OPENROUTER
+participant "ElevenLabs API" as ELEVENLABS
+participant "Meta Cloud API" as META
+
+rectangle "Auto Tuck Shop System" {
+    usecase "UC1: Onboarding & Language Selection" as UC1
+    usecase "UC2: Admin Approval" as UC2
+    usecase "UC3: Text Sale Recording" as UC3
+    usecase "UC4: Voice Sale Recording" as UC4
+    usecase "UC5: Sale Confirmation/Fix" as UC5
+    usecase "UC6: Record Change" as UC6
+    usecase "UC7: Track Debt" as UC7
+    usecase "UC8: Sales Query" as UC8
+    usecase "UC9: Add Assistant" as UC9
+    usecase "UC10: WhatsApp Message Handling" as UC10
+}
+
+OWNER --> UC1 : Join System
+OWNER --> UC3 : Record Sales
+OWNER --> UC4 : Record Sales
+OWNER --> UC5 : Confirm/Fix
+OWNER --> UC6 : Manage Change
+OWNER --> UC7 : View Debt
+OWNER --> UC8 : Query Sales
+OWNER --> UC9 : Add Team
+
+ASSISTANT --> UC3 : Record Sales
+ASSISTANT --> UC4 : Record Sales
+ASSISTANT --> UC5 : Confirm/Fix
+ASSISTANT --> UC8 : Query Sales
+
+ADMIN --> UC2 : Approve/Reject
+
+BOT --> UC10 : Process Messages
+BOT --> UC3 : Parse Text
+BOT --> UC4 : Transcribe Audio
+BOT --> UC5 : Handle Buttons
+
+OPENROUTER --> UC3 : Extract Intent
+OPENROUTER --> UC8 : Parse Query
+
+ELEVENLABS --> UC4 : Transcribe Audio
+
+META --> UC10 : Receive/Send Messages
+
+UC1 --> UC2 : Awaits Approval
+UC2 --> UC3 : Access Granted
+UC1 -.-> "Select Language" .-> UC3
+UC3 --> UC5 : Needs Confirmation
+UC3 --> UC6 : May Generate
+UC3 --> UC7 : May Generate
+UC4 --> UC3 : Routes To
+
+@enduml

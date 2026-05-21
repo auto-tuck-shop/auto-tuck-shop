@@ -1,0 +1,184 @@
+@startuml Auto_Tuck_Shop_Unified_Overview
+!theme plain
+left to right direction
+skinparam backgroundColor #FEFEFE
+skinparam shadowing false
+skinparam defaultFontName Courier
+skinparam packageStyle rectangle
+skinparam componentStyle rectangle
+skinparam ArrowColor #2E7D9A
+skinparam packageBorderColor #2E7D9A
+skinparam packageBackgroundColor #F6FBFD
+skinparam componentBorderColor #2E7D9A
+skinparam componentBackgroundColor #E8F4F8
+skinparam classBorderColor #666666
+skinparam classBackgroundColor #F7F7F7
+skinparam noteBackgroundColor #FFF9E6
+skinparam noteBorderColor #AA8F3B
+
+actor "Shop Owner" as OWNER
+actor "Shop Assistant" as ASSISTANT
+actor "Admin" as ADMIN
+
+package "External APIs" {
+  component "Meta WhatsApp\nCloud API" as META
+  component "OpenRouter\nLLM API" as OPENROUTER
+  component "ElevenLabs\nTranscription API" as ELEVENLABS
+  component "Cloudflare R2\nMedia Storage" as R2
+}
+
+package "Django Message Processing" {
+  component "Webhook View" as WEBHOOK
+  component "Message Handler\n(orchestrator)" as HANDLER
+  component "Message Parser" as PARSER
+  component "Sales Service" as SALES
+  component "Sales Query Service" as QUERY
+  component "User Management\n(Add Assistant)" as USERMGMT
+  component "WhatsApp Client" as WA_CLIENT
+  component "Localization +\nReceipt Formatter" as FORMATTER
+}
+
+database "PostgreSQL / SQLite" as DB
+component "Sentry Monitoring" as SENTRY
+
+package "Core Domain Entities" {
+  class Company {
+    id
+    name
+    currency
+  }
+
+  class UserProfile {
+    role(owner|assistant)
+    phone_number
+    language(en|sn)
+  }
+
+  class WaitlistEntry {
+    status(pending|approved|rejected)
+    phone_number
+  }
+
+  class Product {
+    name
+    sku
+    active
+  }
+
+  class Sale {
+    status(pending|confirmed|cancelled)
+    flagged_as_bot_mistake
+    total_amount
+  }
+
+  class SaleItem {
+    quantity
+    unit_price
+    currency
+  }
+
+  class ChangeRecord {
+    customer_name
+    amount
+  }
+
+  class DebtorRecord {
+    debtor_name
+    amount
+  }
+
+  class CustomerCreditBalance {
+    phone_number
+    currency
+    balance
+  }
+
+  class CustomerCreditTransaction {
+    kind(credit_added|credit_used)
+    amount
+  }
+
+  class WhatsAppMessage {
+    direction(inbound|outbound)
+    message_type
+    whatsapp_message_id
+  }
+}
+
+OWNER --> META : send text/audio
+ASSISTANT --> META : send text/audio
+ADMIN --> WEBHOOK : approve/reject onboarding
+
+META --> WEBHOOK : inbound webhook
+WEBHOOK --> HANDLER : validate + dedupe
+HANDLER --> PARSER : parse_message_unified()
+PARSER --> OPENROUTER : intent extraction
+OPENROUTER --> PARSER : parsed JSON
+PARSER --> HANDLER : intent + structured data
+
+HANDLER --> ELEVENLABS : transcribe when audio
+HANDLER --> R2 : media fetch/store when needed
+
+HANDLER --> SALES : intent=sale
+HANDLER --> QUERY : intent=query
+HANDLER --> USERMGMT : intent=add_assistant
+HANDLER --> WA_CLIENT : intent=other/help
+
+SALES --> DB : create/update sale data
+QUERY --> DB : aggregate sales data
+USERMGMT --> DB : create assistant profile
+HANDLER --> DB : message log + state updates
+
+HANDLER --> FORMATTER : localized response
+FORMATTER --> WA_CLIENT : text or interactive receipt
+WA_CLIENT --> META : outbound message
+WA_CLIENT --> DB : persist outbound log
+WEBHOOK --> META : HTTP 200
+
+META --> WEBHOOK : button_response (confirm_X|fix_X)
+WEBHOOK --> HANDLER : handle confirmation/fix
+HANDLER --> DB : update Sale status
+
+SENTRY ..> HANDLER : errors + traces
+
+Company "1" -- "*" UserProfile
+Company "1" -- "*" WaitlistEntry
+Company "1" -- "*" Product
+Company "1" -- "*" Sale
+Company "1" -- "*" CustomerCreditBalance
+Company "1" -- "*" WhatsAppMessage
+
+Sale "1" -- "*" SaleItem
+Sale "1" -- "*" ChangeRecord
+Sale "1" -- "*" DebtorRecord
+CustomerCreditBalance "1" -- "*" CustomerCreditTransaction
+
+UserProfile "1" -- "*" WhatsAppMessage
+WaitlistEntry "1" -- "*" WhatsAppMessage
+Sale "1" -- "*" WhatsAppMessage
+
+note right of HANDLER
+Intent routes:
+- sale -> create receipt + confirm/fix
+- query -> return analytics summary
+- add_assistant -> create UserProfile
+- other -> guidance/help message
+end note
+
+note bottom of Sale
+Lifecycle:
+pending -> confirmed
+pending -> cancelled (fix)
+When fixed, flagged_as_bot_mistake=true
+end note
+
+note bottom of WEBHOOK
+Unified view sourced from:
+- uml_usecase.puml
+- uml_sequence_message_processing.puml
+- uml_components.puml
+- uml_classes.puml
+- uml_database_schema.puml
+end note
+
+@enduml

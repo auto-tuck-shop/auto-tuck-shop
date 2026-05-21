@@ -1,0 +1,129 @@
+@startuml Auto_Tuck_Shop_Components
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam componentBackgroundColor #E8F4F8
+skinparam componentBorderColor #2E7D9A
+skinparam arrowColor #2E7D9A
+
+package "External APIs" {
+    component [Meta WhatsApp\nCloud API] as META
+    component [OpenRouter\nLLM API] as OPENROUTER
+    component [ElevenLabs\nTranscription API] as ELEVENLABS
+    component [Cloudflare R2\nStorage] as R2
+}
+
+package "Django Application" {
+    package "WhatsApp Integration Layer" {
+        component [Webhook View] as WEBHOOK
+        component [WhatsApp Client\n(Real/Mock)] as WHATSAPP_CLIENT
+        component [Message Handler\nCore Engine] as HANDLER
+    }
+    
+    package "NLP & Parsing" {
+        component [Message Parser] as PARSER
+        component [Intent Classifier] as CLASSIFIER
+        component [Price/Change/Debt\nExtractor (Disabled)] as EXTRACTOR
+    }
+    
+    package "Business Logic" {
+        component [Sales Service] as SALES
+        component [Draft Sale Manager] as DRAFT
+        component [Financial Tracker\n(Change/Debt/Credit)] as FINANCIAL
+    }
+    
+    package "Models & ORM" {
+        component [Company Model] as COMPANY
+        component [User & Profile Models] as USER
+        component [Product & Catalog] as CATALOG
+        component [Sale & SaleItem] as SALE_MODEL
+        component [Financial Models\n(Debt/Change/Credit)] as FIN_MODEL
+        component [WhatsApp Message Log] as MSG_LOG
+    }
+    
+    package "Localization & UI" {
+        component [Locale Manager\n(en.json, sn.json)] as LOCALE
+        component [Receipt Formatter] as RECEIPT
+        component [Button Builder] as BUTTONS
+    }
+}
+
+package "Database" {
+    component [PostgreSQL\n(Production/Staging)] as POSTGRES
+    component [SQLite\n(Local/Test)] as SQLITE
+}
+
+package "Deployment & Monitoring" {
+    component [Fly.io\nHosting] as FLY
+    component [ngrok\nLocal Tunnel] as NGROK
+    component [Django Admin] as ADMIN
+    component [Sentry\nError Logging] as SENTRY
+}
+
+package "Testing & QA" {
+    component [Mock WhatsApp\nClient] as MOCK_WA
+    component [Pytest\nIntegration Tests] as PYTEST
+}
+
+%% External API Connections
+META --> WEBHOOK
+META --> WHATSAPP_CLIENT
+
+OPENROUTER --> PARSER
+ELEVENLABS --> HANDLER
+R2 --> WHATSAPP_CLIENT
+
+%% Internal Message Flow
+WEBHOOK --> HANDLER
+HANDLER --> PARSER
+PARSER --> CLASSIFIER
+CLASSIFIER --> EXTRACTOR
+
+HANDLER --> WHATSAPP_CLIENT
+HANDLER --> SALES
+HANDLER --> DRAFT
+HANDLER --> FINANCIAL
+
+SALES --> SALES_MODEL
+DRAFT --> SALE_MODEL
+FINANCIAL --> FIN_MODEL
+
+SALES --> CATALOG
+SALES --> COMPANY
+FINANCIAL --> FIN_MODEL
+
+HANDLER --> MSG_LOG
+WHATSAPP_CLIENT --> MSG_LOG
+
+%% UI Components
+HANDLER --> LOCALE
+SALES --> RECEIPT
+RECEIPT --> BUTTONS
+BUTTONS --> WHATSAPP_CLIENT
+
+%% Database
+COMPANY --> POSTGRES
+USER --> POSTGRES
+CATALOG --> POSTGRES
+SALE_MODEL --> POSTGRES
+FIN_MODEL --> POSTGRES
+MSG_LOG --> POSTGRES
+
+%% Local Development
+WEBHOOK -.-> NGROK
+MOCK_WA -.-> HANDLER
+
+%% Testing
+PYTEST --> MOCK_WA
+PYTEST --> SQLITE
+
+%% Deployment & Monitoring
+POSTGRES --> FLY
+WHATSAPP_CLIENT --> FLY
+SENTRY -.-> HANDLER
+
+%% Admin
+ADMIN --> COMPANY
+ADMIN --> USER
+ADMIN --> CATALOG
+
+@enduml
