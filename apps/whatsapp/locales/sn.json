@@ -20,7 +20,7 @@
         "btn_reject": "Cancel"
     },
     "approval": {
-        "welcome": "Makadii! Account yako yagamuchirwa paAuto Tuck Shop!\n\nShop: {company}\n\nUnogona kutumira voice note kana kunyora zvawatengesa nhasi. Semuenzaniso:\n'Ndatengesa 2 ma coke $1.50 rimwe, 1 chips $0.50'\n'3 mvura $0.75 imwe, 2 chocolates $0.50 imwe'\n\nUnogona kuisa mutengesi wenyu nekutumira message yakaita se iyi:\n'add assistant +2637812345678'"
+        "welcome": "Makadii! Account yako yagamuchirwa paAuto Tuck Shop!\n\nShop: {company}\n\nUnogona kutumira voice note kana kunyora zvawatengesa nhasi. Bot inogamuchira USD ($), Rand (R), uye ZiG. Semuenzaniso:\n'Ndatengesa 2 ma coke $1.50 rimwe, 1 chips $0.50'\n'3 mvura R0.75 imwe, 2 chocolates ZiG0.50 imwe'\n\nUnogona kuisa mutengesi wenyu nekutumira message yakaita se iyi:\n'add assistant +2637812345678'"
     },
     "error": {
         "processing_failed": "Sorry, pane chakanganisika. Zama zvakare."
@@ -36,11 +36,12 @@
         "added": "Mutengesi aiswa!\n\nPhone: {phone}\nAve ku kwanisa kurecorda zvatengwa mu {company}."
     },
     "sale": {
-        "no_products": "Handina zvinotengeswa zvanda ona. Sendai zvamatengesa patsva, sekuti: \"sold 2 cokes R15 each ne 1 chips R10\"",
+        "no_products": "Handina zvinotengeswa zvanda ona. Sendai zvamatengesa patsva, sekuti: \"sold 2 cokes $1.50 each ne 1 chips $0.50\" kana \"3 mvura R0.75 each\"",
         "item_with_price": "  {quantity} x {product} @ {price}",
         "item_no_price": "  {quantity} x {product} (no price)",
         "total": "\nZvese pamwe: {total}",
-        "missing_prices_note": "\nZvimwe zvinhu hazvina mutengo. Dzvanya \"Gadzirisa\" Wosenda nemutengo, sekuti \"2 cokes R15 imwe\".",
+        "subtotal": "\n{currency} zvese pamwe: {total}",
+        "missing_prices_note": "\nZvimwe zvinhu hazvina mutengo. Dzvanya \"Gadzirisa\" wosenda nemutengo, sekuti \"2 cokes @ $1.50\" kana \"2 cokes @ R15\" kana \"2 cokes @ ZiG2\".",
         "unmatched": "\n⚠ Hazvisi kuenderana: {items}",
         "bot_mistake": "Tarasa sale ranga ranyorwa. Sendai patsva.",
         "confirmed_ok": "✓ Zvaitwa, sale yarecordwa!",
@@ -48,6 +49,6 @@
         "already_processed": "Sale iri ranga ratonyorwa kudhara kana kuti harina kuwanika",
         "btn_confirm": "Ndizvo",
         "btn_fix": "Gadzirisa",
-        "price_too_large": "Waisa price yakawanda. Tarisisa wosenda patsva, sekuti \"ndatengesa 2 ma coke R15 imwe\""
+        "price_too_large": "Waisa price yakawanda. Tarisisa wosenda patsva, sekuti \"ndatengesa 2 ma coke $1.50 imwe\" kana \"2 ma coke R15 imwe\""
     }
 }
