@@ -9,6 +9,8 @@ pilot.
 
 **New here?** → Check out **[ONBOARDING.md](ONBOARDING.md)** for a complete setup guide.
 
+**Contributing?** → See **[CONTRIBUTING.md](CONTRIBUTING.md)** for the PR workflow and how to make changes.
+
 ## Tech Stack
 
 - **Django** - Backend framework
@@ -19,7 +21,17 @@ pilot.
 - **Fly.io** - Hosting
 - **PostgreSQL** - Database
 
-## Development
+## Development Workflow
+
+**🚨 Important:** All code changes require a pull request. Direct pushes to `main` are blocked by branch protection rules.
+
+**Standard workflow:**
+1. Create a feature branch: `git checkout -b your-feature-name`
+2. Make your changes and commit
+3. Push branch: `git push origin your-feature-name`
+4. Create a pull request on GitHub
+5. Wait for review/approval
+6. Once approved, merge to main
 
 ### Deploying
 

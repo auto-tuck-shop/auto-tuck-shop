@@ -38,7 +38,60 @@ Before you can run pilots in Zimbabwe, you need to:
 
 ---
 
-## 📋 Part 1: Service Accounts You Need
+## � Development Workflow (Important!)
+
+**🚨 Before you start coding, read this:**
+
+This repo has **branch protection rules** enabled. That means:
+- ❌ You **cannot** push directly to `main`
+- ✅ You **must** create a pull request for all changes
+- ✅ Someone else needs to **approve** your PR before it can be merged
+
+**How to make changes:**
+
+1. **Create a branch:**
+   ```powershell
+   git checkout -b your-feature-name
+   ```
+   Use descriptive names like `fix-whatsapp-parsing` or `add-inventory-feature`
+
+2. **Make your changes and commit:**
+   ```powershell
+   git add .
+   git commit -m "Your commit message"
+   ```
+
+3. **Push your branch:**
+   ```powershell
+   git push origin your-feature-name
+   ```
+
+4. **Create a Pull Request:**
+   - Go to GitHub: https://github.com/dev-thandabantu/auto-tuck-shop
+   - Click "Compare & pull request" (will appear after you push)
+   - Add a description of what you changed
+   - Click "Create pull request"
+
+5. **Wait for approval:**
+   - Someone (Brighton) will review your code
+   - They might request changes
+   - Once approved, you can merge!
+
+6. **Merge and delete branch:**
+   - Click "Merge pull request" on GitHub
+   - Delete the branch to keep things clean
+
+**Why this workflow?**
+- Prevents accidental breaking changes to production
+- Gives a second pair of eyes on all code
+- Creates a clear history of what changed and why
+- Forces you to write good commit messages and PR descriptions
+
+Don't stress if you mess up - you can always fix it! This is how real software teams work. 💪
+
+---
+
+## �📋 Part 1: Service Accounts You Need
 
 ### 1. Meta WhatsApp Business Platform ⚠️ CRITICAL
 
