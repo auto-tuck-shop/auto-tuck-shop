@@ -6,7 +6,7 @@
         "confirmed": "Language set to English."
     },
     "waitlist": {
-        "welcome": "You have been added to our waitlist.\n\nAn administrator will review your request and approve your account shortly. We will send you a message when you are approved.\n\nIn the meantime, if you would like to provide a name for your shop, just send another message with it.",
+        "welcome": "You have been added to our waitlist.\n\nAn administrator will review your request and approve your account shortly. We will send you a message when you are approved.\n\nIn the meantime, please send another message with your shop name.",
         "shop_name_noted": "Thank you! We have noted your shop name as \"{shop_name}\".\n\nYou are still on our waitlist. An administrator will review your request soon.",
         "still_pending": "Thank you for your message! You are still on our waitlist.\n\nAn administrator will review your request soon. We will notify you when your account is approved.",
         "rejected": "Sorry, your request to join was not approved. Please contact support if you believe this is an error.",
@@ -20,7 +20,7 @@
         "btn_reject": "Reject"
     },
     "approval": {
-        "welcome": "Welcome to Auto Tuck Shop! Your account has been approved.\n\nCompany: {company}\n\nYou can now send sales messages to track your sales. For example:\n'sold 2 cokes $1.50 each, 1 chips $0.50'\n'3 waters $0.75 each, 2 chocolates $0.50 each'\n\nAs an owner, you can also add assistants by sending messages like:\n'add assistant +2637812345678'"
+        "welcome": "Welcome to Auto Tuck Shop! Your account has been approved.\n\nCompany: {company}\n\nYou can now send sales messages to track your sales. The bot accepts USD ($), Rand (R), and ZiG. For example:\n'sold 2 cokes $1.50 each, 1 chips $0.50'\n'3 waters R0.75 each, 2 chocolates ZiG0.50 each'\n\nAs an owner, you can also add assistants by sending messages like:\n'add assistant +2637812345678'"
     },
     "error": {
         "processing_failed": "Sorry, something went wrong. Please try again."
@@ -36,11 +36,12 @@
         "added": "Assistant added successfully!\n\nPhone: {phone}\nThey can now send sales messages for {company}."
     },
     "sale": {
-        "no_products": "I could not identify any products. Please send a full sale message, e.g., \"sold 2 cokes $1.50 each, 1 chips $0.50\"",
-        "item_with_price": "  {quantity}x {product} @ {price}",
-        "item_no_price": "  {quantity}x {product} (no price)",
+        "no_products": "I could not identify any products. Please send a full sale message, e.g., \"sold 2 cokes $1.50 each, 1 chips $0.50\" or \"3 waters R0.75 each\"",
+        "item_with_price": "  {quantity} x {product} @ {price}",
+        "item_no_price": "  {quantity} x {product} (no price)",
         "total": "\nTotal: {total}",
-        "missing_prices_note": "\nNote: Some items have no price set. Press \"Fix mistake\" and resend everything with prices included (e.g. \"2x Pear @ $0.50\").",
+        "subtotal": "\n{currency} total: {total}",
+        "missing_prices_note": "\nNote: Some items have no price set. Press \"Fix mistake\" and resend everything with prices included (e.g. \"2 cokes @ $1.50\" or \"2 cokes @ R15\" or \"2 cokes @ ZiG2\").",
         "unmatched": "\n⚠ Unmatched: {items}",
         "bot_mistake": "Sale thrown away. Send your items again to redo.",
         "confirmed_ok": "✓ Great, sale recorded!",
@@ -48,6 +49,6 @@
         "already_processed": "Sale already processed or not found",
         "btn_confirm": "Looks good",
         "btn_fix": "Fix mistake",
-        "price_too_large": "One or more prices seem too large. Please double-check and resend, e.g. \"sold 2 cokes $1.50 each\""
+        "price_too_large": "One or more prices seem too large. Please double-check and resend, e.g. \"sold 2 cokes $1.50 each\" or \"sold 2 cokes R15 each\""
     }
 }
