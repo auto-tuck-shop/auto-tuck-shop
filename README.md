@@ -2,7 +2,7 @@
 
 AI-powered WhatsApp assistant for tuckshops in Zimbabwe. Shop owners text or voice message what they sold (like "2 cokes $1 each"), and the bot automatically records the sale and sends a confirmation.
 
-**Planning or contributing?** Start with [docs/README.md](docs/README.md) — it covers pilot scope, system architecture, operations, and the improvement backlog.
+**Planning or contributing?** See the [wiki](https://github.com/aakitech/auto-tuck-shop/wiki) — architecture, flows, integrations, and pilot launch plan.
 
 **New here?** See [ONBOARDING.md](ONBOARDING.md) for local setup and deployment.
 

@@ -6,7 +6,7 @@ Auto Tuck Shop is a WhatsApp bot that helps tuckshop owners in Zimbabwe record s
 
 The codebase is a Django app. Messages arrive via the WhatsApp Business API (Meta), are parsed by Gemini 2.5 Flash via OpenRouter, and voice messages are transcribed by ElevenLabs before parsing.
 
-See [docs/architecture.md](docs/architecture.md) for the full system design.
+See the [Architecture wiki page](https://github.com/aakitech/auto-tuck-shop/wiki/Architecture) for the full system design.
 
 ## Local setup
 
@@ -85,7 +85,7 @@ You need credentials for these services (Brighton holds the master credentials):
 
 ## Deploying
 
-See [docs/operations.md](docs/operations.md) for full deployment steps.
+See the [Deployment wiki page](https://github.com/aakitech/auto-tuck-shop/wiki/Deployment) for full deployment steps.
 
 Short version — always staging first:
 

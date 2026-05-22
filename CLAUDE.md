@@ -39,11 +39,9 @@ When an AI assistant is helping with a task, check which issue it maps to and wo
 
 Before starting any task, read the relevant context:
 
-- **What the product is and why:** `docs/project-brief.md`
-- **Pilot scope and what's in/out of scope:** `docs/pilot-plan.md`
-- **System architecture and message flows:** `docs/architecture.md`, `docs/flows.md`
-- **Deployment and operations habits:** `docs/operations.md`
-- **Backlog of deferred work:** `docs/improvement-backlog.md`
+- **Architecture, data model, flows, async model:** wiki — https://github.com/aakitech/auto-tuck-shop/wiki/Architecture
+- **Pilot launch sequence and success metrics:** wiki — https://github.com/aakitech/auto-tuck-shop/wiki/Pilot-Launch
+- **All external service integrations:** wiki — https://github.com/aakitech/auto-tuck-shop/wiki/Integrations
 - **Key service entry points:** `apps/whatsapp/services/` — sale_handler, waitlist_handler, media_handler, message_parser
 - **LLM system prompt (tune for parsing improvements):** `services/openrouter/prompts.py`
 - **User-facing strings (EN + Shona):** `apps/whatsapp/locales/en.json`, `sn.json`
