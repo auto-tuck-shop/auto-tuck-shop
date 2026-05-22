@@ -1,16 +1,16 @@
 {
     "language": {
-        "prompt": "Welcome! Please choose your language:\n\nMwakadini! Sarudzai mutauro wenyu:",
+        "prompt": "Welcome! Please choose your language:\n\nMakadii! Sarudzai mutauro wenyu:",
         "btn_en": "English",
         "btn_sn": "Shona",
-        "confirmed": "Mutauro wasarudzwa: Shona."
+        "confirmed": "Mutauro wamasarudza: Shona."
     },
     "waitlist": {
-        "welcome": "Mwaiswa pawaitlist yedu.\n\nMumwe wedu achaverenga chikumbiro chako ogamuchira account yako munguva pfupi. Tichakutumira message kana wagamuchirwa.\n\nPanguva ino, kana uchida kutipa zita reshop yako, tumira imwe message naro.",
-        "shop_name_noted": "Thanks! We got your shop name \"{shop_name}\".\n\nYou're still waiting. We'll check your request soon.",
-        "still_pending": "Thanks for your message! You're still waiting.\n\nWe'll check your request soon. We'll send you a message when you're approved.",
-        "rejected": "Sorry, we can't approve your request. Please call us if this is wrong.",
-        "already_processed": "This request was already done"
+        "welcome": "Waiswa pawaitlist yedu.\n\nMumwe wedu achaverenga chikumbiro chako ogamuchira account yako munguva pfupi. Tichakutumira message kana wagamuchirwa.\n\nPanguva ino tumira imwe message nezita reshop yako.",
+        "shop_name_noted": "Tatenda! Taziva zita reshop yako \"{shop_name}\".\n\nUchiri pakumirira. Tichaverenga chikumbiro chako munguva pfupi.",
+        "still_pending": "Tatenda ne message yako! Uchiri pakumirira pa waitlist.\n\nTichaverenga chikumbiro chako munguva pfupi. Tichakutumira message kana wagamuchirwa.",
+        "rejected": "Sorry, hatikwanisi kugamuchira chikumbiro chako. Bata agent wedu kana uchifunga kuti pakanganisika.",
+        "already_processed": "Chikumbiro ichi chakagara chaitwa"
     },
     "waitlist_admin": {
         "new_request": "New person wants to join:\n\nPhone: {phone}\nMessage: {message}",
@@ -20,34 +20,34 @@
         "btn_reject": "Cancel"
     },
     "approval": {
-        "welcome": "Mwakadini! Account yako yagamuchirwa paAuto Tuck Shop!\n\nShop: {company}\n\nUnokona kutumira voice note kana kunyora zvawatengesa nyamashi. Semuenzaniso:\n'sold 2 cokes R15 each, 1 chips R10'\n'3 waters R12 each, 2 chocolates R8 each'\n\nUnogona kuwedzera vanokubatsira nekutumira:\n'add assistant +27821234567'"
+        "welcome": "Makadii! Account yako yagamuchirwa paAuto Tuck Shop!\n\nShop: {company}\n\nUnogona kutumira voice note kana kunyora zvawatengesa nhasi. Semuenzaniso:\n'Ndatengesa 2 ma coke $1.50 rimwe, 1 chips $0.50'\n'3 mvura $0.75 imwe, 2 chocolates $0.50 imwe'\n\nUnogona kuisa mutengesi wenyu nekutumira message yakaita se iyi:\n'add assistant +2637812345678'"
     },
     "error": {
-        "processing_failed": "Sorry, something went wrong. Please try again."
+        "processing_failed": "Sorry, pane chakanganisika. Zama zvakare."
     },
     "audio": {
-        "download_failed": "Sorry, I couldn't get your voice note. Please try again or send a text message.",
-        "transcription_failed": "Sorry, I couldn't hear your voice note clearly. Please send a text message."
+        "download_failed": "Sorry, handina kuwana audio yako. Edza zvakare kana tumira message yekunyora.",
+        "transcription_failed": "Sorry, handina kunzwa zvakanaka audio yako. Tumira message yekunyora."
     },
     "assistant": {
-        "not_owner": "Sorry, only the shop owner can add helpers. Talk to the owner if you need help.",
-        "missing_phone": "I didn't see a phone number. Send the whole message again, like: 'add assistant +27821234567'",
-        "already_registered": "This phone number {phone} is already being used.",
-        "added": "Helper added!\n\nPhone: {phone}\nThey can now send sales for {company}."
+        "not_owner": "Sorry, muridzi we shop ndiye anokwanisa kuwedzera mutengesi. Taura nemutengesi kana uchida rubatsiro.",
+        "missing_phone": "Handina kuona nhamba yefoni. Tumira message yose zvakare, semuenzaniso: 'add assistant +2637812345678'",
+        "already_registered": "Number iyi {phone} yagara yakaiswa.",
+        "added": "Mutengesi aiswa!\n\nPhone: {phone}\nAve ku kwanisa kurecorda zvatengwa mu {company}."
     },
     "sale": {
-        "no_products": "I didn't see any items. Send everything you sold in one message, like: \"sold 2 cokes R15 each, 1 chips R10\"",
-        "item_with_price": "  {quantity}x {product} @ {price}",
-        "item_no_price": "  {quantity}x {product} (no price)",
-        "total": "\nTotal: {total}",
-        "missing_prices_note": "\nSome items don't have prices. Press \"Paita Mistake\" and send again with prices, like \"2x Pear @ R5\".",
-        "unmatched": "\n⚠ Unmatched: {items}",
-        "bot_mistake": "Sale thrown away. Send your items again to redo.",
+        "no_products": "Handina zvinotengeswa zvanda ona. Sendai zvamatengesa patsva, sekuti: \"sold 2 cokes R15 each ne 1 chips R10\"",
+        "item_with_price": "  {quantity} x {product} @ {price}",
+        "item_no_price": "  {quantity} x {product} (no price)",
+        "total": "\nZvese pamwe: {total}",
+        "missing_prices_note": "\nZvimwe zvinhu hazvina mutengo. Dzvanya \"Gadzirisa\" Wosenda nemutengo, sekuti \"2 cokes R15 imwe\".",
+        "unmatched": "\n⚠ Hazvisi kuenderana: {items}",
+        "bot_mistake": "Tarasa sale ranga ranyorwa. Sendai patsva.",
         "confirmed_ok": "✓ Zvaitwa, sale yarecordwa!",
-        "cancelled": "✗ This sale was thrown out. Send everything again to redo it.",
-        "already_processed": "This sale was already done",
+        "cancelled": "✗ Tarasa sale ranga ranyorwa. Sendai patsva.",
+        "already_processed": "Sale iri ranga ratonyorwa kudhara kana kuti harina kuwanika",
         "btn_confirm": "Ndizvo",
-        "btn_fix": "Paita Mistake",
-        "price_too_large": "One or more prices seem too large. Please double-check and resend, e.g. \"sold 2 cokes R15 each\""
+        "btn_fix": "Gadzirisa",
+        "price_too_large": "Waisa price yakawanda. Tarisisa wosenda patsva, sekuti \"ndatengesa 2 ma coke R15 imwe\""
     }
 }
