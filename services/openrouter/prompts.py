@@ -1,5 +1,7 @@
 """Prompt templates for OpenRouter LLM interactions."""
 
+from django.utils import timezone
+
 from apps.catalog.models import Product
 
 UNIFIED_MESSAGE_PARSING_PROMPT = """You are an intelligent assistant for a tuck shop (small retail store) sales tracking system.
@@ -13,6 +15,7 @@ Your job is to analyze incoming messages and:
 INTENT TYPES:
 - "sale": Recording a sale transaction (e.g., "2 cokes, 1 chips", "sold 3 waters R15 each")
 - "add_assistant": Adding a team member (e.g., "add assistant +27821234567")
+- "sales_query": Asking about past sales (e.g., "how much did I make today?", "what did I sell this week?")
 - "other": General messages that don't fit above
 
 EXTRACTION RULES BY INTENT:
@@ -70,6 +73,10 @@ RESPONSE FORMAT (JSON):
     // For "add_assistant" intent only:
     "phone_number": "+27821234567" or null,
 
+    // For "sales_query" intent only:
+    "timeframe": "today" | "yesterday" | "week" | "month" | "year" | null,
+    "product_filter": "product name" or null,
+
     // Optional:
     "notes": "parsing notes" or null
 }
@@ -95,8 +102,12 @@ def build_unified_parsing_prompt(
         products = []
 
     product_list = "\n".join(f"- {p.name}" for p in products) if products else "(No products available)"
+    now = timezone.localtime()
+    datetime_context = now.strftime("%A, %d %B %Y %H:%M %Z")
 
-    user_content = f"""Available products:
+    user_content = f"""Current date and time: {datetime_context}
+
+Available products:
 {product_list}
 
 Message to analyze:
