@@ -1,9 +1,10 @@
 """Service for parsing sale messages using OpenRouter LLM."""
 
 import logging
+import re
 from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
-from typing import Any
+from time import monotonic
 
 from asgiref.sync import sync_to_async
 from django.db import close_old_connections
@@ -14,6 +15,56 @@ from services.openrouter import OpenRouterClient
 from utils.timing import track
 
 logger = logging.getLogger(__name__)
+
+_PRODUCT_CACHE_TTL_SECONDS = 60
+_PRODUCT_CACHE: dict[int | None, tuple[float, list[Product]]] = {}
+
+
+def _apply_rule_based_price_hints(
+    message: str,
+    parsed_items: list[ParsedSaleItem],
+    detected_currency: str | None,
+) -> tuple[list[ParsedSaleItem], str | None]:
+    """Correct per-unit vs total-price ambiguity using simple heuristics.
+
+    When quantity > 1 and no per-unit marker is present (each, per, @, imwe, etc.),
+    treat the price as a total rather than a unit price and clear unit_price so the
+    LLM result doesn't silently multiply it again downstream.
+    """
+    if not message or not parsed_items:
+        return parsed_items, detected_currency
+
+    per_unit_tokens = (
+        r"\beach\b",
+        r"\bone\b",
+        r"\bevery\b",
+        r"\bindividual\b",
+        r"\bevery\s+single\b",
+        r"\bone\s+by\s+one\b",
+        r"\bper\b",
+        r"\bapiece\b",
+        r"\brespectively\b",
+        r"\bany\s+one\b",
+        r"\bparticular\b",
+        r"\bseparate\b",
+        r"\bimwe\b",  # Shona: one/each
+    )
+    per_unit_pattern = re.compile(r"(?:" + "|".join(per_unit_tokens) + r")", re.IGNORECASE)
+    has_per_unit_marker = bool(per_unit_pattern.search(message)) or "@" in message
+
+    adjusted: list[ParsedSaleItem] = []
+    for item in parsed_items:
+        try:
+            qty = int(item.get("quantity") or 1)
+        except (TypeError, ValueError):
+            qty = 1
+
+        if item.get("unit_price") is not None and qty > 1 and not has_per_unit_marker:
+            item = {**item, "unit_price": None}
+
+        adjusted.append(item)
+
+    return adjusted, detected_currency
 
 
 @dataclass
@@ -26,7 +77,7 @@ class ParsedSaleMessage:
 @dataclass
 class UnifiedMessageResult:
     """Result of unified message parsing (intent + data extraction)."""
-    intent: str  # "sale" | "add_assistant" | "other"
+    intent: str  # "sale" | "add_assistant" | "sales_query" | "other"
     confidence: float
 
     # Sale-specific (populated if intent="sale")
@@ -36,32 +87,35 @@ class UnifiedMessageResult:
     # Add assistant-specific (populated if intent="add_assistant")
     phone_number: str | None = None
 
+    # Sales query-specific (populated if intent="sales_query")
+    timeframe: str | None = None  # "today", "yesterday", "week", "month", "X_days"
+    product_filter: str | None = None
+
     # Optional metadata
     notes: str | None = None
 
 
 @sync_to_async
 def _get_active_products(company=None):
-    """Fetch active products scoped to a company (sync wrapper for async context)."""
+    """Fetch active products scoped to a company, with a 60-second in-process cache."""
+    company_id = company.id if company else None
+    cached = _PRODUCT_CACHE.get(company_id)
+    now = monotonic()
+    if cached and (now - cached[0]) < _PRODUCT_CACHE_TTL_SECONDS:
+        return cached[1]
+
     close_old_connections()
     queryset = Product.objects.filter(active=True)
     if company:
         queryset = queryset.filter(company=company)
-    return list(queryset)
+    products = list(queryset)
+    _PRODUCT_CACHE[company_id] = (now, products)
+    return products
 
 
 async def parse_message_unified(message: str, company=None) -> UnifiedMessageResult:
-    """
-    Parse message using unified LLM call (intent detection + data extraction).
-
-    Replaces two-step: detect_message_intent() + parse_sale_message()
-
-    Args:
-        message: The message text to parse
-        company: The company to scope product lookup to (prevents cross-shop leaks)
-    """
+    """Unified LLM call: detect intent and extract data in one shot."""
     async with track("unified_parse"):
-        # Fetch products scoped to company so we don't leak across shops
         products = await _get_active_products(company)
         from services.openrouter import build_unified_parsing_prompt
         messages = build_unified_parsing_prompt(message, products)
@@ -76,7 +130,6 @@ async def parse_message_unified(message: str, company=None) -> UnifiedMessageRes
 
         logger.info(f"LLM response for '{message[:80]}': {response}")
 
-        # Extract intent and confidence
         intent = response.get("intent", "sale")
         confidence = response.get("confidence", 0.5)
 
@@ -86,13 +139,10 @@ async def parse_message_unified(message: str, company=None) -> UnifiedMessageRes
             notes=response.get("notes"),
         )
 
-        # Extract intent-specific data
         if intent == "sale":
-            # Parse sale items
-            items = response.get("items", [])
             parsed_items: list[ParsedSaleItem] = []
 
-            for item in items:
+            for item in response.get("items", []):
                 try:
                     unit_price = None
                     if item.get("unit_price") is not None:
@@ -112,10 +162,11 @@ async def parse_message_unified(message: str, company=None) -> UnifiedMessageRes
                     logger.warning(f"Skipping invalid item {item}: {e}")
                     continue
 
-            result.items = parsed_items
+            result.items, inferred_currency = _apply_rule_based_price_hints(
+                message, parsed_items, response.get("currency")
+            )
 
-            # Extract and validate currency
-            currency = response.get("currency")
+            currency = inferred_currency or response.get("currency")
             if currency and currency in ("USD", "ZWG", "ZAR", "BWP", "EUR", "GBP"):
                 result.currency = currency
             elif currency:
@@ -123,5 +174,9 @@ async def parse_message_unified(message: str, company=None) -> UnifiedMessageRes
 
         elif intent == "add_assistant":
             result.phone_number = response.get("phone_number")
+
+        elif intent == "sales_query":
+            result.timeframe = response.get("timeframe", "today")
+            result.product_filter = response.get("product_filter")
 
         return result

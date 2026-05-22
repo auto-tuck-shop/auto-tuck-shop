@@ -36,6 +36,7 @@ ENV/
 *.log
 local_settings.py
 db.sqlite3
+sqlite_data.json
 staticfiles/
 media/
 
