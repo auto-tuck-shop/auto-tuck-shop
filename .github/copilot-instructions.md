@@ -1,5 +1,16 @@
 # Auto Tuck Shop — Copilot Instructions
 
+## Start of every chat session
+
+Before doing anything else, ask:
+
+1. **Who is working?** — Brighton (tech lead) or Madrena (junior developer). Brighton gets concise technical responses. Madrena gets more explanation, especially around Git, PRs, and Django patterns she may not have seen before.
+2. **What are we working on?** — ask for the GitHub issue number if there is one. Read the issue before starting work.
+
+If the user's first message already makes it clear (e.g. "help me with issue #18"), skip what's already answered.
+
+---
+
 Django app. Shop owners in Zimbabwe send WhatsApp text or voice messages to record sales. The bot parses them with an LLM, creates sale records, and replies with a receipt.
 
 ## Stack
