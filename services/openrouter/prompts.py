@@ -8,6 +8,13 @@ UNIFIED_MESSAGE_PARSING_PROMPT = """You are an intelligent assistant for a tuck 
 
 CONTEXT: Messages come from shop owners and assistants in Zimbabwe and South Africa. Voice messages may be in English, Shona, Ndebele, Zulu, Afrikaans, or a mix of languages (code-switching is common). Transcriptions may contain phonetic spellings or transliterations of non-English words — interpret them in context.
 
+Key Shona vocabulary for parsing:
+- "imwe" = "one/each" — indicates a per-unit price (e.g., "coke 5 imwe $1" = 5 cokes at $1 each)
+- "imwe neimwe" = "each one" — same meaning as "imwe", also per-unit
+- "maviri" = 2, "matatu" = 3, "mana" = 4, "mashanu" = 5
+- "ne" = "and" — joins items in a list (e.g., "coke ne fanta" = coke and fanta)
+- "mazai" = eggs, "chikafu" = food/goods (common tuck shop items)
+
 Your job is to analyze incoming messages and:
 1. Determine the message intent
 2. Extract relevant data based on the intent
@@ -60,6 +67,13 @@ PARSING EXAMPLES:
 - "ten US dollars" → items: [{"product_name": (inferred from context), "quantity": 1, "unit_price": 10}], currency: "USD"
 - "five rand" → items: [{"product_name": (inferred from context), "quantity": 1, "unit_price": 5}], currency: "ZAR"
 - "2 waters R15 each" → items: [{"product_name": "waters", "quantity": 2, "unit_price": 15}], currency: "ZAR"
+
+Shona examples:
+- "coke 5 imwe $1" → items: [{"product_name": "coke", "quantity": 5, "unit_price": 1}], currency: "USD"
+- "bread 3 imwe ZWG2" → items: [{"product_name": "bread", "quantity": 3, "unit_price": 2}], currency: "ZWG"
+- "mazai maviri ne chips matatu" → items: [{"product_name": "mazai", "quantity": 2, "unit_price": null}, {"product_name": "chips", "quantity": 3, "unit_price": null}], currency: null
+- "2 coke ne 3 fanta" → items: [{"product_name": "coke", "quantity": 2, "unit_price": null}, {"product_name": "fanta", "quantity": 3, "unit_price": null}], currency: null
+- "airtime 10 imwe neimwe ZWG5" → items: [{"product_name": "airtime", "quantity": 10, "unit_price": 5}], currency: "ZWG"
 
 RESPONSE FORMAT (JSON):
 {

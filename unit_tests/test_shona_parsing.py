@@ -1,0 +1,105 @@
+"""Regression tests for Shona language message parsing.
+
+These tests call the live LLM and require OPENROUTER_API_KEY to be set.
+They are skipped automatically if the key is absent (local dev without .env).
+
+Run with:
+    python manage.py test unit_tests.test_shona_parsing
+"""
+
+import asyncio
+
+from django.test import TestCase
+
+from apps.whatsapp.services.message_parser import parse_message_unified
+from services.openrouter.client import OpenRouterError
+
+
+class ShonaParsingTestCase(TestCase):
+
+    def _parse(self, message):
+        try:
+            return asyncio.run(parse_message_unified(message))
+        except Exception as e:
+            if "401" in str(e) or "API request failed" in str(e) or "OpenRouter" in type(e).__name__:
+                self.skipTest(f"OpenRouter unavailable (no valid API key): {e}")
+            raise
+
+    # ------------------------------------------------------------------
+    # imwe / imwe neimwe (per-unit price marker)
+    # ------------------------------------------------------------------
+
+    def test_imwe_per_unit_price_usd(self):
+        """'coke 5 imwe $1' → 5 cokes at $1 each."""
+        result = self._parse("coke 5 imwe $1")
+        self.assertEqual(result.intent, "sale")
+        self.assertEqual(len(result.items), 1)
+        item = result.items[0]
+        self.assertIn("coke", item["product_name"].lower())
+        self.assertEqual(item["quantity"], 5)
+        self.assertEqual(item["unit_price"], 1.0)
+        self.assertEqual(result.currency, "USD")
+
+    def test_imwe_per_unit_price_zwg(self):
+        """'bread 3 imwe ZWG2' → 3 bread at ZWG 2 each."""
+        result = self._parse("bread 3 imwe ZWG2")
+        self.assertEqual(result.intent, "sale")
+        self.assertEqual(len(result.items), 1)
+        item = result.items[0]
+        self.assertIn("bread", item["product_name"].lower())
+        self.assertEqual(item["quantity"], 3)
+        self.assertEqual(item["unit_price"], 2.0)
+        self.assertEqual(result.currency, "ZWG")
+
+    def test_imwe_neimwe_per_unit(self):
+        """'airtime 10 imwe neimwe ZWG5' → 10 airtime at ZWG 5 each."""
+        result = self._parse("airtime 10 imwe neimwe ZWG5")
+        self.assertEqual(result.intent, "sale")
+        self.assertEqual(len(result.items), 1)
+        item = result.items[0]
+        self.assertEqual(item["quantity"], 10)
+        self.assertEqual(item["unit_price"], 5.0)
+        self.assertEqual(result.currency, "ZWG")
+
+    # ------------------------------------------------------------------
+    # Shona number words
+    # ------------------------------------------------------------------
+
+    def test_shona_number_words(self):
+        """'mazai maviri ne chips matatu' → 2 mazai, 3 chips, no prices."""
+        result = self._parse("mazai maviri ne chips matatu")
+        self.assertEqual(result.intent, "sale")
+        self.assertEqual(len(result.items), 2)
+        quantities = {item["product_name"].lower(): item["quantity"] for item in result.items}
+        self.assertEqual(quantities.get("mazai"), 2)
+        self.assertEqual(quantities.get("chips"), 3)
+        for item in result.items:
+            self.assertIsNone(item["unit_price"])
+
+    # ------------------------------------------------------------------
+    # Code-switching (Shona + English mixed)
+    # ------------------------------------------------------------------
+
+    def test_ne_joins_items(self):
+        """'2 coke ne 3 fanta' → 2 coke, 3 fanta."""
+        result = self._parse("2 coke ne 3 fanta")
+        self.assertEqual(result.intent, "sale")
+        self.assertEqual(len(result.items), 2)
+        quantities = {item["product_name"].lower(): item["quantity"] for item in result.items}
+        self.assertEqual(quantities.get("coke"), 2)
+        self.assertEqual(quantities.get("fanta"), 3)
+
+    def test_mixed_shona_english_with_price(self):
+        """'5 bread imwe R3 ne 2 coke' → 5 bread @ R3, 2 coke no price."""
+        result = self._parse("5 bread imwe R3 ne 2 coke")
+        self.assertEqual(result.intent, "sale")
+        self.assertEqual(len(result.items), 2)
+        by_name = {item["product_name"].lower(): item for item in result.items}
+        bread = next((v for k, v in by_name.items() if "bread" in k), None)
+        coke = next((v for k, v in by_name.items() if "coke" in k), None)
+        self.assertIsNotNone(bread)
+        self.assertIsNotNone(coke)
+        self.assertEqual(bread["quantity"], 5)
+        self.assertEqual(bread["unit_price"], 3.0)
+        self.assertEqual(coke["quantity"], 2)
+        self.assertIsNone(coke["unit_price"])
