@@ -1,161 +1,65 @@
 # Contributing to Auto Tuck Shop
 
-Thanks for contributing! This doc explains how to make changes to the codebase.
+## Branch protection
 
-## 🚨 Branch Protection Rules
+Direct pushes to `main` are blocked. All changes require a pull request with at least one approval.
 
-This repository has branch protection enabled:
-- **Direct pushes to `main` are blocked**
-- **All changes require a Pull Request**
-- **PRs require approval before merging**
+## Making changes
 
-## 📝 Making Changes
+**1. Branch off main**
 
-### 1. Create a feature branch
-
-Always branch off from `main`:
-
-```powershell
+```bash
 git checkout main
 git pull origin main
-git checkout -b your-feature-name
+git checkout -b your-branch-name
 ```
 
-**Branch naming tips:**
-- Use descriptive names: `fix-voice-parsing`, `add-inventory-report`, `update-deployment-docs`
-- Use hyphens, not underscores or spaces
-- Keep it short but clear
+Use descriptive branch names: `fix-voice-parsing`, `add-shona-examples`, `update-deploy-docs`.
 
-### 2. Make your changes
+**2. Commit**
 
-Edit code, add files, whatever you need to do. Test locally before committing!
-
-### 3. Commit your changes
-
-```powershell
+```bash
 git add .
-git commit -m "Brief description of what you changed"
+git commit -m "Brief description of what and why"
 ```
 
-**Good commit messages:**
-- ✅ "Fix WhatsApp webhook signature verification"
-- ✅ "Add currency support for ZWL"
-- ✅ "Update onboarding docs with new WhatsApp setup steps"
-- ❌ "Fixed stuff"
-- ❌ "Update"
-- ❌ "asdfasdf"
+Good commit messages:
+- `Fix WhatsApp webhook signature verification`
+- `Add Shona number words to LLM prompt`
+- `Update deployment docs with new Fly.io app name`
 
-### 4. Push your branch
+Bad:
+- `Fixed stuff`
+- `Update`
 
-```powershell
-git push origin your-feature-name
+**3. Push and open a PR**
+
+```bash
+git push origin your-branch-name
 ```
 
-If this is the first push, Git will show you a link to create a PR - super convenient!
+PR descriptions should cover: what changed, why, and how to test it. See existing merged PRs for examples.
 
-### 5. Create a Pull Request
+**4. Address review feedback, then merge**
 
-Go to: https://github.com/dev-thandabantu/auto-tuck-shop/pulls
-
-Click **"New pull request"** or use the link that appeared after pushing.
-
-**In your PR description, include:**
-- What you changed and why
-- How to test it
-- Any relevant context (screenshots, error messages, etc.)
-
-**Example PR description:**
-```
-## What changed
-Added support for Zimbabwean Dollar (ZWL) currency conversion
-
-## Why
-Shop owners in Zimbabwe use ZWL but our system only supported USD
-
-## How to test
-1. Deploy to staging
-2. Set a user's currency to ZWL in admin
-3. Send a test sale - should format prices correctly
-
-## Notes
-Exchange rate is hardcoded for now, needs API integration later
-```
-
-### 6. Wait for review
-
-Someone will review your code. They might:
-- ✅ Approve it immediately
-- 💬 Ask questions or request changes
-- ❌ Reject it (rare, but possible if it breaks something)
-
-Don't take feedback personally - it's about making the code better, not about you!
-
-### 7. Address feedback (if any)
-
-If changes are requested:
-
-```powershell
-# Make the changes
+```bash
 git add .
 git commit -m "Address review feedback"
-git push origin your-feature-name
+git push origin your-branch-name
 ```
 
-The PR will automatically update!
+Once approved, merge on GitHub and delete the branch.
 
-### 8. Merge!
+## Before creating a PR
 
-Once approved, click **"Merge pull request"** on GitHub.
+- Test your changes locally
+- For code changes: `python manage.py check` and `python manage.py test unit_tests`
+- For deployment changes: deploy to staging first, run `python -m pytest tests/ -x`
+- Update relevant docs if behaviour changed
 
-Then clean up your local branches:
-```powershell
-git checkout main
-git pull origin main
-git branch -d your-feature-name  # Delete local branch
-```
+## What not to do
 
-## 🧪 Before Creating a PR
-
-**Always:**
-1. ✅ Test your changes locally
-2. ✅ Check for obvious errors (typos, broken imports)
-3. ✅ Make sure the code follows existing patterns
-4. ✅ Update documentation if you changed behavior
-
-**For code changes:**
-1. ✅ Run tests: `python -m pytest tests/ -x`
-2. ✅ Check for Python errors: `python manage.py check`
-
-**For deployment changes:**
-1. ✅ Deploy to staging first: `fly deploy -c fly.staging.toml`
-2. ✅ Test manually in staging
-3. ✅ Run automated tests against staging
-
-## 🚫 What NOT to Do
-
-- ❌ Push directly to main (impossible anyway due to branch protection)
-- ❌ Commit secrets (API keys, passwords) - use environment variables!
-- ❌ Edit migration files that are already committed
-- ❌ Make huge PRs that change 50 files - break them up!
-- ❌ Merge without approval
-
-## 🆘 Need Help?
-
-- Check existing docs: README.md, ONBOARDING.md, CLAUDE.md
-- Look at previous PRs to see examples
-- Ask questions in your PR description
-- Google error messages
-- Check Django/Python docs
-
-## 🎯 Good First Issues
-
-New to the codebase? Try these:
-- Documentation improvements
-- Adding comments to confusing code
-- Fixing typos
-- Writing tests for existing features
-- Small bug fixes
-
----
-
-Remember: Everyone was new once. Making mistakes is part of learning. The PR workflow is here to catch mistakes before they reach production, so experiment and learn! 🚀
+- Commit secrets — use environment variables
+- Edit migration files that are already committed — create new ones
+- Push directly to main
+- Open a PR that changes 20+ unrelated files — break it up
