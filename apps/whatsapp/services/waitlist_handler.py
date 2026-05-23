@@ -40,6 +40,14 @@ def _create_waitlist_entry(phone_number: str, first_message: str) -> tuple[Waitl
 
 
 @db_sync_to_async
+def _get_waitlist_entry(entry_id: int) -> WaitlistEntry | None:
+    try:
+        return WaitlistEntry.objects.get(id=entry_id)
+    except WaitlistEntry.DoesNotExist:
+        return None
+
+
+@db_sync_to_async
 def _store_waitlist_response_message_sid(entry_id: int, message_sid: str) -> None:
     WaitlistEntry.objects.filter(id=entry_id).update(confirmation_message_sid=message_sid)
 
@@ -126,7 +134,6 @@ async def process_new_waitlist_entry_async(sender: str, text: str) -> None:
     message_sid = await _send_response_with_buttons(sender, t("language.prompt"), buttons)
     if message_sid:
         await _store_waitlist_response_message_sid(entry.id, message_sid)
-    await _send_waitlist_admin_notification(entry)
 
 
 async def process_waitlisted_message_async(sender: str, text: str, waitlist_entry: WaitlistEntry) -> None:
@@ -134,7 +141,9 @@ async def process_waitlisted_message_async(sender: str, text: str, waitlist_entr
     if waitlist_entry.status == WaitlistEntry.Status.PENDING:
         if not waitlist_entry.company_name and text.strip():
             await _update_waitlist_company_name(waitlist_entry.id, text.strip())
+            waitlist_entry.company_name = text.strip()
             await _send_response(sender, t("waitlist.shop_name_noted", lang=lang, shop_name=text.strip()))
+            await _send_waitlist_admin_notification(waitlist_entry)
         else:
             await _send_response(sender, t("waitlist.still_pending", lang=lang))
     elif waitlist_entry.status == WaitlistEntry.Status.REJECTED:
@@ -149,6 +158,12 @@ async def process_language_button_async(lang: str, entry_id: int, sender: str) -
         await _update_profile_language(profile.id, lang)
     await _send_response(sender, t("language.confirmed", lang=lang))
     await _send_response(sender, t("waitlist.welcome", lang=lang))
+
+    # Notify admin now only if user already provided a shop name.
+    # Otherwise notification fires when shop name arrives (process_waitlisted_message_async).
+    entry = await _get_waitlist_entry(entry_id)
+    if entry and entry.company_name:
+        await _send_waitlist_admin_notification(entry)
 
 
 async def process_waitlist_button_action_async(
