@@ -92,7 +92,8 @@ def t(key: str, lang: str = DEFAULT_LANGUAGE, **kwargs) -> str:
 # Shared constants and helpers
 # ---------------------------------------------------------------------------
 
-ADMIN_PHONE_NUMBER = "+14342183470"
+from django.conf import settings
+ADMIN_PHONE_NUMBER = settings.ADMIN_PHONE_NUMBER or "+14342183470"
 
 
 def _extract_phone_number(sender: str) -> str:
