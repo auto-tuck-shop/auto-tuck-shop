@@ -254,6 +254,10 @@ class WhatsAppWebhookView(View):
         original_message_id = context.get("id", "")
         message_id = message.get("id", "")
 
+        if _is_duplicate_message(message_id):
+            logger.info("Duplicate button response %s from %s, skipping", message_id, sender)
+            return
+
         # Lookup sender for recording
         phone_number = _extract_phone_number(sender)
         status, profile, waitlist_entry = _lookup_sender(sender)
