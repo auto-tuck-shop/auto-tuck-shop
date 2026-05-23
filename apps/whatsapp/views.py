@@ -477,9 +477,8 @@ class WhatsAppWebhookView(View):
             return True
 
         if not signature_header:
-            # TODO: Re-enable after debugging why Meta isn't sending signatures
-            logger.warning("X-Hub-Signature-256 header missing, allowing request for debugging")
-            return True
+            logger.error("X-Hub-Signature-256 header missing, rejecting request")
+            return False
 
         if not signature_header.startswith("sha256="):
             logger.warning(f"Invalid signature format: {signature_header[:20]}...")
