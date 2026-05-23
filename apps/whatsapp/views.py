@@ -79,6 +79,12 @@ def _lookup_sender(sender: str) -> tuple[SenderStatus, UserProfile | None, Waitl
     return (SenderStatus.UNKNOWN, None, None)
 
 
+def _is_duplicate_message(whatsapp_message_id: str) -> bool:
+    if not whatsapp_message_id:
+        return False
+    return WhatsAppMessage.objects.filter(whatsapp_message_id=whatsapp_message_id).exists()
+
+
 def _record_inbound_message(
     phone_number: str,
     message_type: str,
@@ -182,6 +188,10 @@ class WhatsAppWebhookView(View):
         message_id = message.get("id", "")
         sender = message.get("from", "")  # Plain number like '1234567890'
         message_type = message.get("type", "")
+
+        if _is_duplicate_message(message_id):
+            logger.info("Duplicate message %s from %s, skipping", message_id, sender)
+            return
 
         # Handle interactive button responses
         if message_type == "interactive":
