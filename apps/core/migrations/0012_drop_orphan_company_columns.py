@@ -13,7 +13,15 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.RunSQL(
-            sql="ALTER TABLE core_company DROP COLUMN IF EXISTS daily_summary_enabled;",
+            sql="""
+                ALTER TABLE core_company
+                    DROP COLUMN IF EXISTS daily_summary_enabled,
+                    DROP COLUMN IF EXISTS daily_closing_date,
+                    DROP COLUMN IF EXISTS daily_closing_time,
+                    DROP COLUMN IF EXISTS last_closing_prompt_date,
+                    DROP COLUMN IF EXISTS last_summary_date,
+                    DROP COLUMN IF EXISTS normal_closing_time;
+            """,
             reverse_sql=migrations.RunSQL.noop,
         ),
     ]
