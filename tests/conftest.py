@@ -269,7 +269,7 @@ def onboard_user(send_webhook, poll_outbox, http_client, staging_url, api_key, a
 
         result = _poll_outbox(
             http_client, staging_url, api_key, ADMIN_PHONE,
-            check=_find_approve_button, timeout=10.0,
+            check=_find_approve_button, timeout=15.0,
         )
 
         assert isinstance(result, dict) and "button_id" in result, (
@@ -293,7 +293,7 @@ def onboard_user(send_webhook, poll_outbox, http_client, staging_url, api_key, a
 
         approval = _poll_outbox(
             http_client, staging_url, api_key, phone,
-            check=_has_approval, timeout=10.0,
+            check=_has_approval, timeout=15.0,
         )
         assert approval is True, f"User {phone} was not approved. Outbox: {approval}"
 

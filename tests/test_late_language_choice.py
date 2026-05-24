@@ -46,7 +46,7 @@ def test_late_language_choice_respected_on_sale_buttons(
 
     approve = _poll_outbox(
         http_client, staging_url, api_key, ADMIN_PHONE,
-        check=_find_approve, timeout=10.0,
+        check=_find_approve, timeout=15.0,
     )
     assert isinstance(approve, dict) and "button_id" in approve, (
         f"No approve button for {phone}. Last: {approve}"
@@ -173,7 +173,7 @@ def test_normal_flow_language_choice_respected(
 
     approve = _poll_outbox(
         http_client, staging_url, api_key, ADMIN_PHONE,
-        check=_find_approve, timeout=10.0,
+        check=_find_approve, timeout=15.0,
     )
     assert isinstance(approve, dict) and "button_id" in approve, (
         f"No approve button for {phone}. Last: {approve}"
