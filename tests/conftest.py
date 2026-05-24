@@ -77,12 +77,23 @@ def unique_phone(used_phones):
 @pytest.fixture(autouse=True)
 def cleanup_outbox(request, http_client, staging_url, api_key, used_phones):
     """Clear admin outbox before each test, then clean up all used phones after."""
-    # Pre-clean admin outbox so stale buttons from previous tests don't interfere
-    http_client.delete(
-        f"{staging_url}/test/outbox/",
-        params={"phone": ADMIN_PHONE},
-        headers={"X-Test-Api-Key": api_key},
-    )
+    # Clear admin outbox, then wait for any in-flight async notifications to drain
+    # before the next test starts sending webhooks.
+    for _ in range(5):
+        http_client.delete(
+            f"{staging_url}/test/outbox/",
+            params={"phone": ADMIN_PHONE},
+            headers={"X-Test-Api-Key": api_key},
+        )
+        time.sleep(0.5)
+        resp = http_client.get(
+            f"{staging_url}/test/outbox/",
+            params={"phone": ADMIN_PHONE},
+            headers={"X-Test-Api-Key": api_key},
+        )
+        outbox = resp.json()
+        if not outbox.get("buttons") and not outbox.get("messages"):
+            break
     yield
     for phone in used_phones:
         http_client.delete(
