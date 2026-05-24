@@ -19,7 +19,7 @@ from dotenv import load_dotenv
 # Load .env.staging from project root
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env.staging"))
 
-ADMIN_PHONE = "+14342183470"
+ADMIN_PHONE = "+27641295093"
 
 
 # ---------------------------------------------------------------------------
