@@ -38,7 +38,7 @@ def test_audio_sale_gets_parsed_receipt(
             return {"type": "text", "data": non_welcome[-1]}
         return None
 
-    result = poll_outbox(unique_phone, check=_find_sale_response, timeout=30.0)
+    result = poll_outbox(unique_phone, check=_find_sale_response, timeout=8.0)
     assert isinstance(result, dict), (
         f"Expected a response after audio for {unique_phone}. Outbox: {result}"
     )

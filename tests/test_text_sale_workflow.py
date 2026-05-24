@@ -20,7 +20,7 @@ def test_text_sale_sends_receipt(send_webhook, poll_outbox, onboard_user, unique
                 return b
         return None
 
-    btn_msg = poll_outbox(unique_phone, check=_find_receipt, timeout=20.0)
+    btn_msg = poll_outbox(unique_phone, check=_find_receipt, timeout=5.0)
     assert isinstance(btn_msg, dict), (
         f"Expected receipt buttons for {unique_phone}. Outbox: {btn_msg}"
     )

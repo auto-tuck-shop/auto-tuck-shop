@@ -1,22 +1,35 @@
 name: Staging Tests
 
 on:
-  # Run after deploying to staging
   workflow_dispatch:
-  # Run on pushes to main (after deploy)
   push:
     branches: [main]
-  # Run on PRs to catch issues before merge
   pull_request:
     branches: [main]
 
 jobs:
   staging-tests:
-    name: Run staging integration tests
+    name: ${{ matrix.test-file }}
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 5
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+    strategy:
+      fail-fast: false
+      matrix:
+        test-file:
+          - tests/test_assistant_workflow.py
+          - tests/test_audio_sale_workflow.py
+          - tests/test_bot_mistake_workflow.py
+          - tests/test_confirmation_workflow.py
+          - tests/test_late_language_choice.py
+          - tests/test_localizations.py
+          - tests/test_onboarding_workflow.py
+          - tests/test_price_overflow.py
+          - tests/test_text_sale_workflow.py
+          - tests/test_waitlist_duplicate_approval.py
+          - tests/test_waitlist_duplicate_sid.py
 
     steps:
       - uses: actions/checkout@v4
@@ -35,4 +48,4 @@ jobs:
           STAGING_URL: ${{ secrets.STAGING_URL }}
           TEST_API_KEY: ${{ secrets.TEST_API_KEY }}
           META_WHATSAPP_APP_SECRET: ${{ secrets.META_WHATSAPP_APP_SECRET }}
-        run: pytest -v
+        run: pytest -v ${{ matrix.test-file }}

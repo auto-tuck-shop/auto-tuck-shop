@@ -32,7 +32,7 @@ def test_late_language_choice_respected_on_sale_buttons(
 
     approve = _poll_outbox(
         http_client, staging_url, api_key, ADMIN_PHONE,
-        check=_find_approve, timeout=15.0,
+        check=_find_approve, timeout=5.0,
     )
     assert isinstance(approve, dict) and "button_id" in approve, (
         f"No approve button for {phone}. Last: {approve}"
@@ -51,7 +51,7 @@ def test_late_language_choice_respected_on_sale_buttons(
 
     assert _poll_outbox(
         http_client, staging_url, api_key, phone,
-        check=_has_approval, timeout=15.0,
+        check=_has_approval, timeout=5.0,
     ) is True, f"User {phone} not approved"
 
     # 5. NOW the user clicks the English language button (late!)
@@ -64,7 +64,7 @@ def test_late_language_choice_respected_on_sale_buttons(
 
     lang_btn = _poll_outbox(
         http_client, staging_url, api_key, phone,
-        check=_find_lang_button, timeout=10.0,
+        check=_find_lang_button, timeout=5.0,
     )
     assert isinstance(lang_btn, dict) and "button_id" in lang_btn, (
         f"No language button for {phone}. Last: {lang_btn}"
@@ -80,7 +80,7 @@ def test_late_language_choice_respected_on_sale_buttons(
 
     assert _poll_outbox(
         http_client, staging_url, api_key, phone,
-        check=_has_lang_confirmed, timeout=10.0,
+        check=_has_lang_confirmed, timeout=5.0,
     ) is True, f"Language confirmation not received for {phone}"
 
     # 6. User sends a sale → buttons should be in English
@@ -93,7 +93,7 @@ def test_late_language_choice_respected_on_sale_buttons(
                 return b
         return None
 
-    receipt = poll_outbox(phone, check=_find_receipt, timeout=20.0)
+    receipt = poll_outbox(phone, check=_find_receipt, timeout=5.0)
     assert isinstance(receipt, dict), f"No receipt for {phone}. Last: {receipt}"
 
     # The confirm button should say "Looks good" (English), NOT "Ndizvo" (Shona)
@@ -126,7 +126,7 @@ def test_normal_flow_language_choice_respected(
 
     lang_btn = _poll_outbox(
         http_client, staging_url, api_key, phone,
-        check=_find_lang_button, timeout=15.0,
+        check=_find_lang_button, timeout=5.0,
     )
     assert isinstance(lang_btn, dict) and "button_id" in lang_btn, (
         f"No language button for {phone}. Last: {lang_btn}"
@@ -142,7 +142,7 @@ def test_normal_flow_language_choice_respected(
 
     assert _poll_outbox(
         http_client, staging_url, api_key, phone,
-        check=_has_lang_confirmed, timeout=10.0,
+        check=_has_lang_confirmed, timeout=5.0,
     ) is True, f"Language confirmation not received for {phone}"
 
     # 3. THEN admin approves
@@ -156,7 +156,7 @@ def test_normal_flow_language_choice_respected(
 
     approve = _poll_outbox(
         http_client, staging_url, api_key, ADMIN_PHONE,
-        check=_find_approve, timeout=15.0,
+        check=_find_approve, timeout=5.0,
     )
     assert isinstance(approve, dict) and "button_id" in approve, (
         f"No approve button for {phone}. Last: {approve}"
@@ -173,7 +173,7 @@ def test_normal_flow_language_choice_respected(
 
     assert _poll_outbox(
         http_client, staging_url, api_key, phone,
-        check=_has_approval, timeout=15.0,
+        check=_has_approval, timeout=5.0,
     ) is True, f"User {phone} not approved"
 
     # 5. User sends a sale → buttons should be in English
@@ -186,7 +186,7 @@ def test_normal_flow_language_choice_respected(
                 return b
         return None
 
-    receipt = poll_outbox(phone, check=_find_receipt, timeout=20.0)
+    receipt = poll_outbox(phone, check=_find_receipt, timeout=5.0)
     assert isinstance(receipt, dict), f"No receipt for {phone}. Last: {receipt}"
 
     button_titles = {b["title"] for b in receipt["buttons"]}

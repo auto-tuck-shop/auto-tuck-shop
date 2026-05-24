@@ -102,8 +102,8 @@ def _poll_outbox(
     phone: str,
     *,
     check,
-    timeout: float = 15.0,
-    interval: float = 0.5,
+    timeout: float = 5.0,
+    interval: float = 0.3,
 ):
     """Poll the outbox until `check(outbox_dict)` returns a truthy value or timeout."""
     deadline = time.monotonic() + timeout
@@ -164,7 +164,7 @@ def get_outbox(http_client, staging_url, api_key):
 @pytest.fixture
 def poll_outbox(http_client, staging_url, api_key):
     """Poll the outbox until a condition is met. Returns the check result or last outbox."""
-    def _poll(phone: str, *, check, timeout: float = 15.0, interval: float = 0.5):
+    def _poll(phone: str, *, check, timeout: float = 5.0, interval: float = 0.3):
         return _poll_outbox(
             http_client, staging_url, api_key, phone,
             check=check, timeout=timeout, interval=interval,
@@ -247,7 +247,7 @@ def onboard_user(send_webhook, poll_outbox, http_client, staging_url, api_key, a
 
         result = _poll_outbox(
             http_client, staging_url, api_key, ADMIN_PHONE,
-            check=_find_approve_button, timeout=15.0,
+            check=_find_approve_button, timeout=5.0,
         )
 
         assert isinstance(result, dict) and "button_id" in result, (
@@ -271,7 +271,7 @@ def onboard_user(send_webhook, poll_outbox, http_client, staging_url, api_key, a
 
         approval = _poll_outbox(
             http_client, staging_url, api_key, phone,
-            check=_has_approval, timeout=15.0,
+            check=_has_approval, timeout=5.0,
         )
         assert approval is True, f"User {phone} was not approved. Outbox: {approval}"
 

@@ -47,7 +47,7 @@ def test_waitlist_approval_after_outbox_reset(
     result_a = poll_outbox(
         ADMIN_PHONE,
         check=lambda ob: _find_approve_button_for_phone(phone_a.lstrip("+"), ob),
-        timeout=15.0,
+        timeout=5.0,
     )
     assert isinstance(result_a, dict) and "message_id" in result_a, (
         f"No approve button found for phone_a={phone_a}. Got: {result_a}"
@@ -65,7 +65,7 @@ def test_waitlist_approval_after_outbox_reset(
     result_b = poll_outbox(
         ADMIN_PHONE,
         check=lambda ob: _find_approve_button_for_phone(phone_b.lstrip("+"), ob),
-        timeout=15.0,
+        timeout=5.0,
     )
     assert isinstance(result_b, dict) and "message_id" in result_b, (
         f"No approve button found for phone_b={phone_b}. Got: {result_b}"
@@ -90,7 +90,7 @@ def test_waitlist_approval_after_outbox_reset(
                 return True
         return None
 
-    result = poll_outbox(phone_b, check=_has_approval_msg, timeout=15.0)
+    result = poll_outbox(phone_b, check=_has_approval_msg, timeout=5.0)
     assert result is True, (
         f"Phone B ({phone_b}) was not approved. "
         f"Outbox: {get_outbox(phone_b)}"
