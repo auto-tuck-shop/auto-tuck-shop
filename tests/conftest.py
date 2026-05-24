@@ -232,13 +232,29 @@ def onboard_user(send_webhook, poll_outbox, http_client, staging_url, api_key, a
     def _onboard(phone: str):
         used_phones.add(phone)
         used_phones.add(ADMIN_PHONE)
-        # 1. Send a message from the unknown phone → triggers waitlist entry
-        send_webhook(text_message_payload(phone, "Hello I want to register my shop"))
+        # 1. Send first message → triggers language buttons
+        send_webhook(text_message_payload(phone, "Hello"))
 
-        # 2. Poll admin outbox for the approve button for this phone
+        # 2. Wait for language buttons and click English
+        def _find_lang_buttons(outbox):
+            for btn in outbox.get("buttons", []):
+                if btn.get("to", "").lstrip("+") == phone.lstrip("+"):
+                    ids = [b["id"] for b in btn.get("buttons", [])]
+                    if any(i.startswith("lang_en_") for i in ids):
+                        return btn
+            return None
+
+        lang_msg = _poll_outbox(http_client, staging_url, api_key, phone, check=_find_lang_buttons, timeout=10.0)
+        assert isinstance(lang_msg, dict) and "buttons" in lang_msg, f"No language buttons for {phone}. Outbox: {lang_msg}"
+        en_button = next(b for b in lang_msg["buttons"] if b["id"].startswith("lang_en_"))
+        send_webhook(button_click_payload(phone, en_button["id"], lang_msg["message_id"]))
+
+        # 3. Send shop name → triggers admin notification
+        send_webhook(text_message_payload(phone, "Test Shop"))
+
+        # 4. Poll admin outbox for the approve button for this phone
         def _find_approve_button(outbox):
             for btn in outbox.get("buttons", []):
-                # The admin notification body includes the phone number
                 if phone in btn.get("body", ""):
                     for b in btn.get("buttons", []):
                         if b["id"].startswith("waitlist_approve_"):

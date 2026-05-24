@@ -33,7 +33,14 @@ def test_unknown_user_gets_language_choice(send_webhook, poll_outbox, unique_pho
     # Body should contain the bilingual prompt
     assert "language" in lang_msg["body"].lower() or "mutauro" in lang_msg["body"].lower()
 
-    # --- Admin receives a notification with the user's phone and first message ---
+    # --- Admin notification fires after language selection + shop name ---
+    # Click English
+    en_button = next(b for b in lang_msg["buttons"] if b["id"].startswith("lang_en_"))
+    send_webhook(button_click_payload(unique_phone, en_button["id"], lang_msg["message_id"]))
+
+    # Send shop name → triggers admin notification
+    send_webhook(text_message_payload(unique_phone, "My Test Shop"))
+
     phone_plain = unique_phone.lstrip("+")
 
     def _find_admin_notification(outbox):
@@ -47,9 +54,7 @@ def test_unknown_user_gets_language_choice(send_webhook, poll_outbox, unique_pho
         f"Expected admin notification for {unique_phone}. Outbox: {admin_btn}"
     )
 
-    # Admin notification body should include the user's phone and their first message
     assert phone_plain in admin_btn["body"] or unique_phone in admin_btn["body"]
-    assert "register" in admin_btn["body"].lower()
 
     # Should have exactly 2 buttons: approve and reject
     assert len(admin_btn["buttons"]) == 2
