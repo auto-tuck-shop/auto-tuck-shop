@@ -477,7 +477,7 @@ class WhatsAppWebhookView(View):
             return True
 
         if not signature_header:
-            logger.warning("X-Hub-Signature-256 header missing")
+            logger.error("X-Hub-Signature-256 header missing, rejecting request")
             return False
 
         if not signature_header.startswith("sha256="):
