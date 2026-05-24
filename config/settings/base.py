@@ -161,6 +161,9 @@ ADMIN_PHONE_NUMBER = env("ADMIN_PHONE_NUMBER", default=None)  # Receives waitlis
 OPENROUTER_API_KEY = env("OPENROUTER_API_KEY", default="")
 OPENROUTER_MODEL = env("OPENROUTER_MODEL", default="google/gemini-2.5-flash-lite")
 
+# Gemini direct fallback (used when OpenRouter returns 402)
+GEMINI_API_KEY = env("GEMINI_API_KEY", default="")
+
 # Eleven Labs Configuration
 ELEVENLABS_API_KEY = env("ELEVENLABS_API_KEY", default="")
 

@@ -11,6 +11,8 @@ from utils.timing import track
 logger = logging.getLogger(__name__)
 
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
+GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
+GEMINI_FALLBACK_MODEL = "gemini-2.0-flash"
 
 MAX_JSON_PARSE_RETRIES = 2
 
@@ -101,8 +103,17 @@ class OpenRouterClient:
         try:
             response = await _do_request()
         except httpx.HTTPStatusError as e:
-            logger.error(f"OpenRouter HTTP error: {e.response.status_code} - {e.response.text}")
-            raise OpenRouterError(f"API request failed: {e.response.status_code}") from e
+            if e.response.status_code == 402:
+                gemini_key = getattr(settings, "GEMINI_API_KEY", "")
+                if gemini_key:
+                    logger.warning("OpenRouter 402 — falling back to Gemini direct API")
+                    response = await self._gemini_fallback(payload, gemini_key)
+                else:
+                    logger.error("OpenRouter 402 and no GEMINI_API_KEY configured")
+                    raise OpenRouterError("API request failed: 402") from e
+            else:
+                logger.error(f"OpenRouter HTTP error: {e.response.status_code} - {e.response.text}")
+                raise OpenRouterError(f"API request failed: {e.response.status_code}") from e
         except httpx.RequestError as e:
             logger.error(f"OpenRouter request error: {e}")
             raise OpenRouterError(f"Request failed: {e}") from e
@@ -128,6 +139,21 @@ class OpenRouterClient:
             )
 
         return content
+
+    async def _gemini_fallback(self, payload: dict, gemini_key: str):
+        """Call Gemini directly using its OpenAI-compatible endpoint."""
+        fallback_payload = {**payload, "model": GEMINI_FALLBACK_MODEL}
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(
+                GEMINI_API_URL,
+                headers={
+                    "Authorization": f"Bearer {gemini_key}",
+                    "Content-Type": "application/json",
+                },
+                json=fallback_payload,
+            )
+            response.raise_for_status()
+            return response
 
     async def parse_json_response(
         self,
