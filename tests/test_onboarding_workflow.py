@@ -43,7 +43,7 @@ def test_unknown_user_gets_language_choice(send_webhook, poll_outbox, unique_pho
         return None
 
     admin_btn = poll_outbox(ADMIN_PHONE, check=_find_admin_notification)
-    assert isinstance(admin_btn, dict), (
+    assert isinstance(admin_btn, dict) and "body" in admin_btn, (
         f"Expected admin notification for {unique_phone}. Outbox: {admin_btn}"
     )
 
