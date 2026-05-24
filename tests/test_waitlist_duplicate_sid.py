@@ -42,12 +42,23 @@ def test_waitlist_approval_after_outbox_reset(
     )
     assert resp.status_code == 200
 
-    # 1. Register phone A
-    send_webhook(text_message_payload(phone_a, "Register shop A"))
+    # 1. Register phone A — language prompt fires first, then shop name triggers admin notification
+    send_webhook(text_message_payload(phone_a, "Hello"))
+    # Wait for language buttons then send shop name
+    def _lang_a(ob):
+        for btn in ob.get("buttons", []):
+            if btn.get("to", "").lstrip("+") == phone_a.lstrip("+"):
+                if any(b["id"].startswith("lang_") for b in btn.get("buttons", [])):
+                    return btn
+        return None
+    lang_a = poll_outbox(phone_a, check=_lang_a, timeout=10.0)
+    assert isinstance(lang_a, dict), f"No language buttons for phone_a={phone_a}"
+    send_webhook(text_message_payload(phone_a, "Shop A"))
+
     result_a = poll_outbox(
         ADMIN_PHONE,
         check=lambda ob: _find_approve_button_for_phone(phone_a.lstrip("+"), ob),
-        timeout=5.0,
+        timeout=10.0,
     )
     assert isinstance(result_a, dict) and "message_id" in result_a, (
         f"No approve button found for phone_a={phone_a}. Got: {result_a}"
@@ -60,12 +71,22 @@ def test_waitlist_approval_after_outbox_reset(
     )
     assert resp.status_code == 200
 
-    # 3. Register phone B
-    send_webhook(text_message_payload(phone_b, "Register shop B"))
+    # 3. Register phone B — same flow
+    send_webhook(text_message_payload(phone_b, "Hello"))
+    def _lang_b(ob):
+        for btn in ob.get("buttons", []):
+            if btn.get("to", "").lstrip("+") == phone_b.lstrip("+"):
+                if any(b["id"].startswith("lang_") for b in btn.get("buttons", [])):
+                    return btn
+        return None
+    lang_b = poll_outbox(phone_b, check=_lang_b, timeout=10.0)
+    assert isinstance(lang_b, dict), f"No language buttons for phone_b={phone_b}"
+    send_webhook(text_message_payload(phone_b, "Shop B"))
+
     result_b = poll_outbox(
         ADMIN_PHONE,
         check=lambda ob: _find_approve_button_for_phone(phone_b.lstrip("+"), ob),
-        timeout=5.0,
+        timeout=10.0,
     )
     assert isinstance(result_b, dict) and "message_id" in result_b, (
         f"No approve button found for phone_b={phone_b}. Got: {result_b}"
@@ -90,7 +111,7 @@ def test_waitlist_approval_after_outbox_reset(
                 return True
         return None
 
-    result = poll_outbox(phone_b, check=_has_approval_msg, timeout=5.0)
+    result = poll_outbox(phone_b, check=_has_approval_msg, timeout=10.0)
     assert result is True, (
         f"Phone B ({phone_b}) was not approved. "
         f"Outbox: {get_outbox(phone_b)}"

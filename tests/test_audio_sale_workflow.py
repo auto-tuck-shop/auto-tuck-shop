@@ -1,8 +1,20 @@
 """Test audio message sale: upload real audio → send audio webhook → get parsed sale."""
 
+import os
+
+import pytest
+
 from tests.conftest import audio_message_payload
 
+# Audio tests read real voice notes from the production R2 bucket.
+# Staging doesn't have cross-bucket read access, so skip in CI.
+skip_in_ci = pytest.mark.skipif(
+    os.environ.get("CI") == "true",
+    reason="Audio tests require production R2 access — run locally with .env.staging",
+)
 
+
+@skip_in_ci
 def test_audio_sale_gets_parsed_receipt(
     send_webhook, poll_outbox, onboard_user, unique_phone, upload_mock_media, r2_audio
 ):
