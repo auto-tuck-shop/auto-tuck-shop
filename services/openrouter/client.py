@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
-GEMINI_FALLBACK_MODEL = "gemini-2.0-flash"
+GEMINI_FALLBACK_MODEL = "gemini-2.5-flash"
 
 MAX_JSON_PARSE_RETRIES = 2
 
