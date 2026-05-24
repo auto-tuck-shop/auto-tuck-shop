@@ -35,6 +35,8 @@ Auto Tuck Shop is a Django app. Shop owners in Zimbabwe send WhatsApp text or vo
 
 When an AI assistant is helping with a task, check which issue it maps to and work within that scope. If a task doesn't map to an open issue, check with the user before starting.
 
+When creating a new GitHub issue, always add it to the **Auto Tuck Shop — Backlog** project: `gh issue edit <number> --add-project "Auto Tuck Shop — Backlog"`
+
 ## Where to find context
 
 Before starting any task, read the relevant context:
