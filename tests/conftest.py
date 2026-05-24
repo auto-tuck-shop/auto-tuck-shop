@@ -52,7 +52,7 @@ def app_secret():
 
 @pytest.fixture(scope="session")
 def http_client():
-    with httpx.Client(timeout=30) as client:
+    with httpx.Client(timeout=60) as client:
         yield client
 
 
@@ -76,7 +76,13 @@ def unique_phone(used_phones):
 
 @pytest.fixture(autouse=True)
 def cleanup_outbox(request, http_client, staging_url, api_key, used_phones):
-    """After each test, delete outbox entries for every phone the test touched."""
+    """Clear admin outbox before each test, then clean up all used phones after."""
+    # Pre-clean admin outbox so stale buttons from previous tests don't interfere
+    http_client.delete(
+        f"{staging_url}/test/outbox/",
+        params={"phone": ADMIN_PHONE},
+        headers={"X-Test-Api-Key": api_key},
+    )
     yield
     for phone in used_phones:
         http_client.delete(
