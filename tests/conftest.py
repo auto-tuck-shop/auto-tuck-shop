@@ -79,13 +79,13 @@ def cleanup_outbox(request, http_client, staging_url, api_key, used_phones):
     """Clear admin outbox before each test, then clean up all used phones after."""
     # Clear admin outbox, then wait for any in-flight async notifications to drain
     # before the next test starts sending webhooks.
-    for _ in range(5):
+    for _ in range(10):
         http_client.delete(
             f"{staging_url}/test/outbox/",
             params={"phone": ADMIN_PHONE},
             headers={"X-Test-Api-Key": api_key},
         )
-        time.sleep(0.5)
+        time.sleep(1.0)
         resp = http_client.get(
             f"{staging_url}/test/outbox/",
             params={"phone": ADMIN_PHONE},
