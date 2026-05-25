@@ -33,7 +33,7 @@ Auto Tuck Shop is a Django app. Shop owners in Zimbabwe send WhatsApp text or vo
 2. ~~Set Fly.io secrets on staging (#19 partial)~~ ✓ staging done; production secrets still needed
 3. ~~Deploy to staging and verify app boots (#20)~~ ✓ done
 4. ~~Register WhatsApp webhook on Meta dashboard (#23)~~ ✓ done — permanent system user token set
-5. E2E test checklist (#44) — run against staging before prod deploy
+5. ~~E2E test checklist (#44)~~ ✓ done — audio testing deferred to real device
 6. Pre-production checklist (#76): set prod secrets, update Meta webhook URL to prod, re-verify webhook
 7. Deploy to production — Brighton sign-off required (#24)
 8. Onboard 10 pilot shops (#25, assigned Bradley)
@@ -75,6 +75,8 @@ fly deploy
 ```
 
 Never deploy to production without explicit human confirmation.
+
+`USE_MOCK_WHATSAPP` must **not** be set (or set to `False`) on production — if it's `True` on prod, the bot silently swallows all outbound messages instead of sending them via WhatsApp. Confirm this before every prod deploy.
 
 ## Migrations
 
