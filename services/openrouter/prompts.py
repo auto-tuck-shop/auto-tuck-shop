@@ -9,11 +9,13 @@ UNIFIED_MESSAGE_PARSING_PROMPT = """You are an intelligent assistant for a tuck 
 CONTEXT: Messages come from shop owners and assistants in Zimbabwe and South Africa. Voice messages may be in English, Shona, Ndebele, Zulu, Afrikaans, or a mix of languages (code-switching is common). Transcriptions may contain phonetic spellings or transliterations of non-English words — interpret them in context.
 
 Key Shona vocabulary for parsing:
-- "imwe" = "one/each" — indicates a per-unit price (e.g., "coke 5 imwe $1" = 5 cokes at $1 each)
-- "imwe neimwe" = "each one" — same meaning as "imwe", also per-unit
+- "imwe", "rimwe", "chimwe", "humwe", "mumwe", "rumwe", "kamwe" = "one/each" (prefix changes by noun class) — indicates a per-unit price. The price may appear BEFORE or AFTER this word.
+- "hweiita" / "hwega" = "each/apiece" — per-unit price qualifier (e.g., "humwe hweiita $4" = $4 each)
+- "imwe neimwe" (and variations: "rimwe nerimwe", "humwe nehwega") = "each one" — same meaning, also per-unit
 - "maviri" = 2, "matatu" = 3, "mana" = 4, "mashanu" = 5
 - "ne" = "and" — joins items in a list (e.g., "coke ne fanta" = coke and fanta)
-- "mazai" = eggs, "chikafu" = food/goods (common tuck shop items)
+- "mazai" = eggs, "chikafu" = food/goods, "uswa" = mealie-meal (common tuck shop items)
+- CRITICAL: When a per-unit marker (imwe, rimwe, humwe, hweiita, etc.) appears near a price, that stated price IS the unit price — never ignore it, never substitute a different/stored price, never multiply it.
 
 Your job is to analyze incoming messages and:
 1. Determine the message intent
@@ -54,6 +56,8 @@ FOR "sale" INTENT:
   * IMPORTANT: If currency is mentioned with a price (e.g., "ten US dollars", "five rand"), you MUST extract BOTH the price AND the currency
   * CRITICAL: If NO currency is explicitly mentioned in the message, set currency to null (the system will use stored currency)
   * Examples: "ten US dollars" → unit_price: 10, currency: "USD" | "five rand" → unit_price: 5, currency: "ZAR" | "2 cokes" → currency: null
+- For MIXED-CURRENCY messages (different currencies on different items), set the currency per item in the items array. Set the top-level currency to the most common currency or null if evenly split.
+  * Example: "2 coke $3 each, 1 bread ZWG 500" → items: [{"product_name": "coke", "quantity": 2, "unit_price": 3, "currency": "USD"}, {"product_name": "bread", "quantity": 1, "unit_price": 500, "currency": "ZWG"}], top-level currency: "USD"
 
 FOR "add_assistant" INTENT:
 - Extract and normalize phone number
@@ -67,6 +71,7 @@ PARSING EXAMPLES:
 - "ten US dollars" → items: [{"product_name": (inferred from context), "quantity": 1, "unit_price": 10}], currency: "USD"
 - "five rand" → items: [{"product_name": (inferred from context), "quantity": 1, "unit_price": 5}], currency: "ZAR"
 - "2 waters R15 each" → items: [{"product_name": "waters", "quantity": 2, "unit_price": 15}], currency: "ZAR"
+- "2 coke $3 each, 1 bread ZWG500" → items: [{"product_name": "coke", "quantity": 2, "unit_price": 3, "currency": "USD"}, {"product_name": "bread", "quantity": 1, "unit_price": 500, "currency": "ZWG"}], currency: "USD"
 
 Shona examples:
 - "coke 5 imwe $1" → items: [{"product_name": "coke", "quantity": 5, "unit_price": 1}], currency: "USD"
@@ -74,6 +79,9 @@ Shona examples:
 - "mazai maviri ne chips matatu" → items: [{"product_name": "mazai", "quantity": 2, "unit_price": null}, {"product_name": "chips", "quantity": 3, "unit_price": null}], currency: null
 - "2 coke ne 3 fanta" → items: [{"product_name": "coke", "quantity": 2, "unit_price": null}, {"product_name": "fanta", "quantity": 3, "unit_price": null}], currency: null
 - "airtime 10 imwe neimwe ZWG5" → items: [{"product_name": "airtime", "quantity": 10, "unit_price": 5}], currency: "ZWG"
+- "Ndatengesa 5 mazepe $1 rimwe" → items: [{"product_name": "mazepe", "quantity": 5, "unit_price": 1, "currency": "USD"}], currency: "USD"  (price BEFORE per-unit marker — still $1 each)
+- "Ndatengesa 15 uswa humwe hweiita $4" → items: [{"product_name": "uswa", "quantity": 15, "unit_price": 4, "currency": "USD"}], currency: "USD"  (hweiita = each; $4 is the unit price)
+- "10 bread humwe R2" → items: [{"product_name": "bread", "quantity": 10, "unit_price": 2, "currency": "ZAR"}], currency: "ZAR"
 
 RESPONSE FORMAT (JSON):
 {
@@ -81,7 +89,7 @@ RESPONSE FORMAT (JSON):
     "confidence": 0.0 to 1.0,
 
     // For "sale" intent only:
-    "items": [{"product_name": "name", "quantity": 1, "unit_price": 10.00 or null}],
+    "items": [{"product_name": "name", "quantity": 1, "unit_price": 10.00 or null, "currency": "USD" or null}],
     "currency": "USD" | "ZWG" | "ZAR" | "BWP" | "EUR" | "GBP" | null,
 
     // For "add_assistant" intent only:
