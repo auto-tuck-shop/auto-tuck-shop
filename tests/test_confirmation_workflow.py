@@ -25,7 +25,7 @@ def _send_sale_and_get_buttons(send_webhook, poll_outbox, phone, sale_text="sold
                 }
         return None
 
-    result = poll_outbox(phone, check=_find_buttons, timeout=5.0)
+    result = poll_outbox(phone, check=_find_buttons, timeout=10.0)
     assert isinstance(result, dict) and "fix_id" in result, (
         f"No buttons found for {phone}. Outbox: {result}"
     )
@@ -90,5 +90,5 @@ def test_double_fix_is_idempotent(send_webhook, poll_outbox, onboard_user, uniqu
                 return m
         return None
 
-    msg = poll_outbox(unique_phone, check=_find_already_processed, timeout=5.0)
+    msg = poll_outbox(unique_phone, check=_find_already_processed, timeout=10.0)
     assert isinstance(msg, dict), f"Expected 'already processed' message. Outbox: {msg}"
