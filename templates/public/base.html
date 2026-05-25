@@ -6,6 +6,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}Auto Tuck Shop{% endblock %}</title>
   <meta name="description" content="{% block description %}Auto Tuck Shop helps tuck shops record sales through WhatsApp text and voice messages.{% endblock %}">
+  <meta name="theme-color" content="#174d38">
+  <link rel="icon" type="image/png" href="{% static 'auto_tuck_shop/img/app-icon.png' %}">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Auto Tuck Shop">
+  <meta property="og:title" content="{% block og_title %}Auto Tuck Shop{% endblock %}">
+  <meta property="og:description" content="{% block og_description %}Auto Tuck Shop helps tuck shops record sales through WhatsApp text and voice messages.{% endblock %}">
+  <meta property="og:image" content="{% block og_image %}{% static 'auto_tuck_shop/img/app-icon.png' %}{% endblock %}">
   <link rel="stylesheet" href="{% static 'auto_tuck_shop/css/public.css' %}">
 </head>
 <body>
