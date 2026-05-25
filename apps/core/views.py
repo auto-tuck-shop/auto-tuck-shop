@@ -119,7 +119,7 @@ def pilot_metrics(request):
         )
         weeks.append(
             {
-                "label": week_start.strftime("%b %d") + " – " + week_end.strftime("%b %d"),
+                "label": week_start.strftime("%b %d") + " - " + week_end.strftime("%b %d"),
                 "active_shops": active_count,
             }
         )

@@ -1,5 +1,4 @@
 {% extends "admin/base_site.html" %}
-{% load i18n %}
 
 {% block title %}Pilot Metrics{% endblock %}
 
@@ -11,208 +10,324 @@
 {% endblock %}
 
 {% block content %}
-
 <style>
-  .metrics-controls { margin-bottom: 20px; }
-  .metrics-controls a {
-    padding: 4px 12px;
-    margin-right: 4px;
-    text-decoration: none;
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
-    color: var(--link-fg);
+  .metrics-page {
+    max-width: 1180px;
   }
+
+  .metrics-hero {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 18px;
+    margin-bottom: 22px;
+  }
+
+  .metrics-hero h1 {
+    margin: 0 0 6px;
+    color: var(--body-loud-color);
+    font-size: 1.8rem;
+  }
+
+  .metrics-hero p {
+    margin: 0;
+    color: var(--body-quiet-color);
+  }
+
+  .metrics-controls {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--darkened-bg);
+  }
+
+  .metrics-controls span {
+    padding: 0 6px;
+    color: var(--body-quiet-color);
+    font-size: 0.82rem;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+
+  .metrics-controls a {
+    padding: 6px 10px;
+    border-radius: 6px;
+    color: var(--link-fg);
+    text-decoration: none;
+    font-weight: 700;
+  }
+
   .metrics-controls a.active {
     background: var(--primary);
     color: var(--primary-fg);
-    border-color: var(--primary);
   }
-  .metrics-section {
-    margin-bottom: 30px;
-    background: var(--body-bg);
-    padding: 20px;
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
-  }
-  .metrics-section h2 {
-    margin-top: 0;
-    color: var(--body-loud-color);
-    border-bottom: 1px solid var(--hairline-color);
-    padding-bottom: 8px;
-  }
+
   .stat-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 16px;
-    margin: 16px 0;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 12px;
+    margin-bottom: 22px;
   }
+
+  .stat-card,
+  .metrics-section {
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--body-bg);
+  }
+
   .stat-card {
-    background: var(--darkened-bg);
     padding: 16px;
-    border-radius: 4px;
-    text-align: center;
   }
+
   .stat-card .number {
-    font-size: 28px;
-    font-weight: bold;
     color: var(--body-loud-color);
+    font-size: 2rem;
+    font-weight: 800;
+    line-height: 1;
   }
+
   .stat-card .label {
-    font-size: 12px;
+    margin-top: 8px;
     color: var(--body-quiet-color);
+    font-size: 0.75rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
     text-transform: uppercase;
-    margin-top: 4px;
   }
+
+  .metrics-section {
+    margin-bottom: 18px;
+    overflow: hidden;
+  }
+
+  .metrics-section-header {
+    padding: 16px 18px;
+    border-bottom: 1px solid var(--hairline-color);
+    background: var(--darkened-bg);
+  }
+
+  .metrics-section-header h2 {
+    margin: 0;
+    color: var(--body-loud-color);
+    font-size: 1.15rem;
+  }
+
+  .metrics-section-header p,
+  .caveat {
+    margin: 6px 0 0;
+    color: var(--body-quiet-color);
+    font-size: 0.86rem;
+  }
+
+  .table-wrap {
+    overflow-x: auto;
+  }
+
   table.metrics-table {
     width: 100%;
+    min-width: 620px;
     border-collapse: collapse;
-    margin-top: 12px;
   }
+
   table.metrics-table th,
   table.metrics-table td {
-    padding: 8px 12px;
+    padding: 11px 14px;
     text-align: left;
     border-bottom: 1px solid var(--hairline-color);
     color: var(--body-fg);
-  }
-  table.metrics-table th {
-    background: var(--darkened-bg);
-    font-size: 12px;
-    text-transform: uppercase;
-    color: var(--body-quiet-color);
-  }
-  table.metrics-table tr:hover { background: var(--selected-bg); }
-  .bar {
-    display: inline-block;
-    height: 16px;
-    border-radius: 2px;
     vertical-align: middle;
   }
-  .bar-text { background: var(--link-fg); }
-  .bar-voice { background: #e8a838; }
-  .bar-unrecognized { background: var(--error-fg); }
-  .caveat {
-    font-size: 12px;
+
+  table.metrics-table th {
     color: var(--body-quiet-color);
-    font-style: italic;
-    margin-top: 8px;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  table.metrics-table tbody tr:hover {
+    background: var(--selected-bg);
+  }
+
+  .bar-stack {
+    display: inline-flex;
+    width: 118px;
+    height: 16px;
+    overflow: hidden;
+    border-radius: 4px;
+    background: var(--darkened-bg);
+    vertical-align: middle;
+  }
+
+  .bar {
+    display: block;
+    min-width: 2px;
+  }
+
+  .bar-text {
+    background: var(--link-fg);
+  }
+
+  .bar-voice {
+    background: #b85f3d;
+  }
+
+  .empty-state {
+    padding: 18px;
+    color: var(--body-quiet-color);
+  }
+
+  @media (max-width: 760px) {
+    .metrics-hero {
+      display: block;
+    }
+
+    .metrics-controls {
+      margin-top: 14px;
+      flex-wrap: wrap;
+    }
   }
 </style>
 
-<div class="metrics-controls">
-  <strong>Period:</strong>
-  <a href="?days=7" {% if days_back == 7 %}class="active"{% endif %}>7d</a>
-  <a href="?days=14" {% if days_back == 14 %}class="active"{% endif %}>14d</a>
-  <a href="?days=30" {% if days_back == 30 %}class="active"{% endif %}>30d</a>
-  <a href="?days=90" {% if days_back == 90 %}class="active"{% endif %}>90d</a>
-</div>
-
-<!-- Sales per shop -->
-<div class="metrics-section">
-  <h2>Sales per Shop</h2>
-  <table class="metrics-table">
-    <thead>
-      <tr>
-        <th>Shop</th>
-        <th>Sales</th>
-        <th>Confirmed</th>
-        <th>Messages</th>
-        <th>Msgs / Sale</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for shop in sales_per_shop %}
-      <tr>
-        <td>{{ shop.display_name }}</td>
-        <td>{{ shop.total_sales }}</td>
-        <td>{{ shop.confirmed_sales }}</td>
-        <td>{{ shop.inbound_messages }}</td>
-        <td>{% if shop.msgs_per_sale != None %}{{ shop.msgs_per_sale }}{% else %}–{% endif %}</td>
-      </tr>
-      {% empty %}
-      <tr><td colspan="5">No shops found.</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
-  <p class="caveat">Messages = inbound text/audio messages. A ratio close to 1.0 means most messages result in a sale.</p>
-</div>
-
-<!-- Voice vs Text -->
-<div class="metrics-section">
-  <h2>Voice vs. Text Messages</h2>
-  <div class="stat-grid">
-    <div class="stat-card">
-      <div class="number">{{ total_inbound }}</div>
-      <div class="label">Total Inbound</div>
+<div class="metrics-page">
+  <div class="metrics-hero">
+    <div>
+      <h1>Pilot Metrics</h1>
+      <p>Operational view of shop activity, sales capture, and WhatsApp message usage.</p>
     </div>
-    <div class="stat-card">
-      <div class="number">{{ text_inbound }}</div>
-      <div class="label">Text</div>
-    </div>
-    <div class="stat-card">
-      <div class="number">{{ voice_inbound }}</div>
-      <div class="label">Voice</div>
-    </div>
-    <div class="stat-card">
-      <div class="number">{{ voice_pct }}%</div>
-      <div class="label">Voice %</div>
+    <div class="metrics-controls" aria-label="Metrics period">
+      <span>Period</span>
+      <a href="?days=7" {% if days_back == 7 %}class="active"{% endif %}>7d</a>
+      <a href="?days=14" {% if days_back == 14 %}class="active"{% endif %}>14d</a>
+      <a href="?days=30" {% if days_back == 30 %}class="active"{% endif %}>30d</a>
+      <a href="?days=90" {% if days_back == 90 %}class="active"{% endif %}>90d</a>
     </div>
   </div>
 
-  <table class="metrics-table">
-    <thead>
-      <tr>
-        <th>Shop</th>
-        <th>Text</th>
-        <th>Voice</th>
-        <th>Split</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for shop in message_split_per_shop %}
-      {% with total=shop.text_messages|add:shop.voice_messages %}
-      <tr>
-        <td>{{ shop.display_name }}</td>
-        <td>{{ shop.text_messages }}</td>
-        <td>{{ shop.voice_messages }}</td>
-        <td>
-          {% if total > 0 %}
-            {% widthratio shop.text_messages total 100 as text_pct %}
-            {% widthratio shop.voice_messages total 100 as voice_pct %}
-            <span class="bar bar-text" style="width: {% widthratio shop.text_messages total 100 %}px;" title="Text: {{ shop.text_messages }}"></span>
-            <span class="bar bar-voice" style="width: {% widthratio shop.voice_messages total 100 %}px;" title="Voice: {{ shop.voice_messages }}"></span>
-          {% else %}
-            –
-          {% endif %}
-        </td>
-      </tr>
-      {% endwith %}
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
+  <div class="stat-grid">
+    <div class="stat-card">
+      <div class="number">{{ total_inbound }}</div>
+      <div class="label">Inbound messages</div>
+    </div>
+    <div class="stat-card">
+      <div class="number">{{ text_inbound }}</div>
+      <div class="label">Text messages</div>
+    </div>
+    <div class="stat-card">
+      <div class="number">{{ voice_inbound }}</div>
+      <div class="label">Voice messages</div>
+    </div>
+    <div class="stat-card">
+      <div class="number">{{ voice_pct }}%</div>
+      <div class="label">Voice share</div>
+    </div>
+  </div>
 
-<!-- Active shops per week -->
-<div class="metrics-section">
-  <h2>Active Shops per Week</h2>
-  <table class="metrics-table">
-    <thead>
-      <tr>
-        <th>Week</th>
-        <th>Active Shops</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for week in weeks %}
-      <tr>
-        <td>{{ week.label }}</td>
-        <td>{{ week.active_shops }}</td>
-      </tr>
-      {% empty %}
-      <tr><td colspan="2">Not enough data yet.</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
+  <section class="metrics-section">
+    <div class="metrics-section-header">
+      <h2>Sales per Shop</h2>
+      <p>Messages are inbound text and audio messages. A ratio close to 1.0 means most sale attempts become recorded sales.</p>
+    </div>
+    <div class="table-wrap">
+      <table class="metrics-table">
+        <thead>
+          <tr>
+            <th>Shop</th>
+            <th>Sales</th>
+            <th>Confirmed</th>
+            <th>Messages</th>
+            <th>Msgs / Sale</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for shop in sales_per_shop %}
+          <tr>
+            <td>{{ shop.display_name }}</td>
+            <td>{{ shop.total_sales }}</td>
+            <td>{{ shop.confirmed_sales }}</td>
+            <td>{{ shop.inbound_messages }}</td>
+            <td>{% if shop.msgs_per_sale != None %}{{ shop.msgs_per_sale }}{% else %}-{% endif %}</td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="5">No active shops found.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
 
+  <section class="metrics-section">
+    <div class="metrics-section-header">
+      <h2>Voice vs Text Messages</h2>
+      <p>Shows how shops prefer to send sales messages over WhatsApp.</p>
+    </div>
+    <div class="table-wrap">
+      <table class="metrics-table">
+        <thead>
+          <tr>
+            <th>Shop</th>
+            <th>Text</th>
+            <th>Voice</th>
+            <th>Split</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for shop in message_split_per_shop %}
+          {% with total=shop.text_messages|add:shop.voice_messages %}
+          <tr>
+            <td>{{ shop.display_name }}</td>
+            <td>{{ shop.text_messages }}</td>
+            <td>{{ shop.voice_messages }}</td>
+            <td>
+              {% if total > 0 %}
+                <span class="bar-stack" title="Text: {{ shop.text_messages }}; Voice: {{ shop.voice_messages }}">
+                  <span class="bar bar-text" style="width: {% widthratio shop.text_messages total 100 %}%;"></span>
+                  <span class="bar bar-voice" style="width: {% widthratio shop.voice_messages total 100 %}%;"></span>
+                </span>
+              {% else %}
+                -
+              {% endif %}
+            </td>
+          </tr>
+          {% endwith %}
+          {% empty %}
+          <tr><td colspan="4">No message activity found.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="metrics-section">
+    <div class="metrics-section-header">
+      <h2>Active Shops per Week</h2>
+      <p>Counts shops with at least one inbound WhatsApp message during each week.</p>
+    </div>
+    <div class="table-wrap">
+      <table class="metrics-table">
+        <thead>
+          <tr>
+            <th>Week</th>
+            <th>Active Shops</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for week in weeks %}
+          <tr>
+            <td>{{ week.label }}</td>
+            <td>{{ week.active_shops }}</td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="2">Not enough data yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
 {% endblock %}

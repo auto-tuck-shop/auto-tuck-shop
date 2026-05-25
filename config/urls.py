@@ -15,6 +15,13 @@ admin.site.index_title = "Dashboard"
 
 urlpatterns = [
     path("", TemplateView.as_view(template_name="index.html"), name="home"),
+    path("privacy/", TemplateView.as_view(template_name="public/privacy.html"), name="privacy"),
+    path("terms/", TemplateView.as_view(template_name="public/terms.html"), name="terms"),
+    path(
+        "data-deletion/",
+        TemplateView.as_view(template_name="public/data_deletion.html"),
+        name="data_deletion",
+    ),
     path("admin/pilot-metrics/", pilot_metrics, name="pilot_metrics"),
     path("admin/", admin.site.urls),
     path("webhook/", include("apps.whatsapp.urls")),

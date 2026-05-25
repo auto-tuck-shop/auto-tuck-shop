@@ -1,5 +1,9 @@
 # Project Guidelines
 
+## Keeping this file current
+
+This file is the source of truth for any AI assistant working on this repo. **Keep it up to date as the project evolves** — when issues are closed, when the phase changes, when new conventions are established, or when the team changes. At the end of any session where meaningful progress was made, update the relevant sections here. Don't let it drift.
+
 ## Start of every session
 
 Before doing anything else, ask the user these two questions:
@@ -23,19 +27,24 @@ Auto Tuck Shop is a Django app. Shop owners in Zimbabwe send WhatsApp text or vo
 
 ## Current phase
 
-**Pilot prep — not yet live.** The code is ready. Blocking items before first deploy:
+**Pilot prep — staging is live, production deploy pending.** The bot is receiving and replying to real WhatsApp messages on staging. Remaining blockers before production:
 
-1. Accounts audit — confirm all API keys are in hand (#18, assigned Madrena)
-2. Set Fly.io secrets on staging and production (#19)
-3. Deploy to staging and verify app boots (#20)
-4. E2E test checklist (#44, blocked on #20)
-5. Register WhatsApp webhook on Meta dashboard (#23, assigned Madrena)
-6. Deploy to production — Brighton sign-off required (#24)
-7. Onboard 10 pilot shops (#25, assigned Bradley)
+1. ~~Accounts audit — confirm all API keys are in hand (#18)~~ ✓ done
+2. ~~Set Fly.io secrets on staging (#19 partial)~~ ✓ staging done; production secrets still needed
+3. ~~Deploy to staging and verify app boots (#20)~~ ✓ done
+4. ~~Register WhatsApp webhook on Meta dashboard (#23)~~ ✓ done — permanent system user token set
+5. ~~E2E test checklist (#44)~~ ✓ done — audio testing deferred to real device
+6. Pre-production checklist (#76): set prod secrets, update Meta webhook URL to prod, re-verify webhook
+7. Deploy to production — Brighton sign-off required (#24)
+8. Onboard 10 pilot shops (#25, assigned Bradley)
+9. WhatsApp UX polish — blue ticks, typing indicator, profile name/icon (#77, post-deploy)
 
 When an AI assistant is helping with a task, check which issue it maps to and work within that scope. If a task doesn't map to an open issue, check with the user before starting.
 
-When creating a new GitHub issue, always add it to the **Auto Tuck Shop — Backlog** project: `gh issue edit <number> --add-project "Auto Tuck Shop — Backlog"`
+**When creating a new GitHub issue, immediately add it to the project — this is required, not optional:**
+```bash
+gh issue edit <number> --add-project "Auto Tuck Shop — Backlog"
+```
 
 ## Where to find context
 
@@ -48,7 +57,7 @@ Before starting any task, read the relevant context:
 - **LLM system prompt (tune for parsing improvements):** `services/openrouter/prompts.py`
 - **User-facing strings (EN + Shona):** `apps/whatsapp/locales/en.json`, `sn.json`
 - **Unit tests:** `python manage.py test unit_tests`
-- **Staging integration tests:** `python -m pytest tests/ -x` (requires `.env.staging`)
+- **Staging integration tests (manual only):** `python -m pytest tests/ -x` (requires `.env.staging`) — not run in CI, see #82
 
 ## Scope rule
 
@@ -67,12 +76,13 @@ If a change doesn't improve sale recording, pilot onboarding, operator visibilit
 4. **Madrena reviews and approves** on GitHub — branch protection requires at least one approval before merge
 5. **Merge** once approved — squash merge, branch gets deleted
 6. **Deploy to staging** — `fly deploy -c fly.staging.toml`
-7. **Run integration tests** — `python -m pytest tests/ -x` (requires `.env.staging`)
-8. **Brighton signs off**, then deploy to production — `fly deploy`
+7. **Brighton signs off**, then deploy to production — `fly deploy`
 
 Never deploy to production without explicit sign-off from Brighton.
 
 ## Deployment
+
+`USE_MOCK_WHATSAPP` must **not** be set (or set to `False`) on production — if it's `True` on prod, the bot silently swallows all outbound messages instead of sending them via WhatsApp. Confirm this before every prod deploy.
 
 ## Migrations
 
