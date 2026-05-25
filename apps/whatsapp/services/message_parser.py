@@ -54,6 +54,7 @@ def _apply_rule_based_price_hints(
         r"\bmumwe\b",    # Shona: one/each (Class 1/3)
         r"\brumwe\b",    # Shona: one/each (Class 11)
         r"\bkamwe\b",    # Shona: one/each (Class 12)
+        r"\bumwe\b",     # Shona: one/each (Class 8)
     )
     per_unit_pattern = re.compile(r"(?:" + "|".join(per_unit_tokens) + r")", re.IGNORECASE)
     has_per_unit_marker = bool(per_unit_pattern.search(message)) or "@" in message

@@ -44,6 +44,7 @@ async def process_audio_message_async(
 
         audio_data, mime_type = media_result
 
+        from django.conf import settings
         from services.elevenlabs import ElevenLabsClient, ElevenLabsError
 
         mime_to_extension = {
@@ -55,6 +56,11 @@ async def process_audio_message_async(
         }
         extension = mime_to_extension.get(mime_type, "ogg")
         filename = f"audio.{extension}"
+
+        if not getattr(settings, "ELEVENLABS_API_KEY", None):
+            logger.error("ELEVENLABS_API_KEY not configured — cannot transcribe audio for message %s", message_id)
+            await _send_response(sender, t("audio.transcription_failed", lang=lang))
+            return
 
         try:
             elevenlabs_client = ElevenLabsClient()
