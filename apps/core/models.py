@@ -12,6 +12,11 @@ class Company(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     active = models.BooleanField(default=True)
     daily_summary_enabled = models.BooleanField(default=True)
+    normal_closing_time = models.TimeField(null=True, blank=True)
+    daily_closing_time = models.TimeField(null=True, blank=True)
+    daily_closing_date = models.DateField(null=True, blank=True)
+    last_closing_prompt_date = models.DateField(null=True, blank=True)
+    last_summary_date = models.DateField(null=True, blank=True)
     currency = models.CharField(
         max_length=3,
         choices=CURRENCY_CHOICES,
