@@ -27,15 +27,15 @@ Auto Tuck Shop is a Django app. Shop owners in Zimbabwe send WhatsApp text or vo
 
 ## Current phase
 
-**Pilot prep — staging is live, production deploy pending.** The bot is receiving and replying to real WhatsApp messages on staging. Remaining blockers before production:
+**Pilot active — production is live as of 2026-05-25.** The bot is receiving and replying to real WhatsApp messages on production.
 
 1. ~~Accounts audit — confirm all API keys are in hand (#18)~~ ✓ done
-2. ~~Set Fly.io secrets on staging (#19 partial)~~ ✓ staging done; production secrets still needed
+2. ~~Set Fly.io secrets on staging (#19 partial)~~ ✓ done
 3. ~~Deploy to staging and verify app boots (#20)~~ ✓ done
 4. ~~Register WhatsApp webhook on Meta dashboard (#23)~~ ✓ done — permanent system user token set
 5. ~~E2E test checklist (#44)~~ ✓ done — audio testing deferred to real device
-6. Pre-production checklist (#76): set prod secrets, update Meta webhook URL to prod, re-verify webhook
-7. Deploy to production — Brighton sign-off required (#24)
+6. ~~Pre-production checklist (#76)~~ ✓ mostly done — Meta policy URLs (privacy/terms/data-deletion) still to set in App Settings → Basic
+7. ~~Deploy to production (#24)~~ ✓ done — live 2026-05-25
 8. Onboard 10 pilot shops (#25, assigned Bradley)
 9. WhatsApp UX polish — blue ticks, typing indicator, profile name/icon (#77, post-deploy)
 
@@ -75,10 +75,10 @@ If a change doesn't improve sale recording, pilot onboarding, operator visibilit
 3. **Post in GitHub Discussions → Pull Requests** — tag `@dev-mthandabantu` so she sees it
 4. **Madrena reviews and approves** on GitHub — branch protection requires at least one approval before merge
 5. **Merge** once approved — squash merge, branch gets deleted
-6. **Deploy to staging** — `fly deploy -c fly.staging.toml`
-7. **Brighton signs off**, then deploy to production — `fly deploy`
+6. **Staging auto-deploys** — GitHub Actions deploys to staging on every push to main (no manual step needed)
+7. **Production deploy** — Brighton publishes a GitHub Release → GitHub Actions auto-deploys to prod. Never deploy to production without explicit sign-off from Brighton.
 
-Never deploy to production without explicit sign-off from Brighton.
+Note: first-ever deploy to a new Fly app must be done manually with `fly deploy` — `fly secrets deploy` fails if no machines exist yet.
 
 ## Deployment
 
