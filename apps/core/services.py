@@ -75,11 +75,12 @@ def approve_waitlist_entry(
     )
 
     # Update waitlist entry
+    entry.status = WaitlistEntry.Status.APPROVED
     entry.approved_at = timezone.now()
     if approved_by:
         entry.approved_by = approved_by
     entry.company = company
     entry.user_profile = profile
-    entry.save(update_fields=["approved_at", "approved_by", "company", "user_profile"])
+    entry.save(update_fields=["status", "approved_at", "approved_by", "company", "user_profile"])
 
     return company, profile

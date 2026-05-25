@@ -21,7 +21,7 @@ environ.Env.read_env(BASE_DIR / ".env")
 
 # Sentry Configuration
 sentry_sdk.init(
-    dsn=env("SENTRY_DSN", default="https://f6537de071098a6d2f789e823443b12b@o4510840406867968.ingest.us.sentry.io/4510840407982081"),
+    dsn=env("SENTRY_DSN"),
     integrations=[DjangoIntegration()],
     # Set traces_sample_rate to 1.0 to capture 100% of transactions for performance monitoring.
     # Adjust this value in production to reduce volume

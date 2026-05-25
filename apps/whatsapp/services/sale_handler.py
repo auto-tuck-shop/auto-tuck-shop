@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from decimal import Decimal
 
 from django.db import close_old_connections
 
@@ -115,11 +116,14 @@ async def process_sale_message_unified(
     response_lines = []
     sale_items = await _get_sale_items(sale)
     has_missing_prices = False
-    currencies_in_sale = set()
+    currency_totals: dict[str, Decimal] = {}
 
     for item in sale_items:
         if item.unit_price is not None and item.currency:
-            currencies_in_sale.add(item.currency)
+            currency_totals[item.currency] = (
+                currency_totals.get(item.currency, Decimal("0"))
+                + item.unit_price * item.quantity
+            )
             response_lines.append(t(
                 "sale.item_with_price", lang=lang,
                 quantity=item.quantity, product=item.product.name,
@@ -132,9 +136,13 @@ async def process_sale_message_unified(
             ))
             has_missing_prices = True
 
-    if not has_missing_prices and len(currencies_in_sale) == 1:
-        sale_currency = currencies_in_sale.pop()
-        response_lines.append(t("sale.total", lang=lang, total=format_price(sale.total_amount, sale_currency)))
+    if not has_missing_prices and currency_totals:
+        if len(currency_totals) == 1:
+            currency, total = next(iter(currency_totals.items()))
+            response_lines.append(t("sale.total", lang=lang, total=format_price(total, currency)))
+        else:
+            for currency, total in currency_totals.items():
+                response_lines.append(t("sale.subtotal", lang=lang, currency=currency, total=format_price(total, currency)))
     elif has_missing_prices:
         response_lines.append(t("sale.missing_prices_note", lang=lang))
 

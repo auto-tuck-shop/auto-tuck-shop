@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 
 from django.contrib.auth.models import User
-from django.db import close_old_connections
+from django.db import close_old_connections, IntegrityError
 
 from apps.core.models import Company, UserProfile, WaitlistEntry
 from apps.whatsapp.services.webhook_handler import (
@@ -24,15 +24,27 @@ logger = logging.getLogger(__name__)
 
 
 @db_sync_to_async
-def _create_waitlist_entry(phone_number: str, first_message: str) -> WaitlistEntry:
-    entry, created = WaitlistEntry.objects.get_or_create(
-        phone_number=phone_number,
-        defaults={"first_message": first_message},
-    )
-    if not created and not entry.first_message:
-        entry.first_message = first_message
-        entry.save(update_fields=["first_message"])
-    return entry
+def _create_waitlist_entry(phone_number: str, first_message: str) -> tuple[WaitlistEntry, bool]:
+    try:
+        entry, created = WaitlistEntry.objects.get_or_create(
+            phone_number=phone_number,
+            defaults={"first_message": first_message},
+        )
+        if not created and not entry.first_message:
+            entry.first_message = first_message
+            entry.save(update_fields=["first_message"])
+        return entry, created
+    except IntegrityError:
+        # Lost the race — another request inserted first
+        return WaitlistEntry.objects.get(phone_number=phone_number), False
+
+
+@db_sync_to_async
+def _get_waitlist_entry(entry_id: int) -> WaitlistEntry | None:
+    try:
+        return WaitlistEntry.objects.get(id=entry_id)
+    except WaitlistEntry.DoesNotExist:
+        return None
 
 
 @db_sync_to_async
@@ -111,7 +123,10 @@ async def _send_waitlist_admin_notification(entry: WaitlistEntry) -> None:
 
 async def process_new_waitlist_entry_async(sender: str, text: str) -> None:
     phone_number = _extract_phone_number(sender)
-    entry = await _create_waitlist_entry(phone_number, text)
+    entry, created = await _create_waitlist_entry(phone_number, text)
+    if not created:
+        logger.info("Duplicate new-user message from %s, skipping prompt", phone_number)
+        return
     buttons = [
         {"id": f"lang_en_{entry.id}", "title": t("language.btn_en")},
         {"id": f"lang_sn_{entry.id}", "title": t("language.btn_sn")},
@@ -119,7 +134,6 @@ async def process_new_waitlist_entry_async(sender: str, text: str) -> None:
     message_sid = await _send_response_with_buttons(sender, t("language.prompt"), buttons)
     if message_sid:
         await _store_waitlist_response_message_sid(entry.id, message_sid)
-    await _send_waitlist_admin_notification(entry)
 
 
 async def process_waitlisted_message_async(sender: str, text: str, waitlist_entry: WaitlistEntry) -> None:
@@ -127,7 +141,9 @@ async def process_waitlisted_message_async(sender: str, text: str, waitlist_entr
     if waitlist_entry.status == WaitlistEntry.Status.PENDING:
         if not waitlist_entry.company_name and text.strip():
             await _update_waitlist_company_name(waitlist_entry.id, text.strip())
+            waitlist_entry.company_name = text.strip()
             await _send_response(sender, t("waitlist.shop_name_noted", lang=lang, shop_name=text.strip()))
+            await _send_waitlist_admin_notification(waitlist_entry)
         else:
             await _send_response(sender, t("waitlist.still_pending", lang=lang))
     elif waitlist_entry.status == WaitlistEntry.Status.REJECTED:
@@ -142,6 +158,12 @@ async def process_language_button_async(lang: str, entry_id: int, sender: str) -
         await _update_profile_language(profile.id, lang)
     await _send_response(sender, t("language.confirmed", lang=lang))
     await _send_response(sender, t("waitlist.welcome", lang=lang))
+
+    # Notify admin now only if user already provided a shop name.
+    # Otherwise notification fires when shop name arrives (process_waitlisted_message_async).
+    entry = await _get_waitlist_entry(entry_id)
+    if entry and entry.company_name:
+        await _send_waitlist_admin_notification(entry)
 
 
 async def process_waitlist_button_action_async(
