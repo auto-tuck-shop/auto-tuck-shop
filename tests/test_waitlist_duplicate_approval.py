@@ -46,7 +46,7 @@ def test_approved_user_second_message_is_not_waitlisted(
                 return m
         return None
 
-    result = poll_outbox(unique_phone, check=_has_sale_confirmation, timeout=20.0)
+    result = poll_outbox(unique_phone, check=_has_sale_confirmation, timeout=5.0)
     assert isinstance(result, dict), (
         f"Expected a sale confirmation for second message from {unique_phone}. "
         f"Last outbox: {result}"

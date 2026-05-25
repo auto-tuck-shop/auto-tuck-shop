@@ -20,7 +20,6 @@ console_command = '/code/manage.py shell'
 [env]
   PORT = '8000'
   DJANGO_SETTINGS_MODULE = 'config.settings.staging'
-  USE_MOCK_WHATSAPP = 'true'
   R2_BUCKET_NAME = 'auto-tuck-shop-staging'
   SENTRY_ENVIRONMENT = 'staging'
 

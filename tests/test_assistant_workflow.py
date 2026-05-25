@@ -19,7 +19,7 @@ def test_add_assistant(send_webhook, poll_outbox, onboard_user, unique_phone):
                 return m
         return None
 
-    msg = poll_outbox(unique_phone, check=_find_assistant_response, timeout=20.0)
+    msg = poll_outbox(unique_phone, check=_find_assistant_response, timeout=5.0)
     assert isinstance(msg, dict), (
         f"Expected assistant response for {unique_phone}. Outbox: {msg}"
     )
