@@ -20,7 +20,7 @@
         "btn_reject": "Cancel"
     },
     "approval": {
-        "welcome": "Makadii! Account yako yagamuchirwa paAuto Tuck Shop!\n\nShop: {company}\n\nUnogona kutumira audio (voice note) kana kunyora zvawatengesa nhasi. Semuenzaniso:\n'2 Mazoe $3 rimwe'\n'5 chingwa R18 rimwe, 2 shuga R40 rimwe'\n\nUnogona kunyora ne USD ($), Rand (R), uye ZiG.\n\nUnogona kuisa mutengesi wenyu nekutumira:\n'add assistant +2637812345678'"
+        "welcome": "Makadii! Account yako yagamuchirwa paAuto Tuck Shop!\n\nShop: {company}\n\nUnogona kutumira audio (voice note) kana kunyora zvawatengesa nhasi. Semuenzaniso:\n'2 Mazoe $3 rimwe'\nkana: '5 chingwa R18 rimwe, 2 shuga R40 rimwe'\n\nUnogona kunyora ne USD ($), Rand (R), uye ZiG.\n\nUnogona kuisa mutengesi wenyu nekutumira:\n'add assistant +2637812345678'"
     },
     "error": {
         "processing_failed": "Sorry, pane chakanganisika. Zama zvakare."
