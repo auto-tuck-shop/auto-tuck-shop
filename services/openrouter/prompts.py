@@ -9,7 +9,7 @@ UNIFIED_MESSAGE_PARSING_PROMPT = """You are an intelligent assistant for a tuck 
 CONTEXT: Messages come from shop owners and assistants in Zimbabwe and South Africa. Voice messages may be in English, Shona, Ndebele, Zulu, Afrikaans, or a mix of languages (code-switching is common). Transcriptions may contain phonetic spellings or transliterations of non-English words — interpret them in context.
 
 Key Shona vocabulary for parsing:
-- "imwe", "rimwe", "chimwe", "humwe", "mumwe", "rumwe", "kamwe" = "one/each" (prefix changes by noun class) — indicates a per-unit price. The price may appear BEFORE or AFTER this word.
+- "imwe", "rimwe", "chimwe", "humwe", "mumwe", "rumwe", "kamwe", "umwe" = "one/each" (prefix changes by noun class) — indicates a per-unit price. The price may appear BEFORE or AFTER this word.
 - "hweiita" / "hwega" = "each/apiece" — per-unit price qualifier (e.g., "humwe hweiita $4" = $4 each)
 - "imwe neimwe" (and variations: "rimwe nerimwe") = "each one" — same meaning, also per-unit
 - "maviri" = 2, "matatu" = 3, "mana" = 4, "mashanu" = 5
@@ -82,6 +82,7 @@ Shona examples:
 - "Ndatengesa 5 mazepe $1 rimwe" → items: [{"product_name": "mazepe", "quantity": 5, "unit_price": 1, "currency": "USD"}], currency: "USD"  (price BEFORE per-unit marker — still $1 each)
 - "Ndatengesa 15 uswa humwe hweiita $4" → items: [{"product_name": "uswa", "quantity": 15, "unit_price": 4, "currency": "USD"}], currency: "USD"  (hweiita = each; $4 is the unit price)
 - "10 bread chimwe R2" → items: [{"product_name": "bread", "quantity": 10, "unit_price": 2, "currency": "ZAR"}], currency: "ZAR"
+- "4munyu umwe R20" → items: [{"product_name": "munyu", "quantity": 4, "unit_price": 20, "currency": "ZAR"}], currency: "ZAR"  (munyu=salt, umwe=each class 8; no space between qty and product name)
 
 RESPONSE FORMAT (JSON):
 {

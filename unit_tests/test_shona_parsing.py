@@ -97,6 +97,17 @@ class ShonaParsingTestCase(TestCase):
         self.assertEqual(item["unit_price"], Decimal("2.00"))
         self.assertEqual(result.currency, "ZAR")
 
+    def test_umwe_no_space_quantity_rand(self):
+        """'4munyu umwe R20' → 4 munyu (salt) at R20 each — regression for #100."""
+        result = self._parse("4munyu umwe R20")
+        self.assertEqual(result.intent, "sale")
+        self.assertEqual(len(result.items), 1)
+        item = result.items[0]
+        self.assertIn("munyu", item["product_name"].lower())
+        self.assertEqual(item["quantity"], 4)
+        self.assertEqual(item["unit_price"], Decimal("20.00"))
+        self.assertEqual(result.currency, "ZAR")
+
     # ------------------------------------------------------------------
     # Mixed-currency — regression for #74
     # ------------------------------------------------------------------
