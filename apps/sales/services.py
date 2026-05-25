@@ -27,6 +27,7 @@ class ParsedSaleItem(TypedDict):
     product_name: str
     quantity: int
     unit_price: Decimal | None
+    currency: str | None  # per-item currency; overrides top-level currency when set
 
 
 class SaleCreationResult(TypedDict):
@@ -94,7 +95,7 @@ def create_sale_from_parsed_items(
                 ProductPrice.objects.create(
                     product=product,
                     price=item["unit_price"],
-                    currency=detected_currency,
+                    currency=item.get("currency") or detected_currency,
                 )
 
         # Determine price and currency
@@ -102,8 +103,8 @@ def create_sale_from_parsed_items(
         item_currency = None
 
         if unit_price is not None:
-            # Price provided in message - use detected currency
-            item_currency = detected_currency
+            # Use per-item currency if the LLM provided one, else fall back to sale-level
+            item_currency = item.get("currency") or detected_currency
 
             # Update stored price if different from current price
             current_price = product.current_price
@@ -111,7 +112,7 @@ def create_sale_from_parsed_items(
                 ProductPrice.objects.create(
                     product=product,
                     price=unit_price,
-                    currency=detected_currency,
+                    currency=item_currency,
                 )
         else:
             # Fall back to stored price with its currency
