@@ -1,0 +1,48 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Auto Tuck Shop{% endblock %}</title>
+  <meta name="description" content="{% block description %}Auto Tuck Shop helps tuck shops record sales through WhatsApp text and voice messages.{% endblock %}">
+  <link rel="stylesheet" href="{% static 'auto_tuck_shop/css/public.css' %}">
+</head>
+<body>
+  <div class="site-shell">
+    <header class="site-header">
+      <nav class="nav" aria-label="Primary navigation">
+        <a class="brand" href="{% url 'home' %}">
+          <img src="{% static 'auto_tuck_shop/img/app-icon.png' %}" alt="" width="42" height="42">
+          <span>Auto Tuck Shop</span>
+        </a>
+        <div class="nav-links">
+          <a href="{% url 'home' %}#how-it-works">How it works</a>
+          <a href="{% url 'privacy' %}">Privacy</a>
+          <a href="{% url 'terms' %}">Terms</a>
+          <a class="button secondary" href="{% url 'data_deletion' %}">Data deletion</a>
+        </div>
+      </nav>
+    </header>
+
+    <main>
+      {% block content %}{% endblock %}
+    </main>
+
+    <footer class="site-footer">
+      <div class="footer-inner">
+        <div>
+          <strong>Auto Tuck Shop</strong>
+          <div>WhatsApp sales tracking for tuck shops in Zimbabwe.</div>
+        </div>
+        <div class="footer-links">
+          <a href="{% url 'privacy' %}">Privacy</a>
+          <a href="{% url 'terms' %}">Terms</a>
+          <a href="{% url 'data_deletion' %}">Data deletion</a>
+          <a href="{% url 'admin:index' %}">Staff login</a>
+        </div>
+      </div>
+    </footer>
+  </div>
+</body>
+</html>
