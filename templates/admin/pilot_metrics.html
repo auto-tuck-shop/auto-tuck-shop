@@ -177,6 +177,25 @@
     background: #b85f3d;
   }
 
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: 700;
+  }
+
+  .badge-ok   { background: #d4edda; color: #155724; }
+  .badge-warn { background: #fff3cd; color: #856404; }
+  .badge-bad  { background: #f8d7da; color: #721c24; }
+
+  .small-muted {
+    display: block;
+    font-size: 0.72rem;
+    color: var(--body-quiet-color);
+    margin-top: 2px;
+  }
+
   .empty-state {
     padding: 18px;
     color: var(--body-quiet-color);
@@ -211,6 +230,10 @@
 
   <div class="stat-grid">
     <div class="stat-card">
+      <div class="number">{{ activated_count }} / {{ shops_with_sales_count }}</div>
+      <div class="label">Activated (day 7)</div>
+    </div>
+    <div class="stat-card">
       <div class="number">{{ total_inbound }}</div>
       <div class="label">Inbound messages</div>
     </div>
@@ -242,6 +265,8 @@
             <th>Confirmed</th>
             <th>Messages</th>
             <th>Msgs / Sale</th>
+            <th>Mistake %</th>
+            <th>Activated</th>
           </tr>
         </thead>
         <tbody>
@@ -252,9 +277,33 @@
             <td>{{ shop.confirmed_sales }}</td>
             <td>{{ shop.inbound_messages }}</td>
             <td>{% if shop.msgs_per_sale != None %}{{ shop.msgs_per_sale }}{% else %}-{% endif %}</td>
+            <td>
+              {% if shop.mistake_pct != None %}
+                {% if shop.mistake_pct < 15 %}
+                  <span class="badge badge-ok">{{ shop.mistake_pct }}%</span>
+                {% elif shop.mistake_pct <= 20 %}
+                  <span class="badge badge-warn">{{ shop.mistake_pct }}%</span>
+                {% else %}
+                  <span class="badge badge-bad">{{ shop.mistake_pct }}%</span>
+                {% endif %}
+              {% else %}
+                -
+              {% endif %}
+            </td>
+            <td>
+              {% if shop.activated == None %}
+                -
+              {% elif shop.activated %}
+                ✓
+                <span class="small-muted">{{ shop.first_sale_date|date:"M j" }}</span>
+              {% else %}
+                –
+                <span class="small-muted">{{ shop.first_sale_date|date:"M j" }}</span>
+              {% endif %}
+            </td>
           </tr>
           {% empty %}
-          <tr><td colspan="5">No active shops found.</td></tr>
+          <tr><td colspan="7">No active shops found.</td></tr>
           {% endfor %}
         </tbody>
       </table>
