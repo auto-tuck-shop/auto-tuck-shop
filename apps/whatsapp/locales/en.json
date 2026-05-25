@@ -20,7 +20,7 @@
         "btn_reject": "Reject"
     },
     "approval": {
-        "welcome": "Welcome to Auto Tuck Shop! Your account has been approved.\n\nCompany: {company}\n\nYou can now send sales messages to track your sales. The bot accepts USD ($), Rand (R), and ZiG. For example:\n'sold 2 cokes $1.50 each, 1 chips $0.50'\n'3 waters R0.75 each, 2 chocolates ZiG0.50 each'\n\nAs an owner, you can also add assistants by sending messages like:\n'add assistant +2637812345678'"
+        "welcome": "Welcome to Auto Tuck Shop! Your account has been approved.\n\nCompany: {company}\n\nYou can now send sales messages to track your sales. For example:\n'2 Mazoe $3 each'\n'5 bread R18 each, 2 sugar R40 each'\n\nThe bot accepts USD ($), Rand (R), and ZiG.\n\nAs an owner, you can also add assistants by sending:\n'add assistant +2637812345678'"
     },
     "error": {
         "processing_failed": "Sorry, something went wrong. Please try again."
@@ -40,7 +40,7 @@
         "not_registered": "Sorry, your account is not set up yet. Please contact your shop administrator."
     },
     "sale": {
-        "no_products": "I could not identify any products. Please send a full sale message, e.g., \"sold 2 cokes $1.50 each, 1 chips $0.50\" or \"3 waters R0.75 each\"",
+        "no_products": "I could not identify any products. Please send a full sale message, e.g., \"2 Mazoe $3 each\" or \"5 bread R18 each, 2 sugar R40 each\"",
         "item_with_price": "  {quantity} x {product} @ {price}",
         "item_no_price": "  {quantity} x {product} (no price)",
         "total": "\nTotal: {total}",

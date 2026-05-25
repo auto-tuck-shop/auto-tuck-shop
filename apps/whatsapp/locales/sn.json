@@ -20,7 +20,7 @@
         "btn_reject": "Cancel"
     },
     "approval": {
-        "welcome": "Makadii! Account yako yagamuchirwa paAuto Tuck Shop!\n\nShop: {company}\n\nUnogona kutumira audio (voice note) kana kunyora zvawatengesa nhasi. Unogona kunyora ne USD ($), Rand (R), uye ZiG. Semuenzaniso:\n'Ndatengesa 2 ma coke $1.50 rimwe, 1 chips $0.50'\n'3 mvura R0.75 imwe, 2 chocolates ZiG0.50 imwe'\n\nUnogona kuisa mutengesi wenyu nekutumira message yakaita se iyi:\n'add assistant +2637812345678'"
+        "welcome": "Makadii! Account yako yagamuchirwa paAuto Tuck Shop!\n\nShop: {company}\n\nUnogona kutumira audio (voice note) kana kunyora zvawatengesa nhasi. Semuenzaniso:\n'2 Mazoe $3 rimwe'\n'5 chingwa R18 rimwe, 2 shuga R40 rimwe'\n\nUnogona kunyora ne USD ($), Rand (R), uye ZiG.\n\nUnogona kuisa mutengesi wenyu nekutumira:\n'add assistant +2637812345678'"
     },
     "error": {
         "processing_failed": "Sorry, pane chakanganisika. Zama zvakare."
@@ -40,7 +40,7 @@
         "not_registered": "Sorry, account yako haisati yagadzirwa. Taura na administrator we shop yako."
     },
     "sale": {
-        "no_products": "Handina zvinotengeswa zvandaona. Sendai zvamatengesa patsva, sekuti: \"Ndatengesa 2 ma coke $1.50 rimwe\" kana \"3 mvura R0.75 each\"",
+        "no_products": "Handina zvinotengeswa zvandaona. Tumira zvawatengesa patsva, semuenzaniso: \"2 Mazoe $3 rimwe\" kana \"5 chingwa R18 rimwe, 2 shuga R40 rimwe\"",
         "item_with_price": "  {quantity} x {product} @ {price}",
         "item_no_price": "  {quantity} x {product} (no price)",
         "total": "\nZvese pamwe: {total}",
