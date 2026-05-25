@@ -11,6 +11,7 @@ class Company(models.Model):
     slug = models.SlugField(unique=True)
     created_at = models.DateTimeField(auto_now_add=True)
     active = models.BooleanField(default=True)
+    daily_summary_enabled = models.BooleanField(default=True)
     currency = models.CharField(
         max_length=3,
         choices=CURRENCY_CHOICES,
