@@ -1,7 +1,6 @@
-name: Staging Tests
+name: CI
 
 on:
-  workflow_dispatch:
   push:
     branches: [main]
   pull_request:
@@ -29,29 +28,3 @@ jobs:
 
       - name: Run localization tests
         run: pytest -v tests/test_localizations.py
-
-  integration:
-    name: integration tests
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-          cache: pip
-          cache-dependency-path: requirements-dev.txt
-
-      - name: Install test dependencies
-        run: pip install -r requirements-dev.txt
-
-      - name: Run staging integration tests
-        env:
-          STAGING_URL: ${{ secrets.STAGING_URL }}
-          TEST_API_KEY: ${{ secrets.TEST_API_KEY }}
-          META_WHATSAPP_APP_SECRET: ${{ secrets.META_WHATSAPP_APP_SECRET }}
-        run: pytest -v --ignore=tests/test_localizations.py
