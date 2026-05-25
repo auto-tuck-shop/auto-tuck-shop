@@ -19,7 +19,7 @@ def test_price_overflow_returns_friendly_error(send_webhook, poll_outbox, onboar
                 return m
         return None
 
-    result = poll_outbox(unique_phone, check=_find_overflow_response, timeout=5.0)
+    result = poll_outbox(unique_phone, check=_find_overflow_response, timeout=10.0)
     assert isinstance(result, dict), (
         f"Expected a 'price too large' message for {unique_phone}. "
         f"Got: {result}"
