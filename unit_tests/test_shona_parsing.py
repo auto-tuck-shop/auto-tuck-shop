@@ -26,8 +26,19 @@ class ShonaParsingTestCase(TestCase):
             raise
 
     # ------------------------------------------------------------------
-    # imwe / imwe neimwe (per-unit price marker)
+    # imwe / imwe neimwe / rimwe (per-unit price marker)
     # ------------------------------------------------------------------
+
+    def test_rimwe_per_unit_price_usd(self):
+        """'Ndatengesa 5 mazepe $1 rimwe' → 5 mazepe at $1 each."""
+        result = self._parse("Ndatengesa 5 mazepe $1 rimwe")
+        self.assertEqual(result.intent, "sale")
+        self.assertEqual(len(result.items), 1)
+        item = result.items[0]
+        self.assertIn("mazepe", item["product_name"].lower())
+        self.assertEqual(item["quantity"], 5)
+        self.assertEqual(item["unit_price"], 1.0)
+        self.assertEqual(result.currency, "USD")
 
     def test_imwe_per_unit_price_usd(self):
         """'coke 5 imwe $1' → 5 cokes at $1 each."""
