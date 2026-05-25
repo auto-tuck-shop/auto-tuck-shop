@@ -35,6 +35,8 @@ Auto Tuck Shop is a Django app. Shop owners in Zimbabwe send WhatsApp text or vo
 
 When an AI assistant is helping with a task, check which issue it maps to and work within that scope. If a task doesn't map to an open issue, check with the user before starting.
 
+When creating a new GitHub issue, always add it to the **Auto Tuck Shop — Backlog** project: `gh issue edit <number> --add-project "Auto Tuck Shop — Backlog"`
+
 ## Where to find context
 
 Before starting any task, read the relevant context:
@@ -57,18 +59,20 @@ Every task should be classified before starting:
 
 If a change doesn't improve sale recording, pilot onboarding, operator visibility, or production safety, it belongs after Phase 1.
 
+## Shipping flow
+
+1. **Branch off main** — one branch per issue, named after it (e.g. `fix/duplicate-language-prompt`)
+2. **Open a PR** when ready — title includes the issue number
+3. **Post in GitHub Discussions → Pull Requests** — tag `@dev-mthandabantu` so she sees it
+4. **Madrena reviews and approves** on GitHub — branch protection requires at least one approval before merge
+5. **Merge** once approved — squash merge, branch gets deleted
+6. **Deploy to staging** — `fly deploy -c fly.staging.toml`
+7. **Run integration tests** — `python -m pytest tests/ -x` (requires `.env.staging`)
+8. **Brighton signs off**, then deploy to production — `fly deploy`
+
+Never deploy to production without explicit sign-off from Brighton.
+
 ## Deployment
-
-Always deploy to staging first, run tests, then ask Brighton before deploying to production:
-
-```bash
-fly deploy -c fly.staging.toml
-python -m pytest tests/ -x
-# wait for Brighton sign-off
-fly deploy
-```
-
-Never deploy to production without explicit human confirmation.
 
 ## Migrations
 
