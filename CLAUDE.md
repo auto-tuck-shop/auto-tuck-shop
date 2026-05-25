@@ -41,7 +41,10 @@ Auto Tuck Shop is a Django app. Shop owners in Zimbabwe send WhatsApp text or vo
 
 When an AI assistant is helping with a task, check which issue it maps to and work within that scope. If a task doesn't map to an open issue, check with the user before starting.
 
-When creating a new GitHub issue, always add it to the **Auto Tuck Shop — Backlog** project: `gh issue edit <number> --add-project "Auto Tuck Shop — Backlog"`
+**When creating a new GitHub issue, immediately add it to the project — this is required, not optional:**
+```bash
+gh issue edit <number> --add-project "Auto Tuck Shop — Backlog"
+```
 
 ## Where to find context
 
@@ -54,7 +57,7 @@ Before starting any task, read the relevant context:
 - **LLM system prompt (tune for parsing improvements):** `services/openrouter/prompts.py`
 - **User-facing strings (EN + Shona):** `apps/whatsapp/locales/en.json`, `sn.json`
 - **Unit tests:** `python manage.py test unit_tests`
-- **Staging integration tests:** `python -m pytest tests/ -x` (requires `.env.staging`)
+- **Staging integration tests (manual only):** `python -m pytest tests/ -x` (requires `.env.staging`) — not run in CI, see #82
 
 ## Scope rule
 
@@ -73,8 +76,7 @@ If a change doesn't improve sale recording, pilot onboarding, operator visibilit
 4. **Madrena reviews and approves** on GitHub — branch protection requires at least one approval before merge
 5. **Merge** once approved — squash merge, branch gets deleted
 6. **Deploy to staging** — `fly deploy -c fly.staging.toml`
-7. **Run integration tests** — `python -m pytest tests/ -x` (requires `.env.staging`)
-8. **Brighton signs off**, then deploy to production — `fly deploy`
+7. **Brighton signs off**, then deploy to production — `fly deploy`
 
 Never deploy to production without explicit sign-off from Brighton.
 
