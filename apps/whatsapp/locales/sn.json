@@ -35,6 +35,10 @@
         "already_registered": "Number iyi {phone} yagara yakaiswa.",
         "added": "Mutengesi aiswa!\n\nPhone: {phone}\nAve ku kwanisa kurecorda zvatengwa mu {company}."
     },
+    "sales_query": {
+        "no_sales": "Hapana zvakatengeswa musi wa {date}.",
+        "not_registered": "Sorry, account yako haisati yagadzirwa. Taura na administrator we shop yako."
+    },
     "sale": {
         "no_products": "Handina zvinotengeswa zvandaona. Sendai zvamatengesa patsva, sekuti: \"Ndatengesa 2 ma coke $1.50 rimwe\" kana \"3 mvura R0.75 each\"",
         "item_with_price": "  {quantity} x {product} @ {price}",

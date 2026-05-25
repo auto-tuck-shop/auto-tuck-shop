@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import datetime as dt
 from datetime import datetime, time, timedelta
 from decimal import Decimal
+import logging
 import re
 from typing import Iterable
+
+logger = logging.getLogger(__name__)
 
 from asgiref.sync import sync_to_async
 from django.db import models
@@ -204,6 +208,42 @@ def format_profit_summary(snapshot: BusinessSnapshot) -> str:
     return "\n".join(lines)
 
 
+def build_comparison_context(company: Company, report_date: datetime.date | None = None) -> dict:
+    """Return delta and week-rank data comparing report_date to yesterday and this week."""
+    report_date = report_date or timezone.localdate()
+    yesterday = report_date - timedelta(days=1)
+
+    yesterday_snapshot = build_business_snapshot(company, report_date=yesterday)
+    yesterday_revenue = yesterday_snapshot.revenue
+
+    # Collect revenue for each day from Monday through report_date (up to 7 days)
+    monday = report_date - timedelta(days=report_date.weekday())
+    week_revenues: list[Decimal] = []
+    day = monday
+    while day <= report_date:
+        if day == report_date:
+            break  # today's revenue added separately by caller
+        snap = build_business_snapshot(company, report_date=day)
+        week_revenues.append(snap.revenue)
+        day += timedelta(days=1)
+
+    today_snapshot = build_business_snapshot(company, report_date=report_date)
+    today_revenue = today_snapshot.revenue
+    week_revenues.append(today_revenue)
+
+    delta = today_revenue - yesterday_revenue
+    is_best_day_this_week = bool(week_revenues) and today_revenue >= max(week_revenues)
+    # Only meaningful if there were prior days this week with sales
+    prior_days_with_sales = any(r > 0 for r in week_revenues[:-1])
+
+    return {
+        "yesterday_revenue": yesterday_revenue,
+        "delta": delta,
+        "is_best_day_this_week": is_best_day_this_week and prior_days_with_sales,
+        "week_revenues": week_revenues,
+    }
+
+
 @sync_to_async(thread_sensitive=True)
 def set_company_daily_closing_time(company_id: int, closing_time: time, closing_date: datetime.date) -> None:
     Company.objects.filter(id=company_id).update(
@@ -241,6 +281,31 @@ def get_company_by_id(company_id: int) -> Company | None:
     return Company.objects.filter(id=company_id).first()
 
 
+def upload_report_image(image_bytes: bytes, company_id: int, report_date: dt.date) -> str | None:
+    """Upload a report card PNG to R2 and return its public URL."""
+    try:
+        from services.storage.r2_client import R2StorageClient
+        client = R2StorageClient()
+        date_str = report_date.strftime("%Y-%m-%d")
+        # Use a stable key so re-runs overwrite rather than accumulate
+        file_key = f"reports/{company_id}/{date_str}.png"
+        if not client.client:
+            logger.warning("R2 not configured — skipping report image upload")
+            return None
+        client.client.put_object(
+            Bucket=client.bucket_name,
+            Key=file_key,
+            Body=image_bytes,
+            ContentType="image/png",
+        )
+        if client.public_url:
+            return f"{client.public_url.rstrip('/')}/{file_key}"
+        return f"{client.endpoint_url.rstrip('/')}/{client.bucket_name}/{file_key}"
+    except Exception:
+        logger.exception("Failed to upload report image to R2")
+        return None
+
+
 async def send_message_to_company(company: Company, message: str) -> list[str]:
     """Send a WhatsApp message to all known members of a company."""
     client = get_whatsapp_client()
@@ -259,8 +324,32 @@ async def send_daily_closing_prompt(company: Company) -> list[str]:
 async def send_daily_summary(company: Company, report_date: datetime.date | None = None) -> list[str]:
     report_date = report_date or timezone.localdate()
     snapshot = await sync_to_async(build_business_snapshot, thread_sensitive=True)(company, report_date=report_date)
-    message = format_business_summary(snapshot)
-    recipients = await send_message_to_company(company, message)
+
+    if snapshot.sales_count == 0:
+        logger.debug("No sales for company %s on %s — skipping daily summary", company.id, report_date)
+        return []
+
+    comparison = await sync_to_async(build_comparison_context, thread_sensitive=True)(company, report_date)
+    text_summary = format_business_summary(snapshot)
+
+    try:
+        from apps.whatsapp.services.report_card import generate_stat_card
+        image_bytes = generate_stat_card(snapshot, comparison, shop_name=company.name)
+        image_url = await sync_to_async(upload_report_image, thread_sensitive=True)(
+            image_bytes, company.id, report_date
+        )
+    except Exception:
+        logger.exception("Failed to generate report card for company %s", company.id)
+        image_url = None
+
+    wa_client = get_whatsapp_client()
+    recipients = await sync_to_async(_company_recipients, thread_sensitive=True)(company)
+    for phone in recipients:
+        if image_url:
+            await wa_client.send_image(phone, image_url, caption=text_summary)
+        else:
+            await wa_client.send_message(phone, text_summary)
+
     await mark_summary_sent(company.id, report_date)
     return recipients
 

@@ -35,6 +35,10 @@
         "already_registered": "The phone number {phone} is already registered to another user.",
         "added": "Assistant added successfully!\n\nPhone: {phone}\nThey can now send sales messages for {company}."
     },
+    "sales_query": {
+        "no_sales": "No sales recorded for {date}.",
+        "not_registered": "Sorry, your account is not set up yet. Please contact your shop administrator."
+    },
     "sale": {
         "no_products": "I could not identify any products. Please send a full sale message, e.g., \"sold 2 cokes $1.50 each, 1 chips $0.50\" or \"3 waters R0.75 each\"",
         "item_with_price": "  {quantity} x {product} @ {price}",
