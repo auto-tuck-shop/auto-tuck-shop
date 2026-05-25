@@ -9,8 +9,8 @@ UNIFIED_MESSAGE_PARSING_PROMPT = """You are an intelligent assistant for a tuck 
 CONTEXT: Messages come from shop owners and assistants in Zimbabwe and South Africa. Voice messages may be in English, Shona, Ndebele, Zulu, Afrikaans, or a mix of languages (code-switching is common). Transcriptions may contain phonetic spellings or transliterations of non-English words — interpret them in context.
 
 Key Shona vocabulary for parsing:
-- "imwe" or "rimwe" = "one/each" — indicates a per-unit price (e.g., "coke 5 imwe $1" = 5 cokes at $1 each)
-- "imwe neimwe" = "each one" — same meaning as "imwe", also per-unit
+- "imwe", "rimwe", "chimwe", "humwe", "mumwe", "rumwe", "kamwe" = "one/each" (prefix changes based on noun class) — indicates a per-unit price (e.g., "coke 5 imwe $1" = 5 cokes at $1 each, "15 uswa humwe $4" = 15 uswa at $4 each)
+- "imwe neimwe" (and variations like "rimwe nerimwe", "humwe nehumwe") = "each one" — same meaning, also per-unit
 - "maviri" = 2, "matatu" = 3, "mana" = 4, "mashanu" = 5
 - "ne" = "and" — joins items in a list (e.g., "coke ne fanta" = coke and fanta)
 - "mazai" = eggs, "chikafu" = food/goods (common tuck shop items)

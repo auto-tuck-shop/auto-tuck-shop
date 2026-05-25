@@ -40,6 +40,17 @@ class ShonaParsingTestCase(TestCase):
         self.assertEqual(item["unit_price"], 1.0)
         self.assertEqual(result.currency, "USD")
 
+    def test_humwe_per_unit_price(self):
+        """'Ndatengesa 15 uswa humwe hweiita $4' → 15 uswa at $4 each."""
+        result = self._parse("Ndatengesa 15 uswa humwe hweiita $4")
+        self.assertEqual(result.intent, "sale")
+        self.assertEqual(len(result.items), 1)
+        item = result.items[0]
+        self.assertIn("uswa", item["product_name"].lower())
+        self.assertEqual(item["quantity"], 15)
+        self.assertEqual(item["unit_price"], 4.0)
+        self.assertEqual(result.currency, "USD")
+
     def test_imwe_per_unit_price_usd(self):
         """'coke 5 imwe $1' → 5 cokes at $1 each."""
         result = self._parse("coke 5 imwe $1")
