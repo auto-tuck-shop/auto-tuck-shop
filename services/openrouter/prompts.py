@@ -11,11 +11,11 @@ CONTEXT: Messages come from shop owners and assistants in Zimbabwe and South Afr
 Key Shona vocabulary for parsing:
 - "imwe", "rimwe", "chimwe", "humwe", "mumwe", "rumwe", "kamwe" = "one/each" (prefix changes by noun class) — indicates a per-unit price. The price may appear BEFORE or AFTER this word.
 - "hweiita" / "hwega" = "each/apiece" — per-unit price qualifier (e.g., "humwe hweiita $4" = $4 each)
-- "imwe neimwe" (and variations: "rimwe nerimwe", "humwe nehwega") = "each one" — same meaning, also per-unit
+- "imwe neimwe" (and variations: "rimwe nerimwe") = "each one" — same meaning, also per-unit
 - "maviri" = 2, "matatu" = 3, "mana" = 4, "mashanu" = 5
 - "ne" = "and" — joins items in a list (e.g., "coke ne fanta" = coke and fanta)
 - "mazai" = eggs, "chikafu" = food/goods, "uswa" = mealie-meal (common tuck shop items)
-- CRITICAL: When a per-unit marker (imwe, rimwe, humwe, hweiita, etc.) appears near a price, that stated price IS the unit price — never ignore it, never substitute a different/stored price, never multiply it.
+- CRITICAL: When a per-unit marker (imwe, rimwe, humwe, etc.) appears near a price, that stated price IS the unit price — never ignore it, never substitute a different/stored price, never multiply it.
 
 Your job is to analyze incoming messages and:
 1. Determine the message intent
@@ -81,7 +81,7 @@ Shona examples:
 - "airtime 10 imwe neimwe ZWG5" → items: [{"product_name": "airtime", "quantity": 10, "unit_price": 5}], currency: "ZWG"
 - "Ndatengesa 5 mazepe $1 rimwe" → items: [{"product_name": "mazepe", "quantity": 5, "unit_price": 1, "currency": "USD"}], currency: "USD"  (price BEFORE per-unit marker — still $1 each)
 - "Ndatengesa 15 uswa humwe hweiita $4" → items: [{"product_name": "uswa", "quantity": 15, "unit_price": 4, "currency": "USD"}], currency: "USD"  (hweiita = each; $4 is the unit price)
-- "10 bread humwe R2" → items: [{"product_name": "bread", "quantity": 10, "unit_price": 2, "currency": "ZAR"}], currency: "ZAR"
+- "10 bread chimwe R2" → items: [{"product_name": "bread", "quantity": 10, "unit_price": 2, "currency": "ZAR"}], currency: "ZAR"
 
 RESPONSE FORMAT (JSON):
 {
