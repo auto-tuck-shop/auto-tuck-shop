@@ -203,6 +203,64 @@ def handle_incoming_audio_message(
         logger.exception(f"Error handling audio message {message_id}: {e}")
 
 
+async def _handle_sales_query(
+    sender: str,
+    user_profile: UserProfile | None,
+    result,
+    lang: str = DEFAULT_LANGUAGE,
+) -> None:
+    from datetime import timedelta
+    from asgiref.sync import sync_to_async as _s2a
+    from apps.whatsapp.services.business_reports import (
+        build_business_snapshot,
+        build_comparison_context,
+        upload_report_image,
+        format_business_summary,
+    )
+    from apps.whatsapp.services.report_card import generate_stat_card
+
+    if not user_profile or not user_profile.company:
+        await _send_response(sender, t("sales_query.not_registered", lang=lang))
+        return
+
+    company = user_profile.company
+    today = timezone.localdate()
+
+    timeframe = result.timeframe or "today"
+    if timeframe == "today":
+        report_date = today
+    elif timeframe == "yesterday":
+        report_date = today - timedelta(days=1)
+    else:
+        # week / month / year — use today's date and let the text summary cover context
+        report_date = today
+
+    snapshot = await _s2a(build_business_snapshot, thread_sensitive=True)(company, report_date=report_date)
+
+    if snapshot.sales_count == 0:
+        date_label = report_date.strftime("%d %b %Y")
+        await _send_response(sender, t("sales_query.no_sales", lang=lang, date=date_label))
+        return
+
+    comparison = await _s2a(build_comparison_context, thread_sensitive=True)(company, report_date)
+    text_summary = format_business_summary(snapshot)
+
+    image_url = None
+    try:
+        image_bytes = generate_stat_card(snapshot, comparison, shop_name=company.name)
+        image_url = await _s2a(upload_report_image, thread_sensitive=True)(
+            image_bytes, company.id, report_date
+        )
+    except Exception:
+        logger.exception("Failed to generate sales query report card for company %s", company.id)
+
+    wa_client = get_whatsapp_client()
+    if image_url:
+        await wa_client.send_image(sender, image_url, caption=text_summary)
+    else:
+        await _send_response(sender, text_summary)
+
+
 async def _process_message_async(
     message_id: str,
     sender: str,
@@ -226,6 +284,10 @@ async def _process_message_async(
         if result.intent == "add_assistant":
             from apps.whatsapp.services.waitlist_handler import handle_add_assistant
             await handle_add_assistant(sender, text, user_profile, result)
+            return
+
+        if result.intent == "sales_query":
+            await _handle_sales_query(sender, user_profile, result, lang=lang)
             return
 
         from apps.whatsapp.services.sale_handler import process_sale_message_unified
