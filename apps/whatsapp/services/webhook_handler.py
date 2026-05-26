@@ -315,6 +315,18 @@ async def _process_message_async(
                     await _send_response(sender, t("closing.normal_time_set", lang=lang, time=time_label))
                     return
 
+            # Intercept onboarding closing time reply — owner has no normal_closing_time yet.
+            # The setup_prompt was sent right after approval, so their first reply is likely a time.
+            if not company.normal_closing_time and user_profile and user_profile.role == "owner":
+                parsed_time = parse_closing_time_text(text)
+                if parsed_time and len(text.strip()) < 20:
+                    from datetime import datetime as _dt, timedelta as _td
+                    await set_company_normal_closing_time(company.id, parsed_time)
+                    summary_time = (_dt.combine(today, parsed_time) + _td(hours=1)).time()
+                    time_label = summary_time.strftime("%I:%M %p").lstrip("0")
+                    await _send_response(sender, t("closing.normal_time_set", lang=lang, time=time_label))
+                    return
+
             # Intercept daily closing time reply — only when a prompt was sent today.
             closing_set_today = company.daily_closing_date == today and company.daily_closing_time
             if company.last_closing_prompt_date == today and not closing_set_today:

@@ -36,6 +36,7 @@
         "added": "Assistant added successfully!\n\nPhone: {phone}\nThey can now send sales messages for {company}."
     },
     "closing": {
+        "setup_prompt": "One last thing — what time does your shop usually close? I will use this to send your daily summary automatically.",
         "prompt": "What time are you closing today so I can prepare your business summary?",
         "acknowledged": "Okay, noted. I will send you the summary when the shop closes.",
         "invalid_time": "I did not understand that time. Please reply with a time like '6pm' or '18:00'.",
