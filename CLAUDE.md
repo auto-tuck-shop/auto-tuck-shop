@@ -23,15 +23,22 @@ Auto Tuck Shop is a Django app. Shop owners in Zimbabwe send WhatsApp text or vo
 
 ## Current phase
 
-**Pilot prep — not yet live.** The code is ready. Blocking items before first deploy:
+**Pilot prep — staging is live, production-blockers in progress.**
 
-1. Accounts audit — confirm all API keys are in hand (#18, assigned Madrena)
-2. Set Fly.io secrets on staging and production (#19)
-3. Deploy to staging and verify app boots (#20)
-4. E2E test checklist (#44, blocked on #20)
-5. Register WhatsApp webhook on Meta dashboard (#23, assigned Madrena)
-6. Deploy to production — Brighton sign-off required (#24)
-7. Onboard 10 pilot shops (#25, assigned Bradley)
+### Completed ✓
+- #20 Deploy to staging
+- #19 Set Fly.io secrets
+- #18 Accounts audit
+- #5 First staging deployment
+- #4 Production secrets set
+- #3 Fly.io CLI auth
+
+### Blocking production (in order) 🚨
+1. #55 Fix webhook signature verification — **PR #66 in review** (Madrena)
+2. #26 Verify Sentry error monitoring is live (Madrena + Brighton)
+3. #23 Register WhatsApp webhook on Meta dashboard (Madrena) — needs staging testing first
+4. #24 Deploy to production — Brighton sign-off required
+5. #25 Onboard 10 pilot shops (Bradley) — depends on #24
 
 When an AI assistant is helping with a task, check which issue it maps to and work within that scope. If a task doesn't map to an open issue, check with the user before starting.
 
