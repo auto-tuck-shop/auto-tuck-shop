@@ -38,7 +38,8 @@
     "closing": {
         "prompt": "Munozara ngehawa ngapi nhasi kuti ndikugadzirire maererano emazuva ano ezvemari?",
         "acknowledged": "Zvakanaka, ndaziva. Ndichakutumira maererano kana shop yazara.",
-        "invalid_time": "Handina kunzwisisa nguva iyo. Ndapota pindura ngehawa, sekuti '6pm' kana '18:00'."
+        "invalid_time": "Handina kunzwisisa nguva iyo. Ndapota pindura ngehawa, sekuti '6pm' kana '18:00'.",
+        "normal_time_set": "Zvakanaka! Ndichakutumira maererano ne{time} mazuva ose. Hauchadzidzisi nguva yekuzara zvakare."
     },
     "sales_query": {
         "no_sales": "Hapana zvakatengeswa musi wa {date}.",

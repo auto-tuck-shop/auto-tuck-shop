@@ -38,7 +38,8 @@
     "closing": {
         "prompt": "What time are you closing today so I can prepare your business summary?",
         "acknowledged": "Okay, noted. I will send you the summary when the shop closes.",
-        "invalid_time": "I did not understand that time. Please reply with a time like '6pm' or '18:00'."
+        "invalid_time": "I did not understand that time. Please reply with a time like '6pm' or '18:00'.",
+        "normal_time_set": "Got it! I will send your daily summary at {time} every day. You won't need to tell me your closing time again."
     },
     "sales_query": {
         "no_sales": "No sales recorded for {date}.",

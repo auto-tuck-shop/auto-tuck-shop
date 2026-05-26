@@ -245,6 +245,11 @@ def set_company_daily_closing_time(company_id: int, closing_time: time, closing_
 
 
 @sync_to_async(thread_sensitive=True)
+def set_company_normal_closing_time(company_id: int, closing_time: time) -> None:
+    Company.objects.filter(id=company_id).update(normal_closing_time=closing_time)
+
+
+@sync_to_async(thread_sensitive=True)
 def mark_closing_prompt_sent(company_id: int, prompt_date: datetime.date) -> None:
     Company.objects.filter(id=company_id).update(last_closing_prompt_date=prompt_date)
 
@@ -426,28 +431,38 @@ async def maybe_send_daily_notifications(now: datetime | None = None) -> dict[st
     for company in companies:
         closing_set_today = company.daily_closing_date == today and company.daily_closing_time
 
-        if (
-            company.last_closing_prompt_date != today
-            and current_time >= prompt_cutoff
-            and not closing_set_today
-        ):
-            await send_daily_closing_prompt(company)
-            sent_prompt.append(company.id)
-
-        if company.last_summary_date != today:
-            if closing_set_today:
-                # Owner replied with a closing time — send at that time
-                effective_close = _effective_closing_time(company, today)
-                if current_time >= effective_close:
-                    await send_daily_summary(company, report_date=today)
-                    sent_summary.append(company.id)
-            elif (
-                company.last_closing_prompt_date == today
-                and not closing_set_today
-                and current_time >= FALLBACK_SUMMARY_CUTOFF
-            ):
-                # Owner never replied — send the summary anyway at 9pm
+        if company.normal_closing_time:
+            # Owner has set a permanent closing time — no daily prompt needed.
+            # Send the summary 1 hour after their normal closing time.
+            summary_time = (
+                datetime.combine(today, company.normal_closing_time) + timedelta(hours=1)
+            ).time()
+            if company.last_summary_date != today and current_time >= summary_time:
                 await send_daily_summary(company, report_date=today)
                 sent_summary.append(company.id)
+        else:
+            # No permanent closing time — use the daily prompt flow.
+            if (
+                company.last_closing_prompt_date != today
+                and current_time >= prompt_cutoff
+                and not closing_set_today
+            ):
+                await send_daily_closing_prompt(company)
+                sent_prompt.append(company.id)
+
+            if company.last_summary_date != today:
+                if closing_set_today:
+                    effective_close = _effective_closing_time(company, today)
+                    if current_time >= effective_close:
+                        await send_daily_summary(company, report_date=today)
+                        sent_summary.append(company.id)
+                elif (
+                    company.last_closing_prompt_date == today
+                    and not closing_set_today
+                    and current_time >= FALLBACK_SUMMARY_CUTOFF
+                ):
+                    # Owner never replied — send anyway at 9pm
+                    await send_daily_summary(company, report_date=today)
+                    sent_summary.append(company.id)
 
     return {"prompt": sent_prompt, "summary": sent_summary}
