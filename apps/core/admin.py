@@ -19,6 +19,12 @@ class CompanyAdmin(admin.ModelAdmin):
 
     member_count.short_description = "Members"
 
+    def has_change_permission(self, request, obj=None):
+        return request.user.is_superuser
+
+    def has_delete_permission(self, request, obj=None):
+        return request.user.is_superuser
+
 
 class UserProfileInline(admin.StackedInline):
     model = UserProfile
@@ -53,6 +59,15 @@ class UserAdmin(BaseUserAdmin):
 
     get_role.short_description = "Role"
 
+    def has_add_permission(self, request):
+        return request.user.is_superuser
+
+    def has_change_permission(self, request, obj=None):
+        return request.user.is_superuser
+
+    def has_delete_permission(self, request, obj=None):
+        return request.user.is_superuser
+
 
 # Re-register UserAdmin
 admin.site.unregister(User)
@@ -65,6 +80,15 @@ class UserProfileAdmin(admin.ModelAdmin):
     list_filter = ["company", "role"]
     search_fields = ["user__username", "user__email", "phone_number"]
     autocomplete_fields = ["user", "company"]
+
+    def has_add_permission(self, request):
+        return request.user.is_superuser
+
+    def has_change_permission(self, request, obj=None):
+        return request.user.is_superuser
+
+    def has_delete_permission(self, request, obj=None):
+        return request.user.is_superuser
 
 
 @admin.register(WaitlistEntry)

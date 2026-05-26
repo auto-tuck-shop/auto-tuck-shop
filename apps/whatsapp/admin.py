@@ -75,9 +75,7 @@ class WhatsAppMessageAdmin(admin.ModelAdmin):
     r2_media_link.short_description = "R2 Media URL"
 
     def has_add_permission(self, request):
-        """Disable manual creation - messages are auto-recorded."""
         return False
 
     def has_delete_permission(self, request, obj=None):
-        """Allow deletion for cleanup."""
-        return True
+        return request.user.is_superuser
