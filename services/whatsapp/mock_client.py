@@ -63,6 +63,19 @@ class MockWhatsAppClient:
         """Mock get_media_url - returns mock URL."""
         return (f"https://mock-cdn.example.com/{media_id}.ogg", "audio/ogg")
 
+    async def mark_as_read(self, message_id: str) -> bool:
+        """Mock mark message as read (record action)."""
+        logger.info(f"[MOCK] Marking message as read: {message_id}")
+        self.timeline.append({"type": "mark_as_read", "message_id": message_id})
+        return True
+
+    async def send_typing_indicator(self, to: str, action: str = "typing_on") -> bool:
+        """Mock typing indicator (action: 'typing_on' or 'typing_off')."""
+        logger.info(f"[MOCK] Typing indicator {action} to {to}")
+        idx = len(self.sent_messages)
+        self.timeline.append({"type": "typing", "action": action, "phone": to})
+        return True
+
     @classmethod
     def add_inbound(cls, phone: str, text: str):
         """Record an inbound (user-sent) message for chat history."""

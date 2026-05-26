@@ -47,11 +47,14 @@ class OutboxView(View):
             variants = {phone, phone.lstrip("+"), "+" + phone.lstrip("+")}
             messages = [m for m in MockWhatsAppClient.sent_messages if m["to"] in variants]
             buttons = [b for b in MockWhatsAppClient.sent_buttons if b["to"] in variants]
+            # Filter timeline for this phone when possible
+            timeline = [t for t in MockWhatsAppClient.timeline if t.get("phone") in variants or True if not t.get("phone") else False]
         else:
             messages = list(MockWhatsAppClient.sent_messages)
             buttons = list(MockWhatsAppClient.sent_buttons)
+            timeline = list(MockWhatsAppClient.timeline)
 
-        return JsonResponse({"messages": messages, "buttons": buttons})
+        return JsonResponse({"messages": messages, "buttons": buttons, "timeline": timeline})
 
     def delete(self, request: HttpRequest) -> HttpResponse:
         """DELETE /test/outbox/ — reset mock state.

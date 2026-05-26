@@ -320,6 +320,60 @@ class WhatsAppClient:
 
                     return False
 
+    async def mark_as_read(self, message_id: str) -> bool:
+        """Mark an inbound message as read (send read receipt to Meta)."""
+        if not self.access_token or not self.phone_number_id:
+            logger.error("Meta WhatsApp credentials not configured for mark_as_read")
+            return False
+
+        payload = {
+            "messaging_product": "whatsapp",
+            "status": "read",
+            "message_id": message_id,
+        }
+
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            try:
+                response = await client.post(self._get_api_url(), headers=self._get_headers(), json=payload)
+                response.raise_for_status()
+                logger.info(f"Marked message {message_id} as read")
+                return True
+            except Exception:
+                logger.exception(f"Failed to mark message {message_id} as read")
+                return False
+
+    async def send_typing_indicator(self, to: str, action: str = "typing_on") -> bool:
+        """Send typing indicator (typing_on / typing_off) to Meta API.
+
+        action should be 'typing_on' or 'typing_off'.
+        """
+        if action not in ("typing_on", "typing_off"):
+            logger.warning(f"Invalid typing action: {action}")
+            return False
+
+        if not self.access_token or not self.phone_number_id:
+            logger.error("Meta WhatsApp credentials not configured for typing indicator")
+            return False
+
+        to_number = self._normalize_phone_number(to)
+
+        payload = {
+            "messaging_product": "whatsapp",
+            "to": to_number,
+            "type": "typing",
+            "typing": {"state": action},
+        }
+
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            try:
+                response = await client.post(self._get_api_url(), headers=self._get_headers(), json=payload)
+                response.raise_for_status()
+                logger.info(f"Sent typing indicator {action} to {to}")
+                return True
+            except Exception:
+                logger.exception(f"Failed to send typing indicator {action} to {to}")
+                return False
+
     async def get_media_url(self, media_id: str) -> tuple[str, str] | None:
         """
         Get the pre-signed URL for a media file without downloading it.

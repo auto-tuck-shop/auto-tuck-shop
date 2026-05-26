@@ -260,6 +260,18 @@ class WhatsAppWebhookView(View):
             waitlist_entry=waitlist_entry,
         )
 
+        # Mark inbound button response as read so WhatsApp shows read receipts
+        try:
+            from apps.whatsapp.services.whatsapp_client import get_whatsapp_client
+            client = get_whatsapp_client()
+            # fire-and-forget
+            try:
+                run_async(client.mark_as_read(message_id))
+            except Exception:
+                logger.exception("Failed to fire mark_as_read")
+        except Exception:
+            logger.debug("Mark-as-read not available")
+
         # Parse button ID to determine action type
         # Format: "confirm_{sale_id}", "fix_{sale_id}", "waitlist_approve_{entry_id}", "waitlist_reject_{entry_id}"
         if button_id.startswith("confirm_") or button_id.startswith("fix_"):
@@ -308,6 +320,17 @@ class WhatsAppWebhookView(View):
             waitlist_entry=waitlist_entry,
         )
 
+        # Mark inbound message as read (so blue ticks appear)
+        try:
+            from apps.whatsapp.services.whatsapp_client import get_whatsapp_client
+            client = get_whatsapp_client()
+            try:
+                run_async(client.mark_as_read(message_id))
+            except Exception:
+                logger.exception("Failed to fire mark_as_read")
+        except Exception:
+            logger.debug("Mark-as-read not available")
+
         if status == SenderStatus.UNKNOWN:
             # New user - add to waitlist
             print(f"[DEBUG VIEW] Calling handle_new_waitlist_entry for unknown sender {sender}", flush=True)
@@ -352,6 +375,17 @@ class WhatsAppWebhookView(View):
             r2_media_url="",
             raw_payload=message,
         )
+
+        # Mark inbound audio message as read
+        try:
+            from apps.whatsapp.services.whatsapp_client import get_whatsapp_client
+            client = get_whatsapp_client()
+            try:
+                run_async(client.mark_as_read(message_id))
+            except Exception:
+                logger.exception("Failed to fire mark_as_read")
+        except Exception:
+            logger.debug("Mark-as-read not available")
 
         if status == SenderStatus.UNKNOWN:
             # New user - add to waitlist
