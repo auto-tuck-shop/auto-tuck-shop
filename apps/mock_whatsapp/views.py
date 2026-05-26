@@ -139,11 +139,16 @@ class MockOutboxView(View):
 
         messages = [m for m in MockWhatsAppClient.sent_messages if m["to"] in variants]
         buttons = [b for b in MockWhatsAppClient.sent_buttons if b["to"] in variants]
+        images = [m for m in MockWhatsAppClient.sent_messages if m["to"] in variants and m.get("type") == "image"]
         inbound = [m for m in MockWhatsAppClient.inbound_messages if m["from"] in variants]
 
-        # Return only new items since the given index
-        new_messages = messages[since_messages:]
+        # Separate text messages from image messages for indexed polling
+        text_messages = [m for m in messages if m.get("type") != "image"]
+        since_images = int(request.GET.get("since_images", 0))
+
+        new_messages = text_messages[since_messages:]
         new_buttons = buttons[since_buttons:]
+        new_images = images[since_images:]
         new_inbound = inbound[since_inbound:]
 
         # Build timeline for this phone (for history loading)
@@ -155,10 +160,12 @@ class MockOutboxView(View):
         return JsonResponse({
             "messages": new_messages,
             "buttons": new_buttons,
+            "images": new_images,
             "inbound": new_inbound,
             "timeline": phone_timeline,
-            "total_messages": len(messages),
+            "total_messages": len(text_messages),
             "total_buttons": len(buttons),
+            "total_images": len(images),
             "total_inbound": len(inbound),
         })
 

@@ -34,7 +34,7 @@ Auto Tuck Shop is a Django app. Shop owners in Zimbabwe send WhatsApp text or vo
 3. ~~Deploy to staging and verify app boots (#20)~~ ✓ done
 4. ~~Register WhatsApp webhook on Meta dashboard (#23)~~ ✓ done — permanent system user token set
 5. ~~E2E test checklist (#44)~~ ✓ done — audio testing deferred to real device
-6. ~~Pre-production checklist (#76)~~ ✓ mostly done — Meta policy URLs (privacy/terms/data-deletion) still to set in App Settings → Basic
+6. ~~Pre-production checklist (#76)~~ ✓ done — Meta policy URLs (privacy/terms/data-deletion) set in App Settings → Basic
 7. ~~Deploy to production (#24)~~ ✓ done — live 2026-05-25
 8. Onboard 10 pilot shops (#25, assigned Bradley)
 9. WhatsApp UX polish — blue ticks, typing indicator, profile name/icon (#77, post-deploy)
@@ -79,6 +79,30 @@ If a change doesn't improve sale recording, pilot onboarding, operator visibilit
 7. **Production deploy** — Brighton publishes a GitHub Release → GitHub Actions auto-deploys to prod. Never deploy to production without explicit sign-off from Brighton.
 
 Note: first-ever deploy to a new Fly app must be done manually with `fly deploy` — `fly secrets deploy` fails if no machines exist yet.
+
+### How to create a production release (step-by-step)
+
+Releases follow semver patch bumps (v0.1.0 → v0.1.1 → v0.1.2). Only Brighton publishes releases.
+
+**Prerequisites:** branch is merged to main, staging looks healthy.
+
+```bash
+# 1. Check what's in main since the last release (replace vX.X.X with the last tag)
+git log vX.X.X..origin/main --oneline
+
+# 2. Find the last release tag so you know what to bump to
+gh release list --limit 5
+
+# 3. Publish the release — this triggers the prod deploy workflow automatically
+gh release create vX.X.X \
+  --title "vX.X.X — <short description>" \
+  --notes "## What's in this release
+
+- Fix: <description> (#issue)
+- Fix: <description> (#issue)"
+```
+
+The `deploy-production.yml` workflow triggers on `release: published` — no manual `fly deploy` needed after the first-ever deploy. Monitor the deploy at: https://github.com/aakitech/auto-tuck-shop/actions
 
 ## Deployment
 

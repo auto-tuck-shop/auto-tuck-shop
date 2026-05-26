@@ -152,26 +152,23 @@ def build_business_snapshot(company: Company, report_date: datetime.date | None 
 def format_business_summary(snapshot: BusinessSnapshot) -> str:
     """Render a human-readable business summary message."""
     date_label = snapshot.report_date.strftime("%d %b %Y")
-    lines = [f"Business summary for {date_label}:"]
-    lines.append(f"- Sales: {snapshot.sales_count}")
-    lines.append(f"- Items sold: {snapshot.items_sold}")
-    lines.append(f"- Revenue: {format_price(snapshot.revenue, snapshot.currency)}")
-    lines.append(f"- Gross profit: {format_price(snapshot.gross_profit, snapshot.currency)}")
-    lines.append("- Expenses: not tracked separately yet")
+    revenue_str = format_price(snapshot.revenue, snapshot.currency)
+    lines = [f"Summary for {date_label}"]
+    lines.append(f"Revenue: {revenue_str} from {snapshot.sales_count} sale{'s' if snapshot.sales_count != 1 else ''}")
 
     if snapshot.top_products:
-        lines.append("Top products:")
-        for name, qty in snapshot.top_products[:5]:
+        lines.append("")
+        lines.append("Top sellers:")
+        for name, qty in snapshot.top_products[:3]:
             lines.append(f"  • {name}: {qty}")
 
-    if snapshot.out_of_stock_items:
-        lines.append("Out of stock:")
-        for name, stock in snapshot.out_of_stock_items[:5]:
-            lines.append(f"  • {name}: {stock}")
-    elif snapshot.low_stock_items:
-        lines.append("Low stock:")
-        for name, stock in snapshot.low_stock_items[:5]:
-            lines.append(f"  • {name}: {stock}")
+    # Closing line based on revenue
+    if snapshot.revenue == 0:
+        lines.append("")
+        lines.append("Quiet day — no sales recorded.")
+    elif snapshot.sales_count >= 10:
+        lines.append("")
+        lines.append("Good day!")
 
     return "\n".join(lines)
 
