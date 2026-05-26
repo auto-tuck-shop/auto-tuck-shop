@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime
 import io
 import logging
 from decimal import Decimal
@@ -14,147 +15,234 @@ from apps.core.currencies import format_price
 
 logger = logging.getLogger(__name__)
 
-# Card dimensions (good for WhatsApp image preview on mobile)
-WIDTH = 800
-HEIGHT = 480
+WIDTH = 1200
+HEIGHT = 675
 
-# Colour palette
-BG_COLOR = (18, 24, 38)          # dark navy
-ACCENT_COLOR = (74, 222, 128)    # green
-RED_COLOR = (248, 113, 113)      # red/orange for negative delta
-MUTED_COLOR = (148, 163, 184)    # slate grey
+BG_COLOR = (13, 17, 28)
+CARD_BG = (22, 30, 46)
+ACCENT_COLOR = (74, 222, 128)
+RED_COLOR = (248, 113, 113)
+MUTED_COLOR = (100, 116, 139)
+DIVIDER_COLOR = (38, 52, 72)
+BAR_EMPTY_COLOR = (38, 52, 72)
 WHITE = (255, 255, 255)
-GOLD = (250, 204, 21)            # star / best day highlight
-CARD_BG = (30, 41, 59)          # slightly lighter card interior
+GOLD = (250, 204, 21)
+BAR_COLOR = (55, 90, 160)
+BAR_TODAY_COLOR = (74, 222, 128)
 
-PADDING = 40
+PADDING = 56
+TOP_SELLER_MIN_QTY = 3
+
+
+_FONTS_DIR = Path(__file__).parent.parent / "static" / "fonts"
 
 
 def _load_font(size: int, bold: bool = False) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
-    """Load a font at the given size, falling back to Pillow's default."""
-    candidates: list[Path] = []
-
-    # Try common system font locations on Linux (Fly.io) and Windows (dev)
+    bundled = _FONTS_DIR / ("Inter-Bold.ttf" if bold else "Inter-Regular.ttf")
+    if bundled.exists():
+        try:
+            return ImageFont.truetype(str(bundled), size)
+        except Exception:
+            pass
+    system_candidates: list[Path] = []
     if bold:
-        candidates = [
-            Path("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"),
+        system_candidates = [
             Path("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"),
             Path("C:/Windows/Fonts/arialbd.ttf"),
-            Path("C:/Windows/Fonts/calibrib.ttf"),
         ]
     else:
-        candidates = [
-            Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"),
+        system_candidates = [
             Path("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf"),
             Path("C:/Windows/Fonts/arial.ttf"),
-            Path("C:/Windows/Fonts/calibri.ttf"),
         ]
-
-    for path in candidates:
+    for path in system_candidates:
         if path.exists():
             try:
                 return ImageFont.truetype(str(path), size)
             except Exception:
                 continue
-
-    # Pillow built-in fallback (no size control, but always works)
     return ImageFont.load_default()
 
 
-def _text_width(draw: ImageDraw.ImageDraw, text: str, font) -> int:
+def _tw(draw: ImageDraw.ImageDraw, text: str, font) -> int:
     bbox = draw.textbbox((0, 0), text, font=font)
     return bbox[2] - bbox[0]
 
 
+def _th(draw: ImageDraw.ImageDraw, text: str, font) -> int:
+    bbox = draw.textbbox((0, 0), text, font=font)
+    return bbox[3] - bbox[1]
+
+
+def _draw_bar_chart(
+    draw: ImageDraw.ImageDraw,
+    week_revenues: list[Decimal],
+    report_date: datetime.date,
+    x: int,
+    y: int,
+    w: int,
+    h: int,
+    font_tiny,
+    font_small,
+    currency: str,
+) -> None:
+    day_names = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    monday = report_date - datetime.timedelta(days=report_date.weekday())
+    labels: list[str] = []
+    day = monday
+    for _ in week_revenues:
+        labels.append(day_names[day.weekday()])
+        day += datetime.timedelta(days=1)
+
+    n = len(week_revenues)
+    if n == 0:
+        return
+
+    max_rev = max(week_revenues) if any(r > 0 for r in week_revenues) else Decimal("1")
+
+    label_h = 28
+    value_h = 24  # space above bars for value labels
+    bar_area_h = h - label_h - value_h
+
+    # Fixed equal bar widths with consistent gaps
+    gap = 16
+    bar_w = (w - gap * (n - 1)) // n
+
+    for i, rev in enumerate(week_revenues):
+        bx = x + i * (bar_w + gap)
+        is_today = (i == n - 1)
+
+        # Empty bar outline for zero-revenue days
+        if rev <= 0:
+            draw.rounded_rectangle(
+                [bx, y + value_h, bx + bar_w, y + value_h + bar_area_h],
+                radius=4,
+                outline=BAR_EMPTY_COLOR,
+                width=2,
+            )
+        else:
+            bar_h = max(6, int(bar_area_h * float(rev) / float(max_rev)))
+            by = y + value_h + bar_area_h - bar_h
+            color = BAR_TODAY_COLOR if is_today else BAR_COLOR
+            draw.rounded_rectangle([bx, by, bx + bar_w, y + value_h + bar_area_h], radius=4, fill=color)
+
+            # Value label above each bar
+            val_text = format_price(rev, currency)
+            vw = _tw(draw, val_text, font_tiny)
+            val_color = ACCENT_COLOR if is_today else MUTED_COLOR
+            draw.text(
+                (bx + (bar_w - vw) // 2, by - 26),
+                val_text, font=font_tiny, fill=val_color,
+            )
+
+        # Day label below bar
+        lw = _tw(draw, labels[i], font_tiny)
+        label_color = WHITE if is_today else MUTED_COLOR
+        draw.text(
+            (bx + (bar_w - lw) // 2, y + value_h + bar_area_h + 8),
+            labels[i], font=font_tiny, fill=label_color,
+        )
+
+
 def generate_stat_card(snapshot: BusinessSnapshot, comparison: dict, shop_name: str = "") -> bytes:
-    """
-    Render a PNG stat card summarising the day's sales.
-
-    Args:
-        snapshot: Today's BusinessSnapshot.
-        comparison: Output of build_comparison_context() — contains delta, is_best_day_this_week, etc.
-        shop_name: Display name for the shop (falls back to "Your Shop").
-
-    Returns:
-        PNG image as bytes.
-    """
     img = Image.new("RGB", (WIDTH, HEIGHT), color=BG_COLOR)
     draw = ImageDraw.Draw(img)
 
-    # Fonts
-    font_small = _load_font(18)
-    font_medium = _load_font(24)
-    font_large = _load_font(52, bold=True)
-    font_xlarge = _load_font(68, bold=True)
+    font_tiny = _load_font(18)
+    font_small = _load_font(22)
+    font_medium = _load_font(28)
+    font_hero = _load_font(80, bold=True)
 
-    # Background card panel
     draw.rounded_rectangle(
         [PADDING // 2, PADDING // 2, WIDTH - PADDING // 2, HEIGHT - PADDING // 2],
-        radius=16,
+        radius=20,
         fill=CARD_BG,
     )
 
-    y = PADDING + 8
+    y = PADDING + 12
 
-    # --- Row 1: shop name + date ---
+    # Header
     date_label = snapshot.report_date.strftime("%d %b %Y")
-    name = (shop_name or "Your Shop").upper()
-    header = f"{name}  ·  {date_label}"
+    display_name = (shop_name or "Your Shop").upper()
+    header = f"{display_name}  |  {date_label}"
     draw.text((PADDING, y), header, font=font_small, fill=MUTED_COLOR)
+    y += 38
+    draw.line([(PADDING, y), (WIDTH - PADDING, y)], fill=DIVIDER_COLOR, width=1)
+    y += 24
+
+    content_top = y  # remember where content starts for chart alignment
+
+    # Left / right column split
+    col_gap = 48
+    left_w = WIDTH // 2 - PADDING - col_gap // 2
+    right_x = WIDTH // 2 + col_gap // 2
+    right_w = WIDTH - right_x - PADDING
+
+    # Revenue hero
+    revenue_text = format_price(snapshot.revenue, snapshot.currency)
+    draw.text((PADDING, y), revenue_text, font=font_hero, fill=WHITE)
+    y += font_hero.size + 16
+
+    # Sales count
+    sales_label = f"{snapshot.sales_count} sale{'s' if snapshot.sales_count != 1 else ''} today"
+    draw.text((PADDING, y), sales_label, font=font_small, fill=MUTED_COLOR)
     y += 36
 
-    # Divider line
-    draw.line([(PADDING, y), (WIDTH - PADDING, y)], fill=(51, 65, 85), width=1)
-    y += 20
-
-    # --- Row 2: revenue (big number) ---
-    revenue_text = format_price(snapshot.revenue, snapshot.currency)
-    draw.text((PADDING, y), revenue_text, font=font_xlarge, fill=WHITE)
-    y += 84
-
-    # --- Row 3: delta vs yesterday ---
+    # Delta vs yesterday — only meaningful if yesterday had sales
     delta: Decimal = comparison.get("delta", Decimal("0"))
     yesterday_revenue: Decimal = comparison.get("yesterday_revenue", Decimal("0"))
+    if yesterday_revenue > 0:
+        if delta > 0:
+            delta_text = f"+ {format_price(delta, snapshot.currency)} vs yesterday"
+            delta_color = ACCENT_COLOR
+        elif delta < 0:
+            delta_text = f"- {format_price(abs(delta), snapshot.currency)} vs yesterday"
+            delta_color = RED_COLOR
+        else:
+            delta_text = "Same as yesterday"
+            delta_color = MUTED_COLOR
+        draw.text((PADDING, y), delta_text, font=font_medium, fill=delta_color)
+        y += 44
 
-    if delta > 0:
-        delta_text = f"▲  {format_price(delta, snapshot.currency)} more than yesterday"
-        delta_color = ACCENT_COLOR
-    elif delta < 0:
-        delta_text = f"▼  {format_price(abs(delta), snapshot.currency)} less than yesterday"
-        delta_color = RED_COLOR
-    else:
-        delta_text = "Same as yesterday"
-        delta_color = MUTED_COLOR
-
-    draw.text((PADDING, y), delta_text, font=font_medium, fill=delta_color)
-    y += 40
-
-    # --- Row 4: best day badge (conditional) ---
-    if comparison.get("is_best_day_this_week"):
-        badge_text = "★  Best day this week!"
-        draw.text((PADDING, y), badge_text, font=font_medium, fill=GOLD)
+    # Best day badge — only meaningful if there are prior days this week to compare
+    week_revenues: list[Decimal] = comparison.get("week_revenues", [])
+    prior_days_had_sales = any(r > 0 for r in week_revenues[:-1])
+    if comparison.get("is_best_day_this_week") and prior_days_had_sales:
+        draw.text((PADDING, y), "Best day this week", font=font_medium, fill=GOLD)
         y += 40
 
     y += 8
-    draw.line([(PADDING, y), (WIDTH - PADDING, y)], fill=(51, 65, 85), width=1)
-    y += 16
+    draw.line([(PADDING, y), (PADDING + left_w, y)], fill=DIVIDER_COLOR, width=1)
+    y += 18
 
-    # --- Row 5: top sellers ---
-    if snapshot.top_products:
-        draw.text((PADDING, y), "Top sellers today:", font=font_small, fill=MUTED_COLOR)
-        y += 26
-        for name, qty in snapshot.top_products[:3]:
-            line = f"  {name}  ×{qty}"
-            draw.text((PADDING, y), line, font=font_medium, fill=WHITE)
-            y += 32
-    else:
-        draw.text((PADDING, y), "No top sellers data", font=font_small, fill=MUTED_COLOR)
+    # Top sellers — only items with qty >= TOP_SELLER_MIN_QTY
+    top = [(name, qty) for name, qty in snapshot.top_products if qty >= TOP_SELLER_MIN_QTY]
+    if top:
+        draw.text((PADDING, y), "Top sellers", font=font_small, fill=MUTED_COLOR)
         y += 28
+        for pname, qty in top[:3]:
+            draw.text((PADDING, y), pname, font=font_medium, fill=WHITE)
+            qty_text = f"x{qty}"
+            qty_x = PADDING + left_w - _tw(draw, qty_text, font_medium)
+            draw.text((qty_x, y), qty_text, font=font_medium, fill=MUTED_COLOR)
+            y += 36
 
-    # --- Footer ---
+    # Right column: bar chart
+    if week_revenues:
+        chart_label = "This week"
+        draw.text((right_x, content_top), chart_label, font=font_small, fill=MUTED_COLOR)
+        chart_top = content_top + 32
+        chart_h = HEIGHT - chart_top - PADDING - 8
+        _draw_bar_chart(
+            draw, week_revenues, snapshot.report_date,
+            right_x, chart_top, right_w, chart_h,
+            font_tiny, font_small, snapshot.currency,
+        )
+
+    # Footer
     footer = "Auto Tuck Shop"
-    footer_x = WIDTH - PADDING - _text_width(draw, footer, font_small)
-    draw.text((footer_x, HEIGHT - PADDING - 10), footer, font=font_small, fill=MUTED_COLOR)
+    fw = _tw(draw, footer, font_tiny)
+    draw.text((WIDTH - PADDING - fw, HEIGHT - PADDING + 4), footer, font=font_tiny, fill=MUTED_COLOR)
 
     buf = io.BytesIO()
     img.save(buf, format="PNG", optimize=True)
