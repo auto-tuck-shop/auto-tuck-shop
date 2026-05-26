@@ -35,6 +35,11 @@
         "already_registered": "The phone number {phone} is already registered to another user.",
         "added": "Assistant added successfully!\n\nPhone: {phone}\nThey can now send sales messages for {company}."
     },
+    "closing": {
+        "prompt": "What time are you closing today so I can prepare your business summary?",
+        "acknowledged": "Okay, noted. I will send you the summary when the shop closes.",
+        "invalid_time": "I did not understand that time. Please reply with a time like '6pm' or '18:00'."
+    },
     "sales_query": {
         "no_sales": "No sales recorded for {date}.",
         "not_registered": "Sorry, your account is not set up yet. Please contact your shop administrator."

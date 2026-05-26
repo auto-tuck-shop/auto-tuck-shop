@@ -33,7 +33,6 @@ BAR_TODAY_COLOR = (74, 222, 128)
 PADDING = 56
 TOP_SELLER_MIN_QTY = 3
 
-
 _FONTS_DIR = Path(__file__).parent.parent / "static" / "fonts"
 
 

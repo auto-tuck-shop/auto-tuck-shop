@@ -35,6 +35,11 @@
         "already_registered": "Number iyi {phone} yagara yakaiswa.",
         "added": "Mutengesi aiswa!\n\nPhone: {phone}\nAve ku kwanisa kurecorda zvatengwa mu {company}."
     },
+    "closing": {
+        "prompt": "Munozara ngehawa ngapi nhasi kuti ndikugadzirire maererano emazuva ano ezvemari?",
+        "acknowledged": "Zvakanaka, ndaziva. Ndichakutumira maererano kana shop yazara.",
+        "invalid_time": "Handina kunzwisisa nguva iyo. Ndapota pindura ngehawa, sekuti '6pm' kana '18:00'."
+    },
     "sales_query": {
         "no_sales": "Hapana zvakatengeswa musi wa {date}.",
         "not_registered": "Sorry, account yako haisati yagadzirwa. Taura na administrator we shop yako."
