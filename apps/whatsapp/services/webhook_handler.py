@@ -214,6 +214,8 @@ async def _handle_sales_query(
     from apps.whatsapp.services.business_reports import (
         build_business_snapshot,
         build_comparison_context,
+        build_period_summary,
+        format_period_summary,
         upload_report_image,
         format_business_summary,
     )
@@ -225,14 +227,30 @@ async def _handle_sales_query(
 
     company = user_profile.company
     today = timezone.localdate()
-
     timeframe = result.timeframe or "today"
-    if timeframe == "today":
-        report_date = today
-    elif timeframe == "yesterday":
+
+    # Multi-day aggregates — return text only, no image card
+    if timeframe == "week":
+        monday = today - timedelta(days=today.weekday())
+        data = await _s2a(build_period_summary, thread_sensitive=True)(company, monday, today)
+        label = f"This week ({monday.strftime('%d %b')} - {today.strftime('%d %b')})"
+        await _send_response(sender, format_period_summary(label, data))
+        return
+    elif timeframe == "month":
+        first = today.replace(day=1)
+        data = await _s2a(build_period_summary, thread_sensitive=True)(company, first, today)
+        await _send_response(sender, format_period_summary(today.strftime("%B"), data))
+        return
+    elif timeframe == "year":
+        first = today.replace(month=1, day=1)
+        data = await _s2a(build_period_summary, thread_sensitive=True)(company, first, today)
+        await _send_response(sender, format_period_summary(str(today.year), data))
+        return
+
+    # Single-day queries — today or yesterday, with image card
+    if timeframe == "yesterday":
         report_date = today - timedelta(days=1)
     else:
-        # week / month / year — use today's date and let the text summary cover context
         report_date = today
 
     snapshot = await _s2a(build_business_snapshot, thread_sensitive=True)(company, report_date=report_date)
@@ -271,6 +289,57 @@ async def _process_message_async(
     try:
         company = user_profile.company if user_profile else None
         lang = user_profile.language if user_profile else DEFAULT_LANGUAGE
+
+        # Intercept closing time messages before hitting the LLM.
+        if company:
+            import re as _re
+            today = timezone.localdate()
+            from apps.whatsapp.services.business_reports import (
+                parse_closing_time_text,
+                set_company_daily_closing_time,
+                set_company_normal_closing_time,
+            )
+
+            # Detect "closes at X every day" — set permanent closing time.
+            _permanent_pattern = _re.compile(
+                r"\b(every\s+day|always|daily|each\s+day|mazuva\s+ose|nguva\s+dzose)\b",
+                _re.IGNORECASE,
+            )
+            if _permanent_pattern.search(text):
+                parsed_time = parse_closing_time_text(text)
+                if parsed_time:
+                    from datetime import datetime as _dt, timedelta as _td
+                    await set_company_normal_closing_time(company.id, parsed_time)
+                    summary_time = (_dt.combine(today, parsed_time) + _td(hours=1)).time()
+                    time_label = summary_time.strftime("%I:%M %p").lstrip("0")
+                    await _send_response(sender, t("closing.normal_time_set", lang=lang, time=time_label))
+                    return
+
+            # Intercept onboarding closing time reply — owner has no normal_closing_time yet.
+            # The setup_prompt was sent right after approval, so their first reply is likely a time.
+            if not company.normal_closing_time and user_profile and user_profile.role == "owner":
+                parsed_time = parse_closing_time_text(text)
+                if parsed_time and len(text.strip()) < 20:
+                    from datetime import datetime as _dt, timedelta as _td
+                    await set_company_normal_closing_time(company.id, parsed_time)
+                    summary_time = (_dt.combine(today, parsed_time) + _td(hours=1)).time()
+                    time_label = summary_time.strftime("%I:%M %p").lstrip("0")
+                    await _send_response(sender, t("closing.normal_time_set", lang=lang, time=time_label))
+                    return
+
+            # Intercept daily closing time reply — only when a prompt was sent today.
+            closing_set_today = company.daily_closing_date == today and company.daily_closing_time
+            if company.last_closing_prompt_date == today and not closing_set_today:
+                parsed_time = parse_closing_time_text(text)
+                if parsed_time:
+                    await set_company_daily_closing_time(company.id, parsed_time, today)
+                    await _send_response(sender, t("closing.acknowledged", lang=lang))
+                    return
+                # Short message with a digit but failed to parse — likely a malformed time reply
+                if len(text.strip()) < 20 and any(c.isdigit() for c in text):
+                    await _send_response(sender, t("closing.invalid_time", lang=lang))
+                    return
+                # Otherwise fall through — they may have sent a sale during closing window
 
         try:
             result = await parse_message_unified(text, company=company)

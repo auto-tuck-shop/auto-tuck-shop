@@ -23,9 +23,8 @@ from apps.inventory.models import InventoryAdjustment
 from apps.whatsapp.services.whatsapp_client import get_whatsapp_client
 
 
-CLOSING_PROMPT_TEXT = "What time are you closing today so I can prepare today's business summary?"
-CLOSING_ACK_TEXT = "Okay, noted. I will send you the summary when the shop closes."
 LOW_STOCK_THRESHOLD = 5
+FALLBACK_SUMMARY_CUTOFF = time(21, 0)
 
 
 @dataclass(frozen=True)
@@ -246,6 +245,11 @@ def set_company_daily_closing_time(company_id: int, closing_time: time, closing_
 
 
 @sync_to_async(thread_sensitive=True)
+def set_company_normal_closing_time(company_id: int, closing_time: time) -> None:
+    Company.objects.filter(id=company_id).update(normal_closing_time=closing_time)
+
+
+@sync_to_async(thread_sensitive=True)
 def mark_closing_prompt_sent(company_id: int, prompt_date: datetime.date) -> None:
     Company.objects.filter(id=company_id).update(last_closing_prompt_date=prompt_date)
 
@@ -299,6 +303,53 @@ def upload_report_image(image_bytes: bytes, company_id: int, report_date: dt.dat
         return None
 
 
+def build_period_summary(company: Company, start_date: datetime.date, end_date: datetime.date) -> dict:
+    """Aggregate sales across a date range for week/month/year queries."""
+    start = timezone.make_aware(datetime.combine(start_date, time.min))
+    end = timezone.make_aware(datetime.combine(end_date, time.max))
+    sales = list(
+        Sale.objects.filter(
+            company=company,
+            status=Sale.Status.CONFIRMED,
+            sale_timestamp__gte=start,
+            sale_timestamp__lte=end,
+        ).prefetch_related("items__product")
+    )
+    revenue = Decimal("0.00")
+    product_totals: dict[str, int] = {}
+    for sale in sales:
+        revenue += Decimal(str(sale.total_amount or 0))
+        for item in sale.items.all():
+            product_totals[item.product.name] = product_totals.get(item.product.name, 0) + int(item.quantity or 0)
+    top_products = sorted(product_totals.items(), key=lambda kv: (-kv[1], kv[0]))[:5]
+    return {
+        "revenue": revenue,
+        "sales_count": len(sales),
+        "top_products": top_products,
+        "currency": company.currency,
+    }
+
+
+def format_period_summary(period_label: str, data: dict) -> str:
+    if data["sales_count"] == 0:
+        return f"{period_label}: No sales recorded."
+    revenue_str = format_price(data["revenue"], data["currency"])
+    lines = [f"{period_label}: {revenue_str} from {data['sales_count']} sale{'s' if data['sales_count'] != 1 else ''}"]
+    if data["top_products"]:
+        lines.append("\nTop sellers:")
+        for name, qty in data["top_products"][:3]:
+            lines.append(f"  • {name}: {qty}")
+    return "\n".join(lines)
+
+
+def _company_owner_lang(company: Company) -> str:
+    profile = (
+        UserProfile.objects.filter(company=company, role=UserProfile.Role.OWNER, user__is_active=True)
+        .first()
+    )
+    return profile.language if profile else "sn"
+
+
 async def send_message_to_company(company: Company, message: str) -> list[str]:
     """Send a WhatsApp message to all known members of a company."""
     client = get_whatsapp_client()
@@ -309,7 +360,9 @@ async def send_message_to_company(company: Company, message: str) -> list[str]:
 
 
 async def send_daily_closing_prompt(company: Company) -> list[str]:
-    recipients = await send_message_to_company(company, CLOSING_PROMPT_TEXT)
+    from apps.whatsapp.services.webhook_handler import t
+    lang = await sync_to_async(_company_owner_lang, thread_sensitive=True)(company)
+    recipients = await send_message_to_company(company, t("closing.prompt", lang=lang))
     await mark_closing_prompt_sent(company.id, timezone.localdate())
     return recipients
 
@@ -376,19 +429,40 @@ async def maybe_send_daily_notifications(now: datetime | None = None) -> dict[st
     sent_summary: list[int] = []
 
     for company in companies:
-        if (
-            company.last_closing_prompt_date != today
-            and current_time >= prompt_cutoff
-            and not (company.daily_closing_date == today and company.daily_closing_time)
-        ):
-            await send_daily_closing_prompt(company)
-            sent_prompt.append(company.id)
+        closing_set_today = company.daily_closing_date == today and company.daily_closing_time
 
-        # Only send the summary once a closing time has actually been set for today.
-        if company.daily_closing_date == today and company.daily_closing_time and company.last_summary_date != today:
-            effective_close = _effective_closing_time(company, today)
-            if current_time >= effective_close:
+        if company.normal_closing_time:
+            # Owner has set a permanent closing time — no daily prompt needed.
+            # Send the summary 1 hour after their normal closing time.
+            summary_time = (
+                datetime.combine(today, company.normal_closing_time) + timedelta(hours=1)
+            ).time()
+            if company.last_summary_date != today and current_time >= summary_time:
                 await send_daily_summary(company, report_date=today)
                 sent_summary.append(company.id)
+        else:
+            # No permanent closing time — use the daily prompt flow.
+            if (
+                company.last_closing_prompt_date != today
+                and current_time >= prompt_cutoff
+                and not closing_set_today
+            ):
+                await send_daily_closing_prompt(company)
+                sent_prompt.append(company.id)
+
+            if company.last_summary_date != today:
+                if closing_set_today:
+                    effective_close = _effective_closing_time(company, today)
+                    if current_time >= effective_close:
+                        await send_daily_summary(company, report_date=today)
+                        sent_summary.append(company.id)
+                elif (
+                    company.last_closing_prompt_date == today
+                    and not closing_set_today
+                    and current_time >= FALLBACK_SUMMARY_CUTOFF
+                ):
+                    # Owner never replied — send anyway at 9pm
+                    await send_daily_summary(company, report_date=today)
+                    sent_summary.append(company.id)
 
     return {"prompt": sent_prompt, "summary": sent_summary}
