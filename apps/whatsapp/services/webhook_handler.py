@@ -214,14 +214,15 @@ async def _process_message_async(
         lang = user_profile.language if user_profile else DEFAULT_LANGUAGE
 
         # Send typing indicator while LLM processes the message (if supported)
-        try:
-            client = get_whatsapp_client()
+        if settings.ENABLE_WHATSAPP_TYPING:
             try:
-                await client.send_typing_indicator(sender, "typing_on")
+                client = get_whatsapp_client()
+                try:
+                    await client.send_typing_indicator(sender, "typing_on")
+                except Exception:
+                    logger.debug("Typing indicator not available or failed to send")
             except Exception:
-                logger.debug("Typing indicator not available or failed to send")
-        except Exception:
-            logger.debug("WhatsApp client not available for typing indicator")
+                logger.debug("WhatsApp client not available for typing indicator")
 
         try:
             result = await parse_message_unified(text, company=company)
@@ -231,14 +232,15 @@ async def _process_message_async(
             return
         finally:
             # Turn off typing indicator
-            try:
-                client = get_whatsapp_client()
+            if settings.ENABLE_WHATSAPP_TYPING:
                 try:
-                    await client.send_typing_indicator(sender, "typing_off")
+                    client = get_whatsapp_client()
+                    try:
+                        await client.send_typing_indicator(sender, "typing_off")
+                    except Exception:
+                        logger.debug("Failed to send typing_off")
                 except Exception:
-                    logger.debug("Failed to send typing_off")
-            except Exception:
-                pass
+                    pass
 
         logger.info(f"Parsed message - intent: {result.intent}, confidence: {result.confidence}")
 

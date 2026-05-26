@@ -261,16 +261,17 @@ class WhatsAppWebhookView(View):
         )
 
         # Mark inbound button response as read so WhatsApp shows read receipts
-        try:
-            from apps.whatsapp.services.whatsapp_client import get_whatsapp_client
-            client = get_whatsapp_client()
-            # fire-and-forget
+        if settings.ENABLE_WHATSAPP_MARK_AS_READ:
             try:
-                run_async(client.mark_as_read(message_id))
+                from apps.whatsapp.services.whatsapp_client import get_whatsapp_client
+                client = get_whatsapp_client()
+                # fire-and-forget
+                try:
+                    run_async(client.mark_as_read(message_id))
+                except Exception:
+                    logger.exception("Failed to fire mark_as_read")
             except Exception:
-                logger.exception("Failed to fire mark_as_read")
-        except Exception:
-            logger.debug("Mark-as-read not available")
+                logger.debug("Mark-as-read not available")
 
         # Parse button ID to determine action type
         # Format: "confirm_{sale_id}", "fix_{sale_id}", "waitlist_approve_{entry_id}", "waitlist_reject_{entry_id}"
@@ -321,15 +322,16 @@ class WhatsAppWebhookView(View):
         )
 
         # Mark inbound message as read (so blue ticks appear)
-        try:
-            from apps.whatsapp.services.whatsapp_client import get_whatsapp_client
-            client = get_whatsapp_client()
+        if settings.ENABLE_WHATSAPP_MARK_AS_READ:
             try:
-                run_async(client.mark_as_read(message_id))
+                from apps.whatsapp.services.whatsapp_client import get_whatsapp_client
+                client = get_whatsapp_client()
+                try:
+                    run_async(client.mark_as_read(message_id))
+                except Exception:
+                    logger.exception("Failed to fire mark_as_read")
             except Exception:
-                logger.exception("Failed to fire mark_as_read")
-        except Exception:
-            logger.debug("Mark-as-read not available")
+                logger.debug("Mark-as-read not available")
 
         if status == SenderStatus.UNKNOWN:
             # New user - add to waitlist
@@ -377,15 +379,16 @@ class WhatsAppWebhookView(View):
         )
 
         # Mark inbound audio message as read
-        try:
-            from apps.whatsapp.services.whatsapp_client import get_whatsapp_client
-            client = get_whatsapp_client()
+        if settings.ENABLE_WHATSAPP_MARK_AS_READ:
             try:
-                run_async(client.mark_as_read(message_id))
+                from apps.whatsapp.services.whatsapp_client import get_whatsapp_client
+                client = get_whatsapp_client()
+                try:
+                    run_async(client.mark_as_read(message_id))
+                except Exception:
+                    logger.exception("Failed to fire mark_as_read")
             except Exception:
-                logger.exception("Failed to fire mark_as_read")
-        except Exception:
-            logger.debug("Mark-as-read not available")
+                logger.debug("Mark-as-read not available")
 
         if status == SenderStatus.UNKNOWN:
             # New user - add to waitlist
