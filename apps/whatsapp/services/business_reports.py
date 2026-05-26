@@ -111,13 +111,11 @@ def build_business_snapshot(company: Company, report_date: datetime.date | None 
     )
 
     revenue = Decimal("0.00")
-    cost = Decimal("0.00")
     items_sold = 0
     product_totals: dict[str, int] = {}
 
     for sale in sales:
         revenue += Decimal(str(sale.total_amount or 0))
-        cost += sale.total_cost_amount
         for item in sale.items.all():
             items_sold += int(item.quantity or 0)
             product_totals[item.product.name] = product_totals.get(item.product.name, 0) + int(item.quantity or 0)
@@ -136,8 +134,6 @@ def build_business_snapshot(company: Company, report_date: datetime.date | None 
     low_stock_items.sort(key=lambda kv: (kv[1], kv[0]))
     out_of_stock_items.sort(key=lambda kv: (kv[1], kv[0]))
 
-    gross_profit = revenue - cost
-
     return BusinessSnapshot(
         company_id=company.id,
         report_date=report_date,
@@ -145,8 +141,8 @@ def build_business_snapshot(company: Company, report_date: datetime.date | None 
         sales_count=len(sales),
         items_sold=items_sold,
         revenue=revenue,
-        cost=cost,
-        gross_profit=gross_profit,
+        cost=Decimal("0.00"),
+        gross_profit=revenue,
         top_products=top_products,
         low_stock_items=low_stock_items,
         out_of_stock_items=out_of_stock_items,
