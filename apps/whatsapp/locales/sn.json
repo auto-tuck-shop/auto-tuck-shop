@@ -36,8 +36,8 @@
         "added": "Mutengesi aiswa!\n\nPhone: {phone}\nAve ku kwanisa kurecorda zvatengwa mu {company}."
     },
     "closing": {
-        "setup_prompt": "Chimwe chinhu — shop yenyu inozara ngehawa ngapi kazhinji? Ndichazvishandisa kutumira maererano enyu mazuva ose.",
-        "prompt": "Munozara ngehawa ngapi nhasi kuti ndikugadzirire maererano emazuva ano ezvemari?",
+        "setup_prompt": "Chimwe chinhu — shop yenyu inowanza kuvhara ne hour ripi kazhinji? Ndichazvishandisa kutumira ma reports enyu mazuva ose.",
+        "prompt": "Munovhara nehour ripi nhasi kuti ndikugadzirire ma reports emazuva ano ezvemari?",
         "acknowledged": "Zvakanaka, ndaziva. Ndichakutumira maererano kana shop yazara.",
         "invalid_time": "Handina kunzwisisa nguva iyo. Ndapota pindura ngehawa, sekuti '6pm' kana '18:00'.",
         "normal_time_set": "Zvakanaka! Ndichakutumira maererano ne{time} mazuva ose. Hauchadzidzisi nguva yekuzara zvakare."

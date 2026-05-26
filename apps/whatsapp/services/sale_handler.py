@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from decimal import Decimal
 
@@ -66,6 +67,20 @@ def _get_confirmed_sale(original_message_sid: str | None):
         return sale, sale.whatsapp_message_id
     except Sale.DoesNotExist:
         return None
+
+
+@db_sync_to_async
+def _is_first_confirmed_sale(company_id: int) -> bool:
+    return Sale.objects.filter(
+        company_id=company_id,
+        status=Sale.Status.CONFIRMED,
+    ).count() == 1
+
+
+@db_sync_to_async
+def _company_needs_closing_time(company_id: int) -> bool:
+    company = Company.objects.filter(id=company_id).only("normal_closing_time").first()
+    return company is not None and company.normal_closing_time is None
 
 
 @db_sync_to_async
@@ -174,6 +189,10 @@ async def process_sale_button_action_async(
         if result:
             sale, original_whatsapp_message_id = result
             await _send_response(sender, t("sale.confirmed_ok", lang=lang), reply_to=original_whatsapp_message_id)
+            # After first confirmed sale, ask for closing time if not yet set
+            if await _company_needs_closing_time(sale.company_id) and await _is_first_confirmed_sale(sale.company_id):
+                await asyncio.sleep(3)
+                await _send_response(sender, t("closing.setup_prompt", lang=lang))
         else:
             await _send_response(sender, t("sale.already_processed", lang=lang))
     else:
