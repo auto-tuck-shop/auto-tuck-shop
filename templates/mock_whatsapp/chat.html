@@ -193,6 +193,14 @@ body {
 .send-btn svg { color: #111b21; width: 20px; height: 20px; }
 .input-bar.has-text .send-btn { display: flex; }
 
+/* ── Image message bubble ──────────────────────────────── */
+.image-bubble img { max-width: 100%; border-radius: 6px; display: block; }
+.image-bubble .image-caption { color: #e9edef; font-size: 13px; margin-top: 4px; white-space: pre-wrap; }
+.image-placeholder {
+    background: #1d2c34; border-radius: 6px; padding: 10px 14px;
+    display: flex; align-items: center; gap: 8px; color: #8696a0; font-size: 13px;
+}
+
 /* ── Voice message bubble ──────────────────────────────── */
 .voice-bubble .voice-message {
     display: flex; align-items: center; gap: 10px; min-width: 200px;
@@ -314,6 +322,7 @@ class MockWhatsApp {
         this.$messages.innerHTML = '';
         this.seenMessages = 0;
         this.seenButtons = 0;
+        this.seenImages = 0;
         this.seenInbound = 0;
 
         // Add system message
@@ -327,19 +336,25 @@ class MockWhatsApp {
 
     async _loadHistory() {
         try {
-            const url = `/mock-whatsapp/outbox/?phone=${encodeURIComponent(this.phone)}&since_messages=0&since_buttons=0&since_inbound=0`;
+            const url = `/mock-whatsapp/outbox/?phone=${encodeURIComponent(this.phone)}&since_messages=0&since_buttons=0&since_images=0&since_inbound=0`;
             const res = await fetch(url);
             if (!res.ok) return;
             const data = await res.json();
 
             // Use timeline to show messages in correct order
+            const allMessages = data.messages || [];
+            const allImages = data.images || [];
+            let imgIdx = 0;
             for (const entry of (data.timeline || [])) {
                 if (entry.type === 'inbound') {
                     const m = data.inbound[entry.index];
                     if (m) this._addSentMessage(m.text);
                 } else if (entry.type === 'outbound') {
-                    const m = data.messages[entry.index];
+                    const m = allMessages[entry.index];
                     if (m) this._addReceivedMessage(m.text);
+                } else if (entry.type === 'outbound_image') {
+                    const m = allImages[entry.index];
+                    if (m) this._addReceivedImageMessage(m.image_url, m.caption);
                 } else if (entry.type === 'buttons') {
                     const b = data.buttons[entry.index];
                     if (b) this._addReceivedButtonMessage(b.body, b.buttons, b.message_id);
@@ -348,6 +363,7 @@ class MockWhatsApp {
 
             this.seenMessages = data.total_messages;
             this.seenButtons = data.total_buttons;
+            this.seenImages = data.total_images || 0;
             this.seenInbound = data.total_inbound;
         } catch (e) {
             // silent
@@ -431,7 +447,7 @@ class MockWhatsApp {
         if (!this.polling) return;
 
         try {
-            const url = `/mock-whatsapp/outbox/?phone=${encodeURIComponent(this.phone)}&since_messages=${this.seenMessages}&since_buttons=${this.seenButtons}&since_inbound=${this.seenInbound}`;
+            const url = `/mock-whatsapp/outbox/?phone=${encodeURIComponent(this.phone)}&since_messages=${this.seenMessages}&since_buttons=${this.seenButtons}&since_images=${this.seenImages}&since_inbound=${this.seenInbound}`;
             const res = await fetch(url);
             if (res.ok) {
                 const data = await res.json();
@@ -440,6 +456,12 @@ class MockWhatsApp {
                 // Process new text messages
                 for (const msg of data.messages) {
                     this._addReceivedMessage(msg.text);
+                    gotNew = true;
+                }
+
+                // Process new image messages
+                for (const img of (data.images || [])) {
+                    this._addReceivedImageMessage(img.image_url, img.caption);
                     gotNew = true;
                 }
 
@@ -456,6 +478,7 @@ class MockWhatsApp {
 
                 this.seenMessages = data.total_messages;
                 this.seenButtons = data.total_buttons;
+                this.seenImages = data.total_images || 0;
                 this.seenInbound = data.total_inbound;
             }
         } catch (e) {
@@ -534,6 +557,24 @@ class MockWhatsApp {
             });
         });
 
+        this.$messages.appendChild(el);
+        this._scroll();
+    }
+
+    _addReceivedImageMessage(imageUrl, caption) {
+        const el = document.createElement('div');
+        el.className = 'message received has-tail image-bubble';
+        const captionHTML = caption ? `<div class="image-caption">${this._formatWA(caption)}</div>` : '';
+        // Show placeholder with caption — real WhatsApp images require auth so we can't embed R2 URLs directly
+        el.innerHTML = `
+            <div class="bubble">
+                <div class="image-placeholder">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="2" stroke="#8696a0" stroke-width="1.5"/><circle cx="8.5" cy="8.5" r="1.5" fill="#8696a0"/><path d="M21 15l-5-5L5 21" stroke="#8696a0" stroke-width="1.5" stroke-linecap="round"/></svg>
+                    <span>Image</span>
+                </div>
+                ${captionHTML}
+                <span class="message-meta"><span class="timestamp">${this._time()}</span></span>
+            </div>`;
         this.$messages.appendChild(el);
         this._scroll();
     }
