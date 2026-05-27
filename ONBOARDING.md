@@ -125,37 +125,6 @@ fly deploy                   # only after Brighton sign-off
 | `unit_tests/` | Django unit tests (run with `manage.py test unit_tests`) |
 | `tests/` | Staging integration tests (run with `pytest tests/ -x`) |
 
-## Architecture: Per-User Message Queueing
-
-To prevent duplicate sales and race conditions when a shop owner sends multiple messages rapidly, the system implements **per-user message serialization**:
-
-- **One message at a time per user** — messages from the same phone number are processed serially
-- **Database row-level lock** — uses Django's `select_for_update()` on the user's profile
-- **Automatic duplicate prevention** — `whatsapp_message_id` has a unique constraint at the DB level
-- **Different users in parallel** — no global lock; concurrent messages from different users still process in parallel
-
-### When per-user locking happens
-
-1. Message arrives from user A
-2. System acquires a lock on user A's profile row
-3. Message is parsed, sale is created, LLM response is generated and sent
-4. Lock is released
-5. Any pending messages from user A now acquire the lock and process (in order)
-
-### Scenarios prevented
-
-- **Network retry:** User sends sale, loses network, Meta retries same webhook → only one record created (DB constraint detects duplicate `whatsapp_message_id`)
-- **Rapid messages:** User sends "5 bread" then "3 coke" before first reply → both process in order (per-user lock ensures serialization)
-- **Correction before confirmation:** User sends "10 maize" then "5 maize" before bot replies → first is processed, then second (in order, no duplicates)
-
-### See also
-
-- [Deployment wiki](https://github.com/aakitech/auto-tuck-shop/wiki/Deployment) — lock timeout and performance tuning
-- `apps/whatsapp/services/message_lock.py` — implementation details and docstrings
-- `unit_tests/test_concurrent_message_safety.py` — unit tests for lock behavior
-
-
-
 ## Admin panel
 
 `/admin/` — key sections:

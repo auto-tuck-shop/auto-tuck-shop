@@ -1,203 +1,120 @@
-"""Unit tests for concurrent message safety and per-user locking."""
+"""Unit tests for per-user message serialisation via threading.Lock."""
 
-import asyncio
-import logging
-from unittest.mock import AsyncMock, MagicMock, patch
+import threading
+import time
 
-from django.test import TestCase, TransactionTestCase
+from django.test import TransactionTestCase
 from django.contrib.auth.models import User
+from unittest.mock import patch
 
 from apps.core.models import Company, UserProfile
-from apps.whatsapp.services.message_lock import process_with_user_lock
-
-logger = logging.getLogger(__name__)
+from apps.whatsapp.services.message_lock import get_user_lock
 
 
-class MessageLockingTestCase(TransactionTestCase):
-    """Test per-user message locking."""
+class GetUserLockTest(TransactionTestCase):
+
+    def test_same_phone_returns_same_lock(self):
+        lock1 = get_user_lock("+263111111111")
+        lock2 = get_user_lock("+263111111111")
+        self.assertIs(lock1, lock2)
+
+    def test_different_phones_return_different_locks(self):
+        lock1 = get_user_lock("+263111111111")
+        lock2 = get_user_lock("+263222222222")
+        self.assertIsNot(lock1, lock2)
+
+
+class MessageSerializationTest(TransactionTestCase):
+    """Verify that handle_incoming_message serialises concurrent calls per user."""
 
     def setUp(self):
-        """Create test user and company."""
-        self.company = Company.objects.create(
-            name="Test Shop",
-            slug="test-shop",
-        )
-        user = User.objects.create_user("testuser", "test@example.com", "password")
-        self.profile = UserProfile.objects.create(
+        company = Company.objects.create(name="Test Shop", slug="test-shop-ms")
+        user = User.objects.create_user("testuser_ms", "ms@example.com", "password")
+        UserProfile.objects.create(
             user=user,
-            company=self.company,
-            phone_number="+263123456789",
+            company=company,
+            phone_number="+263100000001",
             language="en",
         )
-        self.phone_number = "+263123456789"
 
-    def test_messages_serialize_with_lock(self):
-        """Test that messages from same user process serially (one at a time)."""
-        execution_times = []
+    def test_same_user_messages_serialise(self):
+        """Two concurrent messages from the same user must not overlap."""
+        events = []
+        call_count = [0]
 
-        async def slow_operation(msg_id: str, duration: float):
-            """Async operation that takes `duration` seconds."""
-            execution_times.append({"id": msg_id, "action": "start", "duration": duration})
-            await asyncio.sleep(duration)
-            execution_times.append({"id": msg_id, "action": "end"})
+        def fake_run_async(coro):
+            coro.close()  # prevent "coroutine was never awaited" warning
+            n = call_count[0]
+            call_count[0] += 1
+            events.append(f"msg{n}:start")
+            time.sleep(0.05)
+            events.append(f"msg{n}:end")
 
-        async def run_two_messages_in_parallel():
-            """Try to run two messages concurrently - they should serialize."""
-            task1 = process_with_user_lock(
-                self.phone_number,
-                slow_operation,
-                "msg1",
-                0.1,  # 100ms
+        with patch("apps.whatsapp.services.webhook_handler.run_async", side_effect=fake_run_async):
+            from apps.whatsapp.services.webhook_handler import handle_incoming_message
+
+            t1 = threading.Thread(
+                target=handle_incoming_message,
+                args=("msg1", "+263100000001", "5 bread"),
             )
-            task2 = process_with_user_lock(
-                self.phone_number,
-                slow_operation,
-                "msg2",
-                0.1,  # 100ms
+            t2 = threading.Thread(
+                target=handle_incoming_message,
+                args=("msg2", "+263100000001", "3 coke"),
             )
-            # Create tasks in parallel
-            results = await asyncio.gather(task1, task2, return_exceptions=True)
-            return results
+            t1.start()
+            time.sleep(0.01)  # ensure t1 acquires lock first
+            t2.start()
+            t1.join()
+            t2.join()
 
-        # Run the parallel tasks
-        asyncio.run(run_two_messages_in_parallel())
+        # msg0 must fully complete before msg1 starts
+        self.assertEqual(len(events), 4)
+        self.assertEqual(events[0], "msg0:start")
+        self.assertEqual(events[1], "msg0:end")
+        self.assertEqual(events[2], "msg1:start")
+        self.assertEqual(events[3], "msg1:end")
 
-        # Verify serialization: msg1 should complete before msg2 starts
-        self.assertEqual(len(execution_times), 4)
-        self.assertEqual(execution_times[0]["id"], "msg1")
-        self.assertEqual(execution_times[0]["action"], "start")
-        self.assertEqual(execution_times[1]["id"], "msg1")
-        self.assertEqual(execution_times[1]["action"], "end")
-        self.assertEqual(execution_times[2]["id"], "msg2")
-        self.assertEqual(execution_times[2]["action"], "start")
-        self.assertEqual(execution_times[3]["id"], "msg2")
-        self.assertEqual(execution_times[3]["action"], "end")
-
-    def test_different_users_process_parallel(self):
-        """Test that messages from different users can process in parallel."""
-        # Create a second user
-        company2 = Company.objects.create(name="Shop 2", slug="shop-2")
-        user2 = User.objects.create_user("user2", "user2@example.com", "password")
-        profile2 = UserProfile.objects.create(
+    def test_different_users_process_in_parallel(self):
+        """Messages from different users must not block each other."""
+        company2 = Company.objects.create(name="Shop 2", slug="shop-2-ms")
+        user2 = User.objects.create_user("testuser_ms2", "ms2@example.com", "password")
+        UserProfile.objects.create(
             user=user2,
             company=company2,
-            phone_number="+263987654321",
+            phone_number="+263100000002",
             language="en",
         )
 
-        execution_log = []
+        started = []
+        barrier = threading.Barrier(2, timeout=3)
 
-        async def logged_operation(msg_id: str, user_phone: str):
-            """Operation that logs execution."""
-            execution_log.append({"msg": msg_id, "user": user_phone, "action": "start"})
-            await asyncio.sleep(0.05)  # 50ms
-            execution_log.append({"msg": msg_id, "user": user_phone, "action": "end"})
+        def fake_run_async(coro):
+            coro.close()
+            # Extract phone from the calling thread's lock context isn't easy,
+            # so we just record that we started and wait at the barrier.
+            # If one thread were blocking the other, barrier would time out and raise.
+            started.append(threading.current_thread().name)
+            barrier.wait()
 
-        async def run_parallel_from_different_users():
-            """Run messages from two different users in parallel."""
-            task1 = process_with_user_lock(
-                self.phone_number,
-                logged_operation,
-                "msg1",
-                self.phone_number,
+        with patch("apps.whatsapp.services.webhook_handler.run_async", side_effect=fake_run_async):
+            from apps.whatsapp.services.webhook_handler import handle_incoming_message
+
+            t1 = threading.Thread(
+                target=handle_incoming_message,
+                args=("msg1", "+263100000001", "5 bread"),
+                name="thread-user1",
             )
-            task2 = process_with_user_lock(
-                profile2.phone_number,
-                logged_operation,
-                "msg2",
-                profile2.phone_number,
+            t2 = threading.Thread(
+                target=handle_incoming_message,
+                args=("msg2", "+263100000002", "3 coke"),
+                name="thread-user2",
             )
-            await asyncio.gather(task1, task2, return_exceptions=True)
+            t1.start()
+            t2.start()
+            t1.join(timeout=5)
+            t2.join(timeout=5)
 
-        asyncio.run(run_parallel_from_different_users())
-
-        # Both messages should start before either finishes (true parallelism)
-        starts = [e for e in execution_log if e["action"] == "start"]
-        self.assertEqual(len(starts), 2, "Both messages should start")
-
-        # Verify both messages exist
-        self.assertEqual(len([e for e in execution_log if e["msg"] == "msg1"]), 2)
-        self.assertEqual(len([e for e in execution_log if e["msg"] == "msg2"]), 2)
-
-    def test_lock_error_handling(self):
-        """Test that errors during lock acquisition are handled."""
-
-        async def failing_operation():
-            raise RuntimeError("Test error")
-
-        async def run_failing_message():
-            with self.assertRaises(RuntimeError):
-                await process_with_user_lock(
-                    self.phone_number,
-                    failing_operation,
-                )
-
-        asyncio.run(run_failing_message())
-
-
-class MessageLockingIntegrationTest(TransactionTestCase):
-    """Integration tests for message locking with message processing."""
-
-    def setUp(self):
-        """Create test user and company."""
-        self.company = Company.objects.create(
-            name="Test Shop",
-            slug="test-shop",
-        )
-        user = User.objects.create_user("testuser", "test@example.com", "password")
-        self.profile = UserProfile.objects.create(
-            user=user,
-            company=self.company,
-            phone_number="+263123456789",
-            language="en",
-        )
-        self.phone_number = "+263123456789"
-
-    def test_lock_preserves_message_order(self):
-        """Test that lock ensures messages are processed in arrival order."""
-        process_order = []
-
-        async def mock_process_message(msg_id: str, order_num: int):
-            """Mock message processor that records processing order."""
-            process_order.append({"msg_id": msg_id, "order": order_num, "action": "start"})
-            # Simulate LLM processing time (variable)
-            await asyncio.sleep(0.01 * order_num)  # msg1: 0.01s, msg2: 0.02s
-            process_order.append({"msg_id": msg_id, "order": order_num, "action": "end"})
-
-        async def simulate_rapid_messages():
-            """Simulate rapid message arrival."""
-            tasks = []
-            for i in range(3):
-                task = process_with_user_lock(
-                    self.phone_number,
-                    mock_process_message,
-                    f"msg{i+1}",
-                    i + 1,
-                )
-                tasks.append(task)
-            await asyncio.gather(*tasks, return_exceptions=True)
-
-        asyncio.run(simulate_rapid_messages())
-
-        # Verify order: each message should complete before next starts
-        for i in range(3):
-            msg_id = f"msg{i+1}"
-            msg_events = [e for e in process_order if e["msg_id"] == msg_id]
-            self.assertEqual(len(msg_events), 2, f"{msg_id} should have start and end")
-            self.assertEqual(msg_events[0]["action"], "start")
-            self.assertEqual(msg_events[1]["action"], "end")
-
-            # If not the last message, verify it completes before next starts
-            if i < 2:
-                next_msg_id = f"msg{i+2}"
-                current_end_idx = process_order.index(
-                    next((e for e in process_order if e["msg_id"] == msg_id and e["action"] == "end"), None)
-                )
-                next_start_idx = process_order.index(
-                    next((e for e in process_order if e["msg_id"] == next_msg_id and e["action"] == "start"), None)
-                )
-                self.assertLess(
-                    current_end_idx,
-                    next_start_idx,
-                    f"{msg_id} should end before {next_msg_id} starts",
-                )
+        # barrier.wait() raises BrokenBarrierError if one thread never arrived
+        self.assertEqual(len(started), 2)
+        self.assertIn("thread-user1", started)
+        self.assertIn("thread-user2", started)

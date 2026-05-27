@@ -24,7 +24,7 @@ class WhatsAppMessage(models.Model):
     # Content
     content = models.TextField(blank=True, help_text="Message text content")
     button_id = models.CharField(max_length=100, blank=True, help_text="Button ID for button responses (e.g., mistake_123, cancel_123)")
-    whatsapp_message_id = models.CharField(max_length=100, blank=True, help_text="Meta API message ID")
+    whatsapp_message_id = models.CharField(max_length=100, blank=True, null=True, help_text="Meta API message ID")
     reply_to_message_id = models.CharField(max_length=100, blank=True, help_text="ID of message being replied to")
 
     # Media fields
@@ -77,6 +77,13 @@ class WhatsAppMessage(models.Model):
             models.Index(fields=["company", "-timestamp"]),
             models.Index(fields=["sale"]),
             models.Index(fields=["waitlist_entry"]),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["whatsapp_message_id"],
+                condition=models.Q(whatsapp_message_id__isnull=False) & ~models.Q(whatsapp_message_id=""),
+                name="unique_whatsapp_message_id_when_set",
+            ),
         ]
 
     def __str__(self):

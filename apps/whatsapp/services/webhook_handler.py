@@ -27,7 +27,7 @@ from apps.core.models import Company, UserProfile, WaitlistEntry
 from apps.sales.models import Sale
 from apps.sales.services import create_sale_from_parsed_items, PriceOverflowError
 from apps.whatsapp.services.message_parser import parse_message_unified
-from apps.whatsapp.services.message_lock import process_with_user_lock
+from apps.whatsapp.services.message_lock import get_user_lock
 from apps.whatsapp.services.whatsapp_client import get_whatsapp_client
 from services.openrouter.client import OpenRouterError
 from utils.timing import start_tracking, end_tracking, track
@@ -173,25 +173,17 @@ def handle_incoming_message(
     user_profile: UserProfile | None = None,
 ) -> None:
     phone_number = _extract_phone_number(sender)
-    try:
-        close_old_connections()
-        # Wrap message processing with per-user lock to ensure serial processing
-        run_async(process_with_user_lock(
-            phone_number,
-            _process_message_async,
-            message_id, sender, text, user_profile
-        ))
-    except django.db.utils.OperationalError:
-        logger.exception(f"DB connection error for message {message_id}, retrying...")
-        for conn in connections.all():
-            conn.close()
-        run_async(process_with_user_lock(
-            phone_number,
-            _process_message_async,
-            message_id, sender, text, user_profile
-        ))
-    except Exception as e:
-        logger.exception(f"Error handling message {message_id}: {e}")
+    with get_user_lock(phone_number):
+        try:
+            close_old_connections()
+            run_async(_process_message_async(message_id, sender, text, user_profile))
+        except django.db.utils.OperationalError:
+            logger.exception(f"DB connection error for message {message_id}, retrying...")
+            for conn in connections.all():
+                conn.close()
+            run_async(_process_message_async(message_id, sender, text, user_profile))
+        except Exception as e:
+            logger.exception(f"Error handling message {message_id}: {e}")
 
 
 def handle_incoming_audio_message(
@@ -201,27 +193,19 @@ def handle_incoming_audio_message(
     user_profile: UserProfile | None = None,
 ) -> None:
     phone_number = _extract_phone_number(sender)
-    try:
-        close_old_connections()
-        from apps.whatsapp.services.media_handler import process_audio_message_async
-        # Wrap audio processing with per-user lock to ensure serial processing
-        run_async(process_with_user_lock(
-            phone_number,
-            process_audio_message_async,
-            message_id, sender, media_id, user_profile
-        ))
-    except django.db.utils.OperationalError:
-        logger.exception(f"DB connection error for audio message {message_id}, retrying...")
-        for conn in connections.all():
-            conn.close()
-        from apps.whatsapp.services.media_handler import process_audio_message_async
-        run_async(process_with_user_lock(
-            phone_number,
-            process_audio_message_async,
-            message_id, sender, media_id, user_profile
-        ))
-    except Exception as e:
-        logger.exception(f"Error handling audio message {message_id}: {e}")
+    with get_user_lock(phone_number):
+        try:
+            close_old_connections()
+            from apps.whatsapp.services.media_handler import process_audio_message_async
+            run_async(process_audio_message_async(message_id, sender, media_id, user_profile))
+        except django.db.utils.OperationalError:
+            logger.exception(f"DB connection error for audio message {message_id}, retrying...")
+            for conn in connections.all():
+                conn.close()
+            from apps.whatsapp.services.media_handler import process_audio_message_async
+            run_async(process_audio_message_async(message_id, sender, media_id, user_profile))
+        except Exception as e:
+            logger.exception(f"Error handling audio message {message_id}: {e}")
 
 
 async def _handle_sales_query(

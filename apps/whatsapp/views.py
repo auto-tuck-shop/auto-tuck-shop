@@ -5,8 +5,7 @@ import logging
 from enum import Enum
 
 from django.conf import settings
-from django.core.exceptions import IntegrityError
-from django.db import close_old_connections
+from django.db import IntegrityError, close_old_connections
 from django.http import HttpRequest, HttpResponse
 from django.utils.decorators import method_decorator
 from django.views import View
