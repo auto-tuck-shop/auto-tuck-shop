@@ -35,6 +35,7 @@ class BusinessSnapshot:
     sales_count: int
     items_sold: int
     revenue: Decimal
+    currency_revenues: dict  # per-currency breakdown, e.g. {"USD": Decimal("12.00"), "ZAR": Decimal("45.00")}
     cost: Decimal
     gross_profit: Decimal
     top_products: list[tuple[str, int]]
@@ -109,15 +110,21 @@ def build_business_snapshot(company: Company, report_date: datetime.date | None 
         ).select_related("company").prefetch_related("items__product")
     )
 
-    revenue = Decimal("0.00")
+    currency_revenues: dict[str, Decimal] = {}
     items_sold = 0
     product_totals: dict[str, int] = {}
 
     for sale in sales:
-        revenue += Decimal(str(sale.total_amount or 0))
         for item in sale.items.all():
             items_sold += int(item.quantity or 0)
             product_totals[item.product.name] = product_totals.get(item.product.name, 0) + int(item.quantity or 0)
+            if item.unit_price is not None and item.currency:
+                currency_revenues[item.currency] = (
+                    currency_revenues.get(item.currency, Decimal("0.00"))
+                    + item.unit_price * item.quantity
+                )
+
+    revenue = sum(currency_revenues.values(), Decimal("0.00"))
 
     top_products = sorted(product_totals.items(), key=lambda kv: (-kv[1], kv[0]))[:5]
 
@@ -140,6 +147,7 @@ def build_business_snapshot(company: Company, report_date: datetime.date | None 
         sales_count=len(sales),
         items_sold=items_sold,
         revenue=revenue,
+        currency_revenues=currency_revenues,
         cost=Decimal("0.00"),
         gross_profit=revenue,
         top_products=top_products,
@@ -151,9 +159,15 @@ def build_business_snapshot(company: Company, report_date: datetime.date | None 
 def format_business_summary(snapshot: BusinessSnapshot) -> str:
     """Render a human-readable business summary message."""
     date_label = snapshot.report_date.strftime("%d %b %Y")
-    revenue_str = format_price(snapshot.revenue, snapshot.currency)
+    sale_word = f"{snapshot.sales_count} sale{'s' if snapshot.sales_count != 1 else ''}"
     lines = [f"Summary for {date_label}"]
-    lines.append(f"Revenue: {revenue_str} from {snapshot.sales_count} sale{'s' if snapshot.sales_count != 1 else ''}")
+
+    if len(snapshot.currency_revenues) <= 1:
+        revenue_str = format_price(snapshot.revenue, snapshot.currency)
+        lines.append(f"Revenue: {revenue_str} from {sale_word}")
+    else:
+        parts = " + ".join(format_price(amt, cur) for cur, amt in snapshot.currency_revenues.items())
+        lines.append(f"Revenue: {parts} from {sale_word}")
 
     if snapshot.top_products:
         lines.append("")
@@ -201,38 +215,46 @@ def format_profit_summary(snapshot: BusinessSnapshot) -> str:
 
 
 def build_comparison_context(company: Company, report_date: datetime.date | None = None) -> dict:
-    """Return delta and week-rank data comparing report_date to yesterday and this week."""
+    """Return week-rank and cumulative data for the current week up to report_date."""
     report_date = report_date or timezone.localdate()
-    yesterday = report_date - timedelta(days=1)
 
-    yesterday_snapshot = build_business_snapshot(company, report_date=yesterday)
-    yesterday_revenue = yesterday_snapshot.revenue
-
-    # Collect revenue for each day from Monday through report_date (up to 7 days)
     monday = report_date - timedelta(days=report_date.weekday())
-    week_revenues: list[Decimal] = []
+    week_day_snapshots: list[BusinessSnapshot] = []
     day = monday
     while day <= report_date:
-        if day == report_date:
-            break  # today's revenue added separately by caller
         snap = build_business_snapshot(company, report_date=day)
-        week_revenues.append(snap.revenue)
+        week_day_snapshots.append(snap)
         day += timedelta(days=1)
 
-    today_snapshot = build_business_snapshot(company, report_date=report_date)
-    today_revenue = today_snapshot.revenue
-    week_revenues.append(today_revenue)
+    week_revenues: list[dict[str, Decimal]] = [snap.currency_revenues for snap in week_day_snapshots]
+    week_sales_count: int = sum(snap.sales_count for snap in week_day_snapshots)
 
-    delta = today_revenue - yesterday_revenue
-    is_best_day_this_week = bool(week_revenues) and today_revenue >= max(week_revenues)
-    # Only meaningful if there were prior days this week with sales
-    prior_days_with_sales = any(r > 0 for r in week_revenues[:-1])
+    week_currency_revenues: dict[str, Decimal] = {}
+    for snap in week_day_snapshots:
+        for cur, amt in snap.currency_revenues.items():
+            week_currency_revenues[cur] = week_currency_revenues.get(cur, Decimal("0.00")) + amt
+
+    # Compare using primary currency only — summing across currencies produces meaningless numbers
+    primary_currency = company.currency
+    primary_day_totals = [d.get(primary_currency, Decimal("0.00")) for d in week_revenues]
+    today_primary = primary_day_totals[-1]
+    prior_days_with_sales = any(t > 0 for t in primary_day_totals[:-1])
+    is_best_day_this_week = bool(primary_day_totals) and today_primary >= max(primary_day_totals) and prior_days_with_sales
+
+    # Determine which day name to show in the badge
+    best_day_index = primary_day_totals.index(max(primary_day_totals))
+    best_day_date = monday + timedelta(days=best_day_index)
+    if best_day_date == report_date:
+        best_day_label = "Today"
+    else:
+        best_day_label = best_day_date.strftime("%A")  # e.g. "Monday", "Tuesday"
 
     return {
-        "yesterday_revenue": yesterday_revenue,
-        "delta": delta,
-        "is_best_day_this_week": is_best_day_this_week and prior_days_with_sales,
+        "is_best_day_this_week": is_best_day_this_week,
+        "best_day_label": best_day_label,
         "week_revenues": week_revenues,
+        "week_sales_count": week_sales_count,
+        "week_currency_revenues": week_currency_revenues,
     }
 
 

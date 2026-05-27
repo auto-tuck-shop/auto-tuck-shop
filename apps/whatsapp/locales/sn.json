@@ -49,10 +49,9 @@
     "sale": {
         "no_products": "Handina zvinotengeswa zvandaona. Tumira zvawatengesa patsva, semuenzaniso: \"2 Mazoe $3 rimwe\" kana \"5 chingwa R18 rimwe, 2 shuga R40 rimwe\"",
         "item_with_price": "  {quantity} x {product} @ {price}",
-        "item_no_price": "  {quantity} x {product} (no price)",
         "total": "\nZvese pamwe: {total}",
         "subtotal": "\n{currency} zvese pamwe: {total}",
-        "missing_prices_note": "\nZvimwe zvinhu hazvina mutengo. Dzvanya \"Gadzirisa\" wosenda nemutengo, sekuti \"2 cokes @ $1.50\" kana \"2 cokes @ R15\" kana \n \"2 bread @ ZiG40\".",
+        "missing_price_reject": "Handina kukwanisa kurekodha — zvimwe zvinhu hazvina mutengo. Tumira patsva nemitengo yezvinhu zvese, semuenzaniso \"2 bread $1 each, 3 coke R15 each\".",
         "unmatched": "\n⚠ Hazvisi kuenderana: {items}",
         "bot_mistake": "Tarasa sale ranga ranyorwa. Sendai patsva.",
         "confirmed_ok": "✓ Zvaitwa, sale yarecordwa!",

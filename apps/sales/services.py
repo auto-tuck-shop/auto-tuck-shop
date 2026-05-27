@@ -23,6 +23,11 @@ class PriceOverflowError(ValueError):
     pass
 
 
+class MissingPriceError(ValueError):
+    """Raised when a sale item has no price and no stored product price to fall back on."""
+    pass
+
+
 class ParsedSaleItem(TypedDict):
     product_name: str
     quantity: int
@@ -119,6 +124,11 @@ def create_sale_from_parsed_items(
             price_with_currency = product.current_price_with_currency
             if price_with_currency:
                 unit_price, item_currency = price_with_currency
+
+        if unit_price is None:
+            raise MissingPriceError(
+                f"No price for '{item['product_name']}'. Please resend with a price."
+            )
 
         SaleItem.objects.create(
             sale=sale,

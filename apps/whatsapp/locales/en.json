@@ -49,10 +49,9 @@
     "sale": {
         "no_products": "I could not identify any products. Please send a full sale message, e.g., \"2 Mazoe $3 each\" or \"5 bread R18 each, 2 sugar R40 each\"",
         "item_with_price": "  {quantity} x {product} @ {price}",
-        "item_no_price": "  {quantity} x {product} (no price)",
         "total": "\nTotal: {total}",
         "subtotal": "\n{currency} total: {total}",
-        "missing_prices_note": "\nNote: Some items have no price set. Press \"Fix mistake\" and resend everything with prices included (e.g. \"2 cokes @ $1.50\" or \"2 cokes @ R15\" or \"2 cokes @ ZiG2\").",
+        "missing_price_reject": "I could not record this sale — one or more items have no price. Please resend with prices for everything, e.g. \"2 bread $0.50 each, 3 coke R15 each\".",
         "unmatched": "\n⚠ Unmatched: {items}",
         "bot_mistake": "Sale thrown away. Send your items again to redo.",
         "confirmed_ok": "✓ Great, sale recorded!",
