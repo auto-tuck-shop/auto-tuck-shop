@@ -13,6 +13,7 @@ import concurrent.futures
 import functools
 import json
 import logging
+import threading
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -35,6 +36,27 @@ if TYPE_CHECKING:
     pass
 
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Per-user message serialisation
+# ---------------------------------------------------------------------------
+
+_user_locks: dict[str, threading.Lock] = {}
+_user_locks_dict_lock = threading.Lock()
+
+
+def _get_user_lock(phone_number: str) -> threading.Lock:
+    """Return a per-user threading.Lock, creating one on first use.
+
+    Holding this lock for the duration of handle_incoming_message ensures
+    that concurrent messages from the same sender are processed one at a time.
+    Safe on a single machine; does not work across multiple Fly machines.
+    """
+    with _user_locks_dict_lock:
+        if phone_number not in _user_locks:
+            _user_locks[phone_number] = threading.Lock()
+        return _user_locks[phone_number]
 
 
 # ---------------------------------------------------------------------------
@@ -171,16 +193,18 @@ def handle_incoming_message(
     text: str,
     user_profile: UserProfile | None = None,
 ) -> None:
-    try:
-        close_old_connections()
-        run_async(_process_message_async(message_id, sender, text, user_profile))
-    except django.db.utils.OperationalError:
-        logger.exception(f"DB connection error for message {message_id}, retrying...")
-        for conn in connections.all():
-            conn.close()
-        run_async(_process_message_async(message_id, sender, text, user_profile))
-    except Exception as e:
-        logger.exception(f"Error handling message {message_id}: {e}")
+    phone_number = _extract_phone_number(sender)
+    with _get_user_lock(phone_number):
+        try:
+            close_old_connections()
+            run_async(_process_message_async(message_id, sender, text, user_profile))
+        except django.db.utils.OperationalError:
+            logger.exception(f"DB connection error for message {message_id}, retrying...")
+            for conn in connections.all():
+                conn.close()
+            run_async(_process_message_async(message_id, sender, text, user_profile))
+        except Exception as e:
+            logger.exception(f"Error handling message {message_id}: {e}")
 
 
 def handle_incoming_audio_message(
@@ -189,18 +213,20 @@ def handle_incoming_audio_message(
     media_id: str,
     user_profile: UserProfile | None = None,
 ) -> None:
-    try:
-        close_old_connections()
-        from apps.whatsapp.services.media_handler import process_audio_message_async
-        run_async(process_audio_message_async(message_id, sender, media_id, user_profile))
-    except django.db.utils.OperationalError:
-        logger.exception(f"DB connection error for audio message {message_id}, retrying...")
-        for conn in connections.all():
-            conn.close()
-        from apps.whatsapp.services.media_handler import process_audio_message_async
-        run_async(process_audio_message_async(message_id, sender, media_id, user_profile))
-    except Exception as e:
-        logger.exception(f"Error handling audio message {message_id}: {e}")
+    phone_number = _extract_phone_number(sender)
+    with _get_user_lock(phone_number):
+        try:
+            close_old_connections()
+            from apps.whatsapp.services.media_handler import process_audio_message_async
+            run_async(process_audio_message_async(message_id, sender, media_id, user_profile))
+        except django.db.utils.OperationalError:
+            logger.exception(f"DB connection error for audio message {message_id}, retrying...")
+            for conn in connections.all():
+                conn.close()
+            from apps.whatsapp.services.media_handler import process_audio_message_async
+            run_async(process_audio_message_async(message_id, sender, media_id, user_profile))
+        except Exception as e:
+            logger.exception(f"Error handling audio message {message_id}: {e}")
 
 
 async def _handle_sales_query(
