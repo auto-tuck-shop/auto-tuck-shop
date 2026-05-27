@@ -50,14 +50,43 @@ gh issue edit <number> --add-project "Auto Tuck Shop — Backlog"
 
 Before starting any task, read the relevant context:
 
-- **Architecture, data model, flows, async model:** wiki — https://github.com/aakitech/auto-tuck-shop/wiki/Architecture
-- **Pilot launch sequence and success metrics:** wiki — https://github.com/aakitech/auto-tuck-shop/wiki/Pilot-Launch
-- **All external service integrations:** wiki — https://github.com/aakitech/auto-tuck-shop/wiki/Integrations
+- **Architecture, data model, flows, async model:** wiki (see below)
+- **Pilot launch sequence and success metrics:** wiki (see below)
+- **All external service integrations:** wiki (see below)
 - **Key service entry points:** `apps/whatsapp/services/` — sale_handler, waitlist_handler, media_handler, message_parser
 - **LLM system prompt (tune for parsing improvements):** `services/openrouter/prompts.py`
 - **User-facing strings (EN + Shona):** `apps/whatsapp/locales/en.json`, `sn.json`
 - **Unit tests:** `python manage.py test unit_tests`
 - **Staging integration tests (manual only):** `python -m pytest tests/ -x` (requires `.env.staging`) — not run in CI, see #82
+
+## Working with the wiki
+
+The wiki is a separate git repo. Always clone it locally rather than fetching URLs — it's faster and you can write back to it.
+
+```bash
+# Clone once per session (safe to re-run; git will error if already cloned, just cd in)
+git clone https://github.com/aakitech/auto-tuck-shop.wiki.git /tmp/ats-wiki
+```
+
+Pages and what they cover:
+
+| File | Content |
+|------|---------|
+| `Architecture.md` | Django apps, data model, URL structure, message pipeline, flows, async model |
+| `Features.md` | User-facing features: sale recording, daily reports, onboarding, queries |
+| `Integrations.md` | Meta WhatsApp, OpenRouter, ElevenLabs, R2, Fly.io, Sentry |
+| `Deployment.md` | Environments, deploy workflow, env vars, migrations, health check |
+| `Pilot-Launch.md` | Pilot success metrics and review cadence |
+| `Home.md` | Overview and quick links |
+
+**Reading:** `Read /tmp/ats-wiki/Architecture.md` etc. — no WebFetch needed.
+
+**Writing:** Edit files in `/tmp/ats-wiki`, then:
+```bash
+cd /tmp/ats-wiki && git add <file> && git commit -m "docs: ..." && git push origin master
+```
+
+**When to update:** Any time a feature changes behaviour, update the relevant wiki page in the same PR or immediately after. Don't let it drift.
 
 ## Scope rule
 
