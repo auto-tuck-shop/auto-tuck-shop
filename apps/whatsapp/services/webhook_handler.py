@@ -327,7 +327,7 @@ async def _process_message_async(
             import re as _re
             today = timezone.localdate()
             from apps.whatsapp.services.business_reports import (
-                parse_closing_time_text,
+                parse_closing_time_llm,
                 set_company_daily_closing_time,
                 set_company_normal_closing_time,
             )
@@ -338,7 +338,7 @@ async def _process_message_async(
                 _re.IGNORECASE,
             )
             if _permanent_pattern.search(text):
-                parsed_time = parse_closing_time_text(text)
+                parsed_time = await parse_closing_time_llm(text)
                 if parsed_time:
                     from datetime import datetime as _dt, timedelta as _td
                     await set_company_normal_closing_time(company.id, parsed_time)
@@ -350,8 +350,8 @@ async def _process_message_async(
             # Intercept onboarding closing time reply — owner has no normal_closing_time yet.
             # The setup_prompt was sent right after approval, so their first reply is likely a time.
             if not company.normal_closing_time and user_profile and user_profile.role == "owner":
-                parsed_time = parse_closing_time_text(text)
-                if parsed_time and len(text.strip()) < 20:
+                parsed_time = await parse_closing_time_llm(text)
+                if parsed_time:
                     from datetime import datetime as _dt, timedelta as _td
                     await set_company_normal_closing_time(company.id, parsed_time)
                     summary_time = (_dt.combine(today, parsed_time) + _td(hours=1)).time()
@@ -362,16 +362,12 @@ async def _process_message_async(
             # Intercept daily closing time reply — only when a prompt was sent today.
             closing_set_today = company.daily_closing_date == today and company.daily_closing_time
             if company.last_closing_prompt_date == today and not closing_set_today:
-                parsed_time = parse_closing_time_text(text)
+                parsed_time = await parse_closing_time_llm(text)
                 if parsed_time:
                     await set_company_daily_closing_time(company.id, parsed_time, today)
                     await _send_response(sender, t("closing.acknowledged", lang=lang))
                     return
-                # Short message with a digit but failed to parse — likely a malformed time reply
-                if len(text.strip()) < 20 and any(c.isdigit() for c in text):
-                    await _send_response(sender, t("closing.invalid_time", lang=lang))
-                    return
-                # Otherwise fall through — they may have sent a sale during closing window
+                # Otherwise fall through — they sent a sale or unrelated message during the closing window
 
         try:
             result = await parse_message_unified(text, company=company)

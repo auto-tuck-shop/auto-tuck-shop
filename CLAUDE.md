@@ -97,6 +97,15 @@ Every task should be classified before starting:
 
 If a change doesn't improve sale recording, pilot onboarding, operator visibility, or production safety, it belongs after Phase 1.
 
+## Keeping the backlog current
+
+When closing out a task, update the GitHub issue and backlog as part of the same session:
+
+- **Close issues** when the fix is merged: `gh issue close <number> --comment "Fixed in #<PR>"`
+- **Add new issues** for anything discovered mid-work that's out of scope for the current PR. Add them to the project immediately: `gh issue edit <number> --add-project "Auto Tuck Shop — Backlog"`
+- **Update priority labels** if the significance of an open issue changes (e.g. a "nice to have" becomes a production bug)
+- **Update CLAUDE.md phase status** when a phase item is completed — mark it `✓ done` in the Current phase section
+
 ## Shipping flow
 
 1. **Branch off main** — one branch per issue, named after it (e.g. `fix/duplicate-language-prompt`)
