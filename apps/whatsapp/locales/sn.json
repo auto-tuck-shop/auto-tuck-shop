@@ -51,7 +51,7 @@
         "item_with_price": "  {quantity} x {product} @ {price}",
         "total": "\nZvese pamwe: {total}",
         "subtotal": "\n{currency} zvese pamwe: {total}",
-        "missing_price_reject": "Handina kukwanisa kurekodha — zvimwe zvinhu hazvina mutengo. Ndapota tumira patsva nemitengo yezvinhu zvese, semuenzaniso \"2 chingwa $0.50 imwe, 3 coke R15 imwe\".",
+        "missing_price_reject": "Handina kukwanisa kurekodha — zvimwe zvinhu hazvina mutengo. Tumira patsva nemitengo yezvinhu zvese, semuenzaniso \"2 bread $1 each, 3 coke R15 each\".",
         "unmatched": "\n⚠ Hazvisi kuenderana: {items}",
         "bot_mistake": "Tarasa sale ranga ranyorwa. Sendai patsva.",
         "confirmed_ok": "✓ Zvaitwa, sale yarecordwa!",
