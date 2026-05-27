@@ -22,7 +22,7 @@ class Sale(models.Model):
     )
     sale_timestamp = models.DateTimeField(default=timezone.now)
     total_amount = models.DecimalField(
-        max_digits=10, decimal_places=2, default=Decimal("0.00")
+        max_digits=10, decimal_places=2, null=True, blank=True, default=Decimal("0.00")
     )
     whatsapp_message_id = models.CharField(max_length=100, null=True, blank=True)
     confirmation_message_sid = models.CharField(max_length=100, null=True, blank=True)
@@ -41,15 +41,21 @@ class Sale(models.Model):
 
     def __str__(self):
         currency = self.company.currency if self.company else "USD"
-        return f"Sale #{self.id} - {format_price(self.total_amount, currency)} ({self.sale_timestamp.date()})"
+        total_str = format_price(self.total_amount, currency) if self.total_amount is not None else "mixed currencies"
+        return f"Sale #{self.id} - {total_str} ({self.sale_timestamp.date()})"
 
-    def calculate_total(self) -> Decimal:
-        """Calculate total from sale items."""
-        total = sum(item.line_total for item in self.items.all())
+    def calculate_total(self) -> Decimal | None:
+        """Calculate total from sale items. Returns None for mixed-currency sales."""
+        items = list(self.items.all())
+        if not items:
+            return Decimal("0.00")
+        currencies = {item.currency for item in items if item.currency}
+        if len(currencies) > 1:
+            return None
+        total = sum(item.line_total for item in items)
         return Decimal(str(total))
 
     def save(self, *args, **kwargs):
-        # Auto-calculate total if items exist
         if self.pk:
             self.total_amount = self.calculate_total()
         super().save(*args, **kwargs)

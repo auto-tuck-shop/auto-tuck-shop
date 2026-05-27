@@ -35,6 +35,7 @@ class BusinessSnapshot:
     sales_count: int
     items_sold: int
     revenue: Decimal
+    currency_revenues: dict  # per-currency breakdown, e.g. {"USD": Decimal("12.00"), "ZAR": Decimal("45.00")}
     cost: Decimal
     gross_profit: Decimal
     top_products: list[tuple[str, int]]
@@ -109,15 +110,21 @@ def build_business_snapshot(company: Company, report_date: datetime.date | None 
         ).select_related("company").prefetch_related("items__product")
     )
 
-    revenue = Decimal("0.00")
+    currency_revenues: dict[str, Decimal] = {}
     items_sold = 0
     product_totals: dict[str, int] = {}
 
     for sale in sales:
-        revenue += Decimal(str(sale.total_amount or 0))
         for item in sale.items.all():
             items_sold += int(item.quantity or 0)
             product_totals[item.product.name] = product_totals.get(item.product.name, 0) + int(item.quantity or 0)
+            if item.unit_price is not None and item.currency:
+                currency_revenues[item.currency] = (
+                    currency_revenues.get(item.currency, Decimal("0.00"))
+                    + item.unit_price * item.quantity
+                )
+
+    revenue = sum(currency_revenues.values(), Decimal("0.00"))
 
     top_products = sorted(product_totals.items(), key=lambda kv: (-kv[1], kv[0]))[:5]
 
@@ -140,6 +147,7 @@ def build_business_snapshot(company: Company, report_date: datetime.date | None 
         sales_count=len(sales),
         items_sold=items_sold,
         revenue=revenue,
+        currency_revenues=currency_revenues,
         cost=Decimal("0.00"),
         gross_profit=revenue,
         top_products=top_products,
@@ -151,9 +159,15 @@ def build_business_snapshot(company: Company, report_date: datetime.date | None 
 def format_business_summary(snapshot: BusinessSnapshot) -> str:
     """Render a human-readable business summary message."""
     date_label = snapshot.report_date.strftime("%d %b %Y")
-    revenue_str = format_price(snapshot.revenue, snapshot.currency)
+    sale_word = f"{snapshot.sales_count} sale{'s' if snapshot.sales_count != 1 else ''}"
     lines = [f"Summary for {date_label}"]
-    lines.append(f"Revenue: {revenue_str} from {snapshot.sales_count} sale{'s' if snapshot.sales_count != 1 else ''}")
+
+    if len(snapshot.currency_revenues) <= 1:
+        revenue_str = format_price(snapshot.revenue, snapshot.currency)
+        lines.append(f"Revenue: {revenue_str} from {sale_word}")
+    else:
+        parts = " + ".join(format_price(amt, cur) for cur, amt in snapshot.currency_revenues.items())
+        lines.append(f"Revenue: {parts} from {sale_word}")
 
     if snapshot.top_products:
         lines.append("")

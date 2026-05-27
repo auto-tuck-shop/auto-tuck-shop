@@ -85,12 +85,11 @@ def _draw_bar_chart(
     font_small,
     currency: str,
 ) -> None:
-    day_names = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
     monday = report_date - datetime.timedelta(days=report_date.weekday())
     labels: list[str] = []
     day = monday
     for _ in week_revenues:
-        labels.append(day_names[day.weekday()])
+        labels.append("Today" if day == report_date else str(day.day))
         day += datetime.timedelta(days=1)
 
     n = len(week_revenues)

@@ -17,7 +17,7 @@ from apps.whatsapp.services.business_reports import BusinessSnapshot, build_comp
 from apps.whatsapp.services.report_card import generate_stat_card
 
 
-def _make_snapshot(revenue=Decimal("100.00"), sales_count=5, report_date=None):
+def _make_snapshot(revenue=Decimal("100.00"), sales_count=5, report_date=None, currency_revenues=None):
     return BusinessSnapshot(
         company_id=1,
         report_date=report_date or datetime.date(2026, 5, 25),
@@ -25,6 +25,7 @@ def _make_snapshot(revenue=Decimal("100.00"), sales_count=5, report_date=None):
         sales_count=sales_count,
         items_sold=10,
         revenue=revenue,
+        currency_revenues=currency_revenues or {"USD": revenue},
         cost=Decimal("50.00"),
         gross_profit=revenue - Decimal("50.00"),
         top_products=[("Coca Cola", 5), ("Bread", 3)],
@@ -56,6 +57,7 @@ class ReportCardGenerationTest(TestCase):
             sales_count=2,
             items_sold=2,
             revenue=Decimal("10.00"),
+            currency_revenues={"USD": Decimal("10.00")},
             cost=Decimal("5.00"),
             gross_profit=Decimal("5.00"),
             top_products=[],
