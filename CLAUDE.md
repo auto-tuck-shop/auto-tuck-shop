@@ -99,12 +99,54 @@ If a change doesn't improve sale recording, pilot onboarding, operator visibilit
 
 ## Keeping the backlog current
 
-When closing out a task, update the GitHub issue and backlog as part of the same session:
+### When to review the backlog
 
-- **Close issues** when the fix is merged: `gh issue close <number> --comment "Fixed in #<PR>"`
-- **Add new issues** for anything discovered mid-work that's out of scope for the current PR. Add them to the project immediately: `gh issue edit <number> --add-project "Auto Tuck Shop — Backlog"`
-- **Update priority labels** if the significance of an open issue changes (e.g. a "nice to have" becomes a production bug)
-- **Update CLAUDE.md phase status** when a phase item is completed — mark it `✓ done` in the Current phase section
+Do a backlog sweep at these moments — not continuously, only when triggered:
+
+1. **Start of every session** — run `gh issue list` and `gh pr list --state merged --limit 10` to catch anything that shipped since last time
+2. **Brighton asks for a prod release** — before publishing, confirm which issues are covered and move them to Done after the release is live
+3. **Brighton explicitly says so** — "update the backlog", "close those issues", etc.
+
+Always check GitHub directly (not memory) — memory goes stale.
+
+### Issue lifecycle in the project board
+
+Issues move through these statuses in order:
+
+| Status | Meaning |
+|---|---|
+| **Todo** | In backlog, not started |
+| **In Progress** | Being actively worked on |
+| **Ready for Review** | PR is open, waiting on Madrena's approval |
+| **On Staging** | Merged to main, auto-deployed to staging — not yet on prod |
+| **Done** | Released to production (Brighton published a GitHub Release) |
+
+**Never skip a status.** In particular: don't move to Done until the work is on production, not just merged.
+
+### Housekeeping commands
+
+```bash
+# Move an issue to a status (get item ID first)
+gh project item-list 1 --owner aakitech --format json  # find the item ID
+gh project item-edit --project-id PVT_kwDOERV2WM4BYX5K --id <item-id> --field-id PVTSSF_lADOERV2WM4BYX5KzhTeNWw --single-select-option-id <option-id>
+
+# Status option IDs:
+# Todo:             ff49a432
+# In Progress:      258ece05
+# Ready for Review: a8b21226
+# On Staging:       126b77d0
+# Done:             c9b915bb
+
+# Close an issue with a comment
+gh issue close <number> --comment "Released in vX.X.X"
+
+# Add a new issue to the project
+gh issue edit <number> --add-project "Auto Tuck Shop — Backlog"
+```
+
+- **Add new issues** for anything discovered mid-work that's out of scope for the current PR — add to project immediately
+- **Update priority labels** if a "nice to have" becomes a production bug
+- **Update CLAUDE.md phase status** when a phase item completes — mark it `✓ done` in the Current phase section
 
 ## Shipping flow
 
