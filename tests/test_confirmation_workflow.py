@@ -25,7 +25,7 @@ def _send_sale_and_get_buttons(send_webhook, poll_outbox, phone, sale_text="sold
                 }
         return None
 
-    result = poll_outbox(phone, check=_find_buttons, timeout=20.0)
+    result = poll_outbox(phone, check=_find_buttons, timeout=10.0)
     assert isinstance(result, dict) and "fix_id" in result, (
         f"No buttons found for {phone}. Outbox: {result}"
     )

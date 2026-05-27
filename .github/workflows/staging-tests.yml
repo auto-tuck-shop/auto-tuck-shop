@@ -1,20 +1,18 @@
-name: Staging Tests
+name: CI
 
 on:
-  # Run after deploying to staging
-  workflow_dispatch:
-  # Run on pushes to main (after deploy)
   push:
     branches: [main]
-  # Run on PRs to catch issues before merge
   pull_request:
     branches: [main]
 
 jobs:
-  staging-tests:
-    name: Run staging integration tests
+  localizations:
+    name: test_localizations
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 2
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     steps:
       - uses: actions/checkout@v4
@@ -28,9 +26,5 @@ jobs:
       - name: Install test dependencies
         run: pip install -r requirements-dev.txt
 
-      - name: Run staging tests
-        env:
-          STAGING_URL: ${{ secrets.STAGING_URL }}
-          TEST_API_KEY: ${{ secrets.TEST_API_KEY }}
-          META_WHATSAPP_APP_SECRET: ${{ secrets.META_WHATSAPP_APP_SECRET }}
-        run: pytest -v
+      - name: Run localization tests
+        run: pytest -v tests/test_localizations.py

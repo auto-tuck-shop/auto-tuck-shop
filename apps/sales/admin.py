@@ -34,6 +34,12 @@ class SaleAdmin(admin.ModelAdmin):
 
     item_count.short_description = "Items"
 
+    def has_change_permission(self, request, obj=None):
+        return request.user.is_superuser
+
+    def has_delete_permission(self, request, obj=None):
+        return request.user.is_superuser
+
 
 @admin.register(SaleItem)
 class SaleItemAdmin(admin.ModelAdmin):
@@ -47,3 +53,9 @@ class SaleItemAdmin(admin.ModelAdmin):
         return f"{obj.line_total:.2f}"
 
     line_total_display.short_description = "Line Total"
+
+    def has_change_permission(self, request, obj=None):
+        return request.user.is_superuser
+
+    def has_delete_permission(self, request, obj=None):
+        return request.user.is_superuser

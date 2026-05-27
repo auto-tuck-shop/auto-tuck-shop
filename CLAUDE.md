@@ -1,5 +1,9 @@
 # Project Guidelines
 
+## Keeping this file current
+
+This file is the source of truth for any AI assistant working on this repo. **Keep it up to date as the project evolves** — when issues are closed, when the phase changes, when new conventions are established, or when the team changes. At the end of any session where meaningful progress was made, update the relevant sections here. Don't let it drift.
+
 ## Start of every session
 
 Before doing anything else, ask the user these two questions:
@@ -23,37 +27,66 @@ Auto Tuck Shop is a Django app. Shop owners in Zimbabwe send WhatsApp text or vo
 
 ## Current phase
 
-**Pilot prep — staging is live, production-blockers in progress.**
+**Pilot active — production is live as of 2026-05-25.** The bot is receiving and replying to real WhatsApp messages on production.
 
-### Completed ✓
-- #20 Deploy to staging
-- #19 Set Fly.io secrets
-- #18 Accounts audit
-- #5 First staging deployment
-- #4 Production secrets set
-- #3 Fly.io CLI auth
-
-### Blocking production (in order) 🚨
-1. #55 Fix webhook signature verification — **PR #66 in review** (Madrena)
-2. #26 Verify Sentry error monitoring is live (Madrena + Brighton)
-3. #23 Register WhatsApp webhook on Meta dashboard (Madrena) — needs staging testing first
-4. #24 Deploy to production — Brighton sign-off required
-5. #25 Onboard 10 pilot shops (Bradley) — depends on #24
+1. ~~Accounts audit — confirm all API keys are in hand (#18)~~ ✓ done
+2. ~~Set Fly.io secrets on staging (#19 partial)~~ ✓ done
+3. ~~Deploy to staging and verify app boots (#20)~~ ✓ done
+4. ~~Register WhatsApp webhook on Meta dashboard (#23)~~ ✓ done — permanent system user token set
+5. ~~E2E test checklist (#44)~~ ✓ done — audio testing deferred to real device
+6. ~~Pre-production checklist (#76)~~ ✓ done — Meta policy URLs (privacy/terms/data-deletion) set in App Settings → Basic
+7. ~~Deploy to production (#24)~~ ✓ done — live 2026-05-25
+8. Onboard 10 pilot shops (#25, assigned Bradley)
+9. WhatsApp UX polish — blue ticks, typing indicator, profile name/icon (#77, post-deploy)
 
 When an AI assistant is helping with a task, check which issue it maps to and work within that scope. If a task doesn't map to an open issue, check with the user before starting.
+
+**When creating a new GitHub issue, immediately add it to the project — this is required, not optional:**
+```bash
+gh issue edit <number> --add-project "Auto Tuck Shop — Backlog"
+```
 
 ## Where to find context
 
 Before starting any task, read the relevant context:
 
-- **Architecture, data model, flows, async model:** wiki — https://github.com/aakitech/auto-tuck-shop/wiki/Architecture
-- **Pilot launch sequence and success metrics:** wiki — https://github.com/aakitech/auto-tuck-shop/wiki/Pilot-Launch
-- **All external service integrations:** wiki — https://github.com/aakitech/auto-tuck-shop/wiki/Integrations
+- **Architecture, data model, flows, async model:** wiki (see below)
+- **Pilot launch sequence and success metrics:** wiki (see below)
+- **All external service integrations:** wiki (see below)
 - **Key service entry points:** `apps/whatsapp/services/` — sale_handler, waitlist_handler, media_handler, message_parser
 - **LLM system prompt (tune for parsing improvements):** `services/openrouter/prompts.py`
 - **User-facing strings (EN + Shona):** `apps/whatsapp/locales/en.json`, `sn.json`
 - **Unit tests:** `python manage.py test unit_tests`
-- **Staging integration tests:** `python -m pytest tests/ -x` (requires `.env.staging`)
+- **Staging integration tests (manual only):** `python -m pytest tests/ -x` (requires `.env.staging`) — not run in CI, see #82
+
+## Working with the wiki
+
+The wiki is a separate git repo. Always clone it locally rather than fetching URLs — it's faster and you can write back to it.
+
+```bash
+# Clone once per session (safe to re-run; git will error if already cloned, just cd in)
+git clone https://github.com/aakitech/auto-tuck-shop.wiki.git /tmp/ats-wiki
+```
+
+Pages and what they cover:
+
+| File | Content |
+|------|---------|
+| `Architecture.md` | Django apps, data model, URL structure, message pipeline, flows, async model |
+| `Features.md` | User-facing features: sale recording, daily reports, onboarding, queries |
+| `Integrations.md` | Meta WhatsApp, OpenRouter, ElevenLabs, R2, Fly.io, Sentry |
+| `Deployment.md` | Environments, deploy workflow, env vars, migrations, health check |
+| `Pilot-Launch.md` | Pilot success metrics and review cadence |
+| `Home.md` | Overview and quick links |
+
+**Reading:** `Read /tmp/ats-wiki/Architecture.md` etc. — no WebFetch needed.
+
+**Writing:** Edit files in `/tmp/ats-wiki`, then:
+```bash
+cd /tmp/ats-wiki && git add <file> && git commit -m "docs: ..." && git push origin master
+```
+
+**When to update:** Any time a feature changes behaviour, update the relevant wiki page in the same PR or immediately after. Don't let it drift.
 
 ## Scope rule
 
@@ -64,18 +97,45 @@ Every task should be classified before starting:
 
 If a change doesn't improve sale recording, pilot onboarding, operator visibility, or production safety, it belongs after Phase 1.
 
-## Deployment
+## Shipping flow
 
-Always deploy to staging first, run tests, then ask Brighton before deploying to production:
+1. **Branch off main** — one branch per issue, named after it (e.g. `fix/duplicate-language-prompt`)
+2. **Open a PR** when ready — title includes the issue number
+3. **Post in GitHub Discussions → Pull Requests** — tag `@dev-mthandabantu` so she sees it
+4. **Madrena reviews and approves** on GitHub — branch protection requires at least one approval before merge
+5. **Merge** once approved — squash merge, branch gets deleted
+6. **Staging auto-deploys** — GitHub Actions deploys to staging on every push to main (no manual step needed)
+7. **Production deploy** — Brighton publishes a GitHub Release → GitHub Actions auto-deploys to prod. Never deploy to production without explicit sign-off from Brighton.
+
+Note: first-ever deploy to a new Fly app must be done manually with `fly deploy` — `fly secrets deploy` fails if no machines exist yet.
+
+### How to create a production release (step-by-step)
+
+Releases follow semver patch bumps (v0.1.0 → v0.1.1 → v0.1.2). Only Brighton publishes releases.
+
+**Prerequisites:** branch is merged to main, staging looks healthy.
 
 ```bash
-fly deploy -c fly.staging.toml
-python -m pytest tests/ -x
-# wait for Brighton sign-off
-fly deploy
+# 1. Check what's in main since the last release (replace vX.X.X with the last tag)
+git log vX.X.X..origin/main --oneline
+
+# 2. Find the last release tag so you know what to bump to
+gh release list --limit 5
+
+# 3. Publish the release — this triggers the prod deploy workflow automatically
+gh release create vX.X.X \
+  --title "vX.X.X — <short description>" \
+  --notes "## What's in this release
+
+- Fix: <description> (#issue)
+- Fix: <description> (#issue)"
 ```
 
-Never deploy to production without explicit human confirmation.
+The `deploy-production.yml` workflow triggers on `release: published` — no manual `fly deploy` needed after the first-ever deploy. Monitor the deploy at: https://github.com/aakitech/auto-tuck-shop/actions
+
+## Deployment
+
+`USE_MOCK_WHATSAPP` must **not** be set (or set to `False`) on production — if it's `True` on prod, the bot silently swallows all outbound messages instead of sending them via WhatsApp. Confirm this before every prod deploy.
 
 ## Migrations
 

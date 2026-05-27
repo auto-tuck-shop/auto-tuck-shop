@@ -47,7 +47,14 @@ def _apply_rule_based_price_hints(
         r"\bany\s+one\b",
         r"\bparticular\b",
         r"\bseparate\b",
-        r"\bimwe\b",  # Shona: one/each
+        r"\bimwe\b",     # Shona: one/each (Class 9)
+        r"\brimwe\b",    # Shona: one/each (Class 5)
+        r"\bchimwe\b",   # Shona: one/each (Class 7)
+        r"\bhumwe\b",    # Shona: one/each (Class 14)
+        r"\bmumwe\b",    # Shona: one/each (Class 1/3)
+        r"\brumwe\b",    # Shona: one/each (Class 11)
+        r"\bkamwe\b",    # Shona: one/each (Class 12)
+        r"\bumwe\b",     # Shona: one/each (Class 8)
     )
     per_unit_pattern = re.compile(r"(?:" + "|".join(per_unit_tokens) + r")", re.IGNORECASE)
     has_per_unit_marker = bool(per_unit_pattern.search(message)) or "@" in message
@@ -151,11 +158,16 @@ async def parse_message_unified(message: str, company=None) -> UnifiedMessageRes
                         except (InvalidOperation, ValueError):
                             pass
 
+                    item_currency = item.get("currency")
+                    if item_currency and item_currency not in ("USD", "ZWG", "ZAR", "BWP", "EUR", "GBP"):
+                        item_currency = None
+
                     parsed_items.append(
                         ParsedSaleItem(
                             product_name=str(item.get("product_name", "")),
                             quantity=int(item.get("quantity", 1)),
                             unit_price=unit_price,
+                            currency=item_currency,
                         )
                     )
                 except (ValueError, TypeError) as e:

@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import datetime as dt
 from datetime import datetime, time, timedelta
 from decimal import Decimal
+import logging
 import re
 from typing import Iterable
+
+logger = logging.getLogger(__name__)
 
 from asgiref.sync import sync_to_async
 from django.db import models
@@ -19,9 +23,8 @@ from apps.inventory.models import InventoryAdjustment
 from apps.whatsapp.services.whatsapp_client import get_whatsapp_client
 
 
-CLOSING_PROMPT_TEXT = "What time are you closing today so I can prepare today's business summary?"
-CLOSING_ACK_TEXT = "Okay, noted. I will send you the summary when the shop closes."
 LOW_STOCK_THRESHOLD = 5
+FALLBACK_SUMMARY_CUTOFF = time(21, 0)
 
 
 @dataclass(frozen=True)
@@ -32,6 +35,7 @@ class BusinessSnapshot:
     sales_count: int
     items_sold: int
     revenue: Decimal
+    currency_revenues: dict  # per-currency breakdown, e.g. {"USD": Decimal("12.00"), "ZAR": Decimal("45.00")}
     cost: Decimal
     gross_profit: Decimal
     top_products: list[tuple[str, int]]
@@ -106,17 +110,21 @@ def build_business_snapshot(company: Company, report_date: datetime.date | None 
         ).select_related("company").prefetch_related("items__product")
     )
 
-    revenue = Decimal("0.00")
-    cost = Decimal("0.00")
+    currency_revenues: dict[str, Decimal] = {}
     items_sold = 0
     product_totals: dict[str, int] = {}
 
     for sale in sales:
-        revenue += Decimal(str(sale.total_amount or 0))
-        cost += sale.total_cost_amount
         for item in sale.items.all():
             items_sold += int(item.quantity or 0)
             product_totals[item.product.name] = product_totals.get(item.product.name, 0) + int(item.quantity or 0)
+            if item.unit_price is not None and item.currency:
+                currency_revenues[item.currency] = (
+                    currency_revenues.get(item.currency, Decimal("0.00"))
+                    + item.unit_price * item.quantity
+                )
+
+    revenue = sum(currency_revenues.values(), Decimal("0.00"))
 
     top_products = sorted(product_totals.items(), key=lambda kv: (-kv[1], kv[0]))[:5]
 
@@ -132,8 +140,6 @@ def build_business_snapshot(company: Company, report_date: datetime.date | None 
     low_stock_items.sort(key=lambda kv: (kv[1], kv[0]))
     out_of_stock_items.sort(key=lambda kv: (kv[1], kv[0]))
 
-    gross_profit = revenue - cost
-
     return BusinessSnapshot(
         company_id=company.id,
         report_date=report_date,
@@ -141,8 +147,9 @@ def build_business_snapshot(company: Company, report_date: datetime.date | None 
         sales_count=len(sales),
         items_sold=items_sold,
         revenue=revenue,
-        cost=cost,
-        gross_profit=gross_profit,
+        currency_revenues=currency_revenues,
+        cost=Decimal("0.00"),
+        gross_profit=revenue,
         top_products=top_products,
         low_stock_items=low_stock_items,
         out_of_stock_items=out_of_stock_items,
@@ -152,26 +159,29 @@ def build_business_snapshot(company: Company, report_date: datetime.date | None 
 def format_business_summary(snapshot: BusinessSnapshot) -> str:
     """Render a human-readable business summary message."""
     date_label = snapshot.report_date.strftime("%d %b %Y")
-    lines = [f"Business summary for {date_label}:"]
-    lines.append(f"- Sales: {snapshot.sales_count}")
-    lines.append(f"- Items sold: {snapshot.items_sold}")
-    lines.append(f"- Revenue: {format_price(snapshot.revenue, snapshot.currency)}")
-    lines.append(f"- Gross profit: {format_price(snapshot.gross_profit, snapshot.currency)}")
-    lines.append("- Expenses: not tracked separately yet")
+    sale_word = f"{snapshot.sales_count} sale{'s' if snapshot.sales_count != 1 else ''}"
+    lines = [f"Summary for {date_label}"]
+
+    if len(snapshot.currency_revenues) <= 1:
+        revenue_str = format_price(snapshot.revenue, snapshot.currency)
+        lines.append(f"Revenue: {revenue_str} from {sale_word}")
+    else:
+        parts = " + ".join(format_price(amt, cur) for cur, amt in snapshot.currency_revenues.items())
+        lines.append(f"Revenue: {parts} from {sale_word}")
 
     if snapshot.top_products:
-        lines.append("Top products:")
-        for name, qty in snapshot.top_products[:5]:
+        lines.append("")
+        lines.append("Top sellers:")
+        for name, qty in snapshot.top_products[:3]:
             lines.append(f"  • {name}: {qty}")
 
-    if snapshot.out_of_stock_items:
-        lines.append("Out of stock:")
-        for name, stock in snapshot.out_of_stock_items[:5]:
-            lines.append(f"  • {name}: {stock}")
-    elif snapshot.low_stock_items:
-        lines.append("Low stock:")
-        for name, stock in snapshot.low_stock_items[:5]:
-            lines.append(f"  • {name}: {stock}")
+    # Closing line based on revenue
+    if snapshot.revenue == 0:
+        lines.append("")
+        lines.append("Quiet day — no sales recorded.")
+    elif snapshot.sales_count >= 10:
+        lines.append("")
+        lines.append("Good day!")
 
     return "\n".join(lines)
 
@@ -204,12 +214,61 @@ def format_profit_summary(snapshot: BusinessSnapshot) -> str:
     return "\n".join(lines)
 
 
+def build_comparison_context(company: Company, report_date: datetime.date | None = None) -> dict:
+    """Return week-rank and cumulative data for the current week up to report_date."""
+    report_date = report_date or timezone.localdate()
+
+    monday = report_date - timedelta(days=report_date.weekday())
+    week_day_snapshots: list[BusinessSnapshot] = []
+    day = monday
+    while day <= report_date:
+        snap = build_business_snapshot(company, report_date=day)
+        week_day_snapshots.append(snap)
+        day += timedelta(days=1)
+
+    week_revenues: list[dict[str, Decimal]] = [snap.currency_revenues for snap in week_day_snapshots]
+    week_sales_count: int = sum(snap.sales_count for snap in week_day_snapshots)
+
+    week_currency_revenues: dict[str, Decimal] = {}
+    for snap in week_day_snapshots:
+        for cur, amt in snap.currency_revenues.items():
+            week_currency_revenues[cur] = week_currency_revenues.get(cur, Decimal("0.00")) + amt
+
+    # Compare using primary currency only — summing across currencies produces meaningless numbers
+    primary_currency = company.currency
+    primary_day_totals = [d.get(primary_currency, Decimal("0.00")) for d in week_revenues]
+    today_primary = primary_day_totals[-1]
+    prior_days_with_sales = any(t > 0 for t in primary_day_totals[:-1])
+    is_best_day_this_week = bool(primary_day_totals) and today_primary >= max(primary_day_totals) and prior_days_with_sales
+
+    # Determine which day name to show in the badge
+    best_day_index = primary_day_totals.index(max(primary_day_totals))
+    best_day_date = monday + timedelta(days=best_day_index)
+    if best_day_date == report_date:
+        best_day_label = "Today"
+    else:
+        best_day_label = best_day_date.strftime("%A")  # e.g. "Monday", "Tuesday"
+
+    return {
+        "is_best_day_this_week": is_best_day_this_week,
+        "best_day_label": best_day_label,
+        "week_revenues": week_revenues,
+        "week_sales_count": week_sales_count,
+        "week_currency_revenues": week_currency_revenues,
+    }
+
+
 @sync_to_async(thread_sensitive=True)
 def set_company_daily_closing_time(company_id: int, closing_time: time, closing_date: datetime.date) -> None:
     Company.objects.filter(id=company_id).update(
         daily_closing_time=closing_time,
         daily_closing_date=closing_date,
     )
+
+
+@sync_to_async(thread_sensitive=True)
+def set_company_normal_closing_time(company_id: int, closing_time: time) -> None:
+    Company.objects.filter(id=company_id).update(normal_closing_time=closing_time)
 
 
 @sync_to_async(thread_sensitive=True)
@@ -241,6 +300,78 @@ def get_company_by_id(company_id: int) -> Company | None:
     return Company.objects.filter(id=company_id).first()
 
 
+def upload_report_image(image_bytes: bytes, company_id: int, report_date: dt.date) -> str | None:
+    """Upload a report card PNG to R2 and return its public URL."""
+    try:
+        from services.storage.r2_client import R2StorageClient
+        client = R2StorageClient()
+        date_str = report_date.strftime("%Y-%m-%d")
+        # Use a stable key so re-runs overwrite rather than accumulate
+        file_key = f"reports/{company_id}/{date_str}.png"
+        if not client.client:
+            logger.warning("R2 not configured — skipping report image upload")
+            return None
+        client.client.put_object(
+            Bucket=client.bucket_name,
+            Key=file_key,
+            Body=image_bytes,
+            ContentType="image/png",
+        )
+        if client.public_url:
+            return f"{client.public_url.rstrip('/')}/{file_key}"
+        return f"{client.endpoint_url.rstrip('/')}/{client.bucket_name}/{file_key}"
+    except Exception:
+        logger.exception("Failed to upload report image to R2")
+        return None
+
+
+def build_period_summary(company: Company, start_date: datetime.date, end_date: datetime.date) -> dict:
+    """Aggregate sales across a date range for week/month/year queries."""
+    start = timezone.make_aware(datetime.combine(start_date, time.min))
+    end = timezone.make_aware(datetime.combine(end_date, time.max))
+    sales = list(
+        Sale.objects.filter(
+            company=company,
+            status=Sale.Status.CONFIRMED,
+            sale_timestamp__gte=start,
+            sale_timestamp__lte=end,
+        ).prefetch_related("items__product")
+    )
+    revenue = Decimal("0.00")
+    product_totals: dict[str, int] = {}
+    for sale in sales:
+        revenue += Decimal(str(sale.total_amount or 0))
+        for item in sale.items.all():
+            product_totals[item.product.name] = product_totals.get(item.product.name, 0) + int(item.quantity or 0)
+    top_products = sorted(product_totals.items(), key=lambda kv: (-kv[1], kv[0]))[:5]
+    return {
+        "revenue": revenue,
+        "sales_count": len(sales),
+        "top_products": top_products,
+        "currency": company.currency,
+    }
+
+
+def format_period_summary(period_label: str, data: dict) -> str:
+    if data["sales_count"] == 0:
+        return f"{period_label}: No sales recorded."
+    revenue_str = format_price(data["revenue"], data["currency"])
+    lines = [f"{period_label}: {revenue_str} from {data['sales_count']} sale{'s' if data['sales_count'] != 1 else ''}"]
+    if data["top_products"]:
+        lines.append("\nTop sellers:")
+        for name, qty in data["top_products"][:3]:
+            lines.append(f"  • {name}: {qty}")
+    return "\n".join(lines)
+
+
+def _company_owner_lang(company: Company) -> str:
+    profile = (
+        UserProfile.objects.filter(company=company, role=UserProfile.Role.OWNER, user__is_active=True)
+        .first()
+    )
+    return profile.language if profile else "sn"
+
+
 async def send_message_to_company(company: Company, message: str) -> list[str]:
     """Send a WhatsApp message to all known members of a company."""
     client = get_whatsapp_client()
@@ -251,7 +382,9 @@ async def send_message_to_company(company: Company, message: str) -> list[str]:
 
 
 async def send_daily_closing_prompt(company: Company) -> list[str]:
-    recipients = await send_message_to_company(company, CLOSING_PROMPT_TEXT)
+    from apps.whatsapp.services.webhook_handler import t
+    lang = await sync_to_async(_company_owner_lang, thread_sensitive=True)(company)
+    recipients = await send_message_to_company(company, t("closing.prompt", lang=lang))
     await mark_closing_prompt_sent(company.id, timezone.localdate())
     return recipients
 
@@ -259,8 +392,32 @@ async def send_daily_closing_prompt(company: Company) -> list[str]:
 async def send_daily_summary(company: Company, report_date: datetime.date | None = None) -> list[str]:
     report_date = report_date or timezone.localdate()
     snapshot = await sync_to_async(build_business_snapshot, thread_sensitive=True)(company, report_date=report_date)
-    message = format_business_summary(snapshot)
-    recipients = await send_message_to_company(company, message)
+
+    if snapshot.sales_count == 0:
+        logger.debug("No sales for company %s on %s — skipping daily summary", company.id, report_date)
+        return []
+
+    comparison = await sync_to_async(build_comparison_context, thread_sensitive=True)(company, report_date)
+    text_summary = format_business_summary(snapshot)
+
+    try:
+        from apps.whatsapp.services.report_card import generate_stat_card
+        image_bytes = generate_stat_card(snapshot, comparison, shop_name=company.name)
+        image_url = await sync_to_async(upload_report_image, thread_sensitive=True)(
+            image_bytes, company.id, report_date
+        )
+    except Exception:
+        logger.exception("Failed to generate report card for company %s", company.id)
+        image_url = None
+
+    wa_client = get_whatsapp_client()
+    recipients = await sync_to_async(_company_recipients, thread_sensitive=True)(company)
+    for phone in recipients:
+        if image_url:
+            await wa_client.send_image(phone, image_url, caption=text_summary)
+        else:
+            await wa_client.send_message(phone, text_summary)
+
     await mark_summary_sent(company.id, report_date)
     return recipients
 
@@ -294,19 +451,40 @@ async def maybe_send_daily_notifications(now: datetime | None = None) -> dict[st
     sent_summary: list[int] = []
 
     for company in companies:
-        if (
-            company.last_closing_prompt_date != today
-            and current_time >= prompt_cutoff
-            and not (company.daily_closing_date == today and company.daily_closing_time)
-        ):
-            await send_daily_closing_prompt(company)
-            sent_prompt.append(company.id)
+        closing_set_today = company.daily_closing_date == today and company.daily_closing_time
 
-        # Only send the summary once a closing time has actually been set for today.
-        if company.daily_closing_date == today and company.daily_closing_time and company.last_summary_date != today:
-            effective_close = _effective_closing_time(company, today)
-            if current_time >= effective_close:
+        if company.normal_closing_time:
+            # Owner has set a permanent closing time — no daily prompt needed.
+            # Send the summary 1 hour after their normal closing time.
+            summary_time = (
+                datetime.combine(today, company.normal_closing_time) + timedelta(hours=1)
+            ).time()
+            if company.last_summary_date != today and current_time >= summary_time:
                 await send_daily_summary(company, report_date=today)
                 sent_summary.append(company.id)
+        else:
+            # No permanent closing time — use the daily prompt flow.
+            if (
+                company.last_closing_prompt_date != today
+                and current_time >= prompt_cutoff
+                and not closing_set_today
+            ):
+                await send_daily_closing_prompt(company)
+                sent_prompt.append(company.id)
+
+            if company.last_summary_date != today:
+                if closing_set_today:
+                    effective_close = _effective_closing_time(company, today)
+                    if current_time >= effective_close:
+                        await send_daily_summary(company, report_date=today)
+                        sent_summary.append(company.id)
+                elif (
+                    company.last_closing_prompt_date == today
+                    and not closing_set_today
+                    and current_time >= FALLBACK_SUMMARY_CUTOFF
+                ):
+                    # Owner never replied — send anyway at 9pm
+                    await send_daily_summary(company, report_date=today)
+                    sent_summary.append(company.id)
 
     return {"prompt": sent_prompt, "summary": sent_summary}

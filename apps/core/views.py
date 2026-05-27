@@ -12,6 +12,29 @@ from apps.sales.models import Sale
 from apps.whatsapp.models import WhatsAppMessage
 
 
+def _compute_activation(shop, since):
+    """Return (first_sale_date, activated) for a shop.
+
+    activated=True means a second confirmed sale was recorded within 7 days of the first.
+    Only considers sales within the dashboard's time window.
+    """
+    first_sale = (
+        Sale.objects.filter(company=shop, status=Sale.Status.CONFIRMED, sale_timestamp__gte=since)
+        .order_by("sale_timestamp")
+        .values_list("sale_timestamp", flat=True)
+        .first()
+    )
+    if first_sale is None:
+        return None, None
+    activated = Sale.objects.filter(
+        company=shop,
+        status=Sale.Status.CONFIRMED,
+        sale_timestamp__gt=first_sale,
+        sale_timestamp__lte=first_sale + timedelta(days=7),
+    ).exists()
+    return first_sale, activated
+
+
 def _shop_display_name(company):
     """Return a distinguishable name for a shop: 'Name (owner phone)' or 'Name (slug)'."""
     owner = (
@@ -46,6 +69,15 @@ def pilot_metrics(request):
                 filter=Q(
                     sales__sale_timestamp__gte=since,
                     sales__status=Sale.Status.CONFIRMED,
+                ),
+                distinct=True,
+            ),
+            mistake_count=Count(
+                "sales",
+                filter=Q(
+                    sales__sale_timestamp__gte=since,
+                    sales__status=Sale.Status.CONFIRMED,
+                    sales__flagged_as_bot_mistake=True,
                 ),
                 distinct=True,
             ),
@@ -119,7 +151,7 @@ def pilot_metrics(request):
         )
         weeks.append(
             {
-                "label": week_start.strftime("%b %d") + " – " + week_end.strftime("%b %d"),
+                "label": week_start.strftime("%b %d") + " - " + week_end.strftime("%b %d"),
                 "active_shops": active_count,
             }
         )
@@ -144,15 +176,24 @@ def pilot_metrics(request):
             shop.display_name = display_names.get(shop.id, shop.name)
 
     for shop in sales_per_shop:
-        if shop.total_sales > 0:
-            shop.msgs_per_sale = round(shop.inbound_messages / shop.total_sales, 1)
-        else:
-            shop.msgs_per_sale = None
+        shop.msgs_per_sale = (
+            round(shop.inbound_messages / shop.total_sales, 1) if shop.total_sales > 0 else None
+        )
+        shop.mistake_pct = (
+            round(shop.mistake_count / shop.confirmed_sales * 100) if shop.confirmed_sales > 0 else None
+        )
+        shop.first_sale_date, shop.activated = _compute_activation(shop, since)
+
+    shops_with_sales = [s for s in sales_per_shop if s.first_sale_date is not None]
+    activated_count = sum(1 for s in shops_with_sales if s.activated)
 
     context = {
         "title": "Pilot Metrics",
         "days_back": days_back,
         "since": since,
+        # Activation summary
+        "activated_count": activated_count,
+        "shops_with_sales_count": len(shops_with_sales),
         # Sales
         "sales_per_shop": sales_per_shop,
         # Messages

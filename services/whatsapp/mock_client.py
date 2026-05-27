@@ -44,6 +44,14 @@ class MockWhatsAppClient:
         self.timeline.append({"type": "buttons", "index": idx, "phone": to})
         return message_id
 
+    async def send_image(self, to: str, image_url: str, caption: str = "") -> bool:
+        """Mock send_image - logs but doesn't send."""
+        logger.info(f"[MOCK] Would send WhatsApp image to {to}: {image_url}")
+        idx = len(self.sent_messages)
+        self.sent_messages.append({"to": to, "image_url": image_url, "caption": caption, "type": "image"})
+        self.timeline.append({"type": "outbound_image", "index": idx, "phone": to})
+        return True
+
     async def download_media(self, media_id: str) -> tuple[bytes, str] | None:
         """
         Mock download_media - returns pre-configured test data.

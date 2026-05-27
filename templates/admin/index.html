@@ -1,10 +1,94 @@
-{% extends "admin/index.html" %}
+{% extends "admin/base_site.html" %}
 
 {% block content %}
-<div style="margin-bottom: 20px; padding: 12px 16px; background: var(--darkened-bg); border: 1px solid var(--border-color); border-radius: 4px;">
-  <strong>📊</strong>
-  <a href="{% url 'pilot_metrics' %}" style="font-size: 14px; font-weight: bold;">Pilot Metrics Dashboard</a>
-  <span style="color: var(--body-quiet-color); font-size: 13px;"> — Sales, messages, voice/text split, and recognition rates per shop</span>
-</div>
+<style>
+  .ops-dashboard {
+    margin: 0 0 24px;
+    padding: 18px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--body-bg);
+  }
+
+  .ops-dashboard h2 {
+    margin: 0 0 6px;
+    color: var(--body-loud-color);
+    font-size: 1.2rem;
+  }
+
+  .ops-dashboard p {
+    margin: 0 0 16px;
+    color: var(--body-quiet-color);
+  }
+
+  .ops-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 12px;
+  }
+
+  .ops-card {
+    display: block;
+    min-height: 108px;
+    padding: 14px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--darkened-bg);
+    text-decoration: none;
+  }
+
+  .ops-card:hover {
+    border-color: var(--link-fg);
+  }
+
+  .ops-card strong {
+    display: block;
+    margin-bottom: 6px;
+    color: var(--link-fg);
+    font-size: 0.98rem;
+  }
+
+  .ops-card span {
+    color: var(--body-quiet-color);
+    font-size: 0.86rem;
+    line-height: 1.35;
+  }
+</style>
+
+<section class="ops-dashboard" aria-labelledby="ops-dashboard-title">
+  <h2 id="ops-dashboard-title">Launch Operations</h2>
+  <p>Fast links for onboarding shops, checking sales records, and watching product health during operations.</p>
+  <div class="ops-grid">
+    <a class="ops-card" href="{% url 'admin:core_waitlistentry_changelist' %}">
+      <strong>Waitlist Entries</strong>
+      <span>Review new shop requests and approve or reject access.</span>
+    </a>
+    <a class="ops-card" href="{% url 'admin:core_userprofile_changelist' %}">
+      <strong>User Profiles</strong>
+      <span>Check owners, assistants, phone numbers, roles, and language preferences.</span>
+    </a>
+    <a class="ops-card" href="{% url 'admin:core_company_changelist' %}">
+      <strong>Companies and Shops</strong>
+      <span>Inspect active shops, slugs, currencies, and account setup.</span>
+    </a>
+    <a class="ops-card" href="{% url 'admin:sales_sale_changelist' %}">
+      <strong>Sales</strong>
+      <span>Review recorded sales, confirmation status, and transaction history.</span>
+    </a>
+    <a class="ops-card" href="{% url 'admin:catalog_product_changelist' %}">
+      <strong>Products</strong>
+      <span>Manage product names, categories, prices, and shop catalog data.</span>
+    </a>
+    <a class="ops-card" href="{% url 'pilot_metrics' %}">
+      <strong>Metrics Dashboard</strong>
+      <span>Track sales volume, active shops, message split, and sales conversion signals.</span>
+    </a>
+    <a class="ops-card" href="/mock-whatsapp/">
+      <strong>Mock WhatsApp</strong>
+      <span>Use on local or staging when the mock WhatsApp UI is enabled.</span>
+    </a>
+  </div>
+</section>
+
 {{ block.super }}
 {% endblock %}

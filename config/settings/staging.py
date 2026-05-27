@@ -2,7 +2,6 @@ from .production import *  # noqa
 
 # Override for staging
 DEBUG = True  # Easier troubleshooting
-USE_MOCK_WHATSAPP = True  # Mock WhatsApp only
 
 # Test API for staging integration tests
 ENABLE_TEST_API = True

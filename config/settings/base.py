@@ -21,7 +21,7 @@ environ.Env.read_env(BASE_DIR / ".env")
 
 # Sentry Configuration
 sentry_sdk.init(
-    dsn=env("SENTRY_DSN", default="https://f6537de071098a6d2f789e823443b12b@o4510840406867968.ingest.us.sentry.io/4510840407982081"),
+    dsn=env("SENTRY_DSN", default=None),
     integrations=[DjangoIntegration()],
     # Set traces_sample_rate to 1.0 to capture 100% of transactions for performance monitoring.
     # Adjust this value in production to reduce volume
@@ -125,6 +125,7 @@ USE_TZ = True
 
 # Static files (CSS, JavaScript, Images)
 STATIC_URL = "static/"
+STATICFILES_DIRS = [BASE_DIR / "static"]
 STATIC_ROOT = BASE_DIR / "staticfiles"
 STORAGES = {
     "default": {
@@ -164,6 +165,9 @@ ADMIN_PHONE_NUMBER = env("ADMIN_PHONE_NUMBER", default=None)  # Receives waitlis
 # OpenRouter Configuration
 OPENROUTER_API_KEY = env("OPENROUTER_API_KEY", default="")
 OPENROUTER_MODEL = env("OPENROUTER_MODEL", default="google/gemini-2.5-flash-lite")
+
+# Gemini direct fallback (used when OpenRouter returns 402)
+GEMINI_API_KEY = env("GEMINI_API_KEY", default="")
 
 # Eleven Labs Configuration
 ELEVENLABS_API_KEY = env("ELEVENLABS_API_KEY", default="")

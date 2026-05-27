@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
+from decimal import Decimal
 
 from django.db import close_old_connections
 
 from apps.core.currencies import format_price
 from apps.core.models import Company
 from apps.sales.models import Sale
-from apps.sales.services import create_sale_from_parsed_items, PriceOverflowError
+from apps.sales.services import create_sale_from_parsed_items, MissingPriceError, PriceOverflowError
 from apps.whatsapp.services.webhook_handler import (
     db_sync_to_async,
     DEFAULT_LANGUAGE,
@@ -68,6 +70,20 @@ def _get_confirmed_sale(original_message_sid: str | None):
 
 
 @db_sync_to_async
+def _is_first_confirmed_sale(company_id: int) -> bool:
+    return Sale.objects.filter(
+        company_id=company_id,
+        status=Sale.Status.CONFIRMED,
+    ).count() == 1
+
+
+@db_sync_to_async
+def _company_needs_closing_time(company_id: int) -> bool:
+    company = Company.objects.filter(id=company_id).only("normal_closing_time").first()
+    return company is not None and company.normal_closing_time is None
+
+
+@db_sync_to_async
 def _get_and_update_sale(original_message_sid: str | None, new_status: str, bot_mistake: bool = False):
     if not original_message_sid:
         return None
@@ -108,35 +124,35 @@ async def process_sale_message_unified(
         logger.warning("Price overflow for message %s from %s", message_id, sender)
         await _send_response(sender, t("sale.price_too_large", lang=lang), reply_to=message_id)
         return
+    except MissingPriceError as e:
+        logger.info("Missing price for message %s from %s: %s", message_id, sender, e)
+        await _send_response(sender, t("sale.missing_price_reject", lang=lang), reply_to=message_id)
+        return
 
     sale = sale_result["sale"]
     unmatched = sale_result["unmatched_items"]
 
     response_lines = []
     sale_items = await _get_sale_items(sale)
-    has_missing_prices = False
-    currencies_in_sale = set()
+    currency_totals: dict[str, Decimal] = {}
 
     for item in sale_items:
-        if item.unit_price is not None and item.currency:
-            currencies_in_sale.add(item.currency)
-            response_lines.append(t(
-                "sale.item_with_price", lang=lang,
-                quantity=item.quantity, product=item.product.name,
-                price=format_price(item.unit_price, item.currency),
-            ))
-        else:
-            response_lines.append(t(
-                "sale.item_no_price", lang=lang,
-                quantity=item.quantity, product=item.product.name,
-            ))
-            has_missing_prices = True
+        currency_totals[item.currency] = (
+            currency_totals.get(item.currency, Decimal("0"))
+            + item.unit_price * item.quantity
+        )
+        response_lines.append(t(
+            "sale.item_with_price", lang=lang,
+            quantity=item.quantity, product=item.product.name,
+            price=format_price(item.unit_price, item.currency),
+        ))
 
-    if not has_missing_prices and len(currencies_in_sale) == 1:
-        sale_currency = currencies_in_sale.pop()
-        response_lines.append(t("sale.total", lang=lang, total=format_price(sale.total_amount, sale_currency)))
-    elif has_missing_prices:
-        response_lines.append(t("sale.missing_prices_note", lang=lang))
+    if len(currency_totals) == 1:
+        currency, total = next(iter(currency_totals.items()))
+        response_lines.append(t("sale.total", lang=lang, total=format_price(total, currency)))
+    else:
+        for currency, total in currency_totals.items():
+            response_lines.append(t("sale.subtotal", lang=lang, currency=currency, total=format_price(total, currency)))
 
     if unmatched:
         response_lines.append(t("sale.unmatched", lang=lang, items=", ".join(unmatched)))
@@ -166,6 +182,10 @@ async def process_sale_button_action_async(
         if result:
             sale, original_whatsapp_message_id = result
             await _send_response(sender, t("sale.confirmed_ok", lang=lang), reply_to=original_whatsapp_message_id)
+            # After first confirmed sale, ask for closing time if not yet set
+            if await _company_needs_closing_time(sale.company_id) and await _is_first_confirmed_sale(sale.company_id):
+                await asyncio.sleep(3)
+                await _send_response(sender, t("closing.setup_prompt", lang=lang))
         else:
             await _send_response(sender, t("sale.already_processed", lang=lang))
     else:

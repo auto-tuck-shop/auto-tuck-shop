@@ -372,6 +372,73 @@ class WhatsAppClient:
                 return True
             except Exception:
                 logger.exception(f"Failed to send typing indicator {action} to {to}")
+
+    async def send_image(self, to: str, image_url: str, caption: str = "") -> bool:
+        """Send a WhatsApp image message via URL via Meta Cloud API."""
+        if not self.access_token or not self.phone_number_id:
+            logger.error("Meta WhatsApp credentials not configured")
+            await _record_outbound_message(
+                phone_number=to,
+                message_type="IMAGE",
+                content=caption,
+                api_success=False,
+                api_error="Meta WhatsApp credentials not configured",
+            )
+            return False
+
+        to_number = self._normalize_phone_number(to)
+        image_payload: dict = {"link": image_url}
+        if caption:
+            image_payload["caption"] = caption[:1024]
+
+        payload = {
+            "messaging_product": "whatsapp",
+            "recipient_type": "individual",
+            "to": to_number,
+            "type": "image",
+            "image": image_payload,
+        }
+
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            try:
+                response = await client.post(
+                    self._get_api_url(),
+                    headers=self._get_headers(),
+                    json=payload,
+                )
+                response.raise_for_status()
+                data = response.json()
+                message_id = data.get("messages", [{}])[0].get("id", "")
+                logger.info(f"Sent WhatsApp image to {to_number}, id={message_id}")
+                await _record_outbound_message(
+                    phone_number=to,
+                    message_type="IMAGE",
+                    content=caption,
+                    whatsapp_message_id=message_id,
+                    api_success=True,
+                )
+                return True
+            except httpx.HTTPStatusError as e:
+                error_msg = f"{e.response.status_code} - {e.response.text}"
+                logger.exception(f"Failed to send WhatsApp image: {error_msg}")
+                await _record_outbound_message(
+                    phone_number=to,
+                    message_type="IMAGE",
+                    content=caption,
+                    api_success=False,
+                    api_error=error_msg,
+                )
+                return False
+            except httpx.RequestError as e:
+                error_msg = str(e)
+                logger.exception(f"Meta WhatsApp image request error: {error_msg}")
+                await _record_outbound_message(
+                    phone_number=to,
+                    message_type="IMAGE",
+                    content=caption,
+                    api_success=False,
+                    api_error=error_msg,
+                )
                 return False
 
     async def get_media_url(self, media_id: str) -> tuple[str, str] | None:
