@@ -182,7 +182,6 @@ async def process_waitlist_button_action_async(
         company, profile = await _approve_waitlist_entry(entry)
         await _send_response(sender, t("waitlist_admin.approved", phone=entry.phone_number, company=company.name))
         await _send_response(entry.phone_number, t("approval.welcome", lang=lang, company=company.name))
-        await _send_response(entry.phone_number, t("closing.setup_prompt", lang=lang))
     else:
         await _send_response(sender, t("waitlist_admin.rejected", phone=entry.phone_number))
         await _send_response(entry.phone_number, t("waitlist.rejected", lang=lang))
