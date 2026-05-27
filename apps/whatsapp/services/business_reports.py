@@ -75,6 +75,33 @@ def parse_closing_time_text(text: str) -> time | None:
     return time(hour=hour, minute=minute)
 
 
+async def parse_closing_time_llm(text: str) -> time | None:
+    """Use the LLM to extract a closing time from a free-form reply.
+
+    Handles natural language, Shona expressions, and correctly rejects sale
+    messages that would fool the regex (e.g. "2 plates beef").
+    Falls back to None on any error — caller treats that as no time found.
+    """
+    from services.openrouter.client import OpenRouterClient
+    from services.openrouter.prompts import CLOSING_TIME_PARSING_PROMPT
+
+    client = OpenRouterClient()
+    messages = [
+        {"role": "system", "content": CLOSING_TIME_PARSING_PROMPT},
+        {"role": "user", "content": text or ""},
+    ]
+    try:
+        result = await client.parse_json_response(messages)
+        raw = result.get("closing_time")
+        if not raw:
+            return None
+        hour, minute = (int(p) for p in raw.split(":"))
+        return time(hour=hour, minute=minute)
+    except Exception:
+        logger.warning(f"LLM closing time parse failed for: {text!r}")
+        return None
+
+
 def _company_recipients(company: Company) -> list[str]:
     phones = list(
         UserProfile.objects.filter(company=company, user__is_active=True)
@@ -268,7 +295,10 @@ def set_company_daily_closing_time(company_id: int, closing_time: time, closing_
 
 @sync_to_async(thread_sensitive=True)
 def set_company_normal_closing_time(company_id: int, closing_time: time) -> None:
-    Company.objects.filter(id=company_id).update(normal_closing_time=closing_time)
+    # Only write if not already set — single atomic SQL statement, safe under concurrency.
+    Company.objects.filter(id=company_id, normal_closing_time__isnull=True).update(
+        normal_closing_time=closing_time
+    )
 
 
 @sync_to_async(thread_sensitive=True)
@@ -337,15 +367,21 @@ def build_period_summary(company: Company, start_date: datetime.date, end_date: 
             sale_timestamp__lte=end,
         ).prefetch_related("items__product")
     )
-    revenue = Decimal("0.00")
+    currency_revenues: dict[str, Decimal] = {}
     product_totals: dict[str, int] = {}
     for sale in sales:
-        revenue += Decimal(str(sale.total_amount or 0))
         for item in sale.items.all():
             product_totals[item.product.name] = product_totals.get(item.product.name, 0) + int(item.quantity or 0)
+            if item.unit_price is not None and item.currency:
+                currency_revenues[item.currency] = (
+                    currency_revenues.get(item.currency, Decimal("0.00"))
+                    + item.unit_price * item.quantity
+                )
+    revenue = sum(currency_revenues.values(), Decimal("0.00"))
     top_products = sorted(product_totals.items(), key=lambda kv: (-kv[1], kv[0]))[:5]
     return {
         "revenue": revenue,
+        "currency_revenues": currency_revenues,
         "sales_count": len(sales),
         "top_products": top_products,
         "currency": company.currency,
@@ -355,8 +391,13 @@ def build_period_summary(company: Company, start_date: datetime.date, end_date: 
 def format_period_summary(period_label: str, data: dict) -> str:
     if data["sales_count"] == 0:
         return f"{period_label}: No sales recorded."
-    revenue_str = format_price(data["revenue"], data["currency"])
-    lines = [f"{period_label}: {revenue_str} from {data['sales_count']} sale{'s' if data['sales_count'] != 1 else ''}"]
+    currency_revenues = data.get("currency_revenues", {})
+    if len(currency_revenues) > 1:
+        revenue_str = " + ".join(format_price(amt, cur) for cur, amt in currency_revenues.items())
+    else:
+        revenue_str = format_price(data["revenue"], data["currency"])
+    sale_word = f"{data['sales_count']} sale{'s' if data['sales_count'] != 1 else ''}"
+    lines = [f"{period_label}: {revenue_str} from {sale_word}"]
     if data["top_products"]:
         lines.append("\nTop sellers:")
         for name, qty in data["top_products"][:3]:

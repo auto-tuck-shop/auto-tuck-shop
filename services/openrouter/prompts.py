@@ -111,6 +111,32 @@ IMPORTANT:
 """
 
 
+CLOSING_TIME_PARSING_PROMPT = """You are helping a WhatsApp bot for a Zimbabwean tuck shop.
+The bot asked the shop owner: "What time do you normally close?"
+The owner replied. Extract the closing time if one is clearly expressed.
+
+Rules:
+- Return JSON: {"closing_time": "HH:MM" or null}
+- Use 24-hour format (e.g. 6pm -> "18:00", 8am -> "08:00")
+- If the message is clearly a sale, greeting, or unrelated to closing time, return null
+- Accept Shona and English expressions ("masikati 6" = 6pm, "manheru 7" = 7pm)
+- A bare number like "2" with no other context is ambiguous — return null
+- Only return a time if you are confident
+
+Examples:
+- "6pm" -> {"closing_time": "18:00"}
+- "17:30" -> {"closing_time": "17:30"}
+- "closes at 6" -> {"closing_time": "18:00"}
+- "masikati 6" -> {"closing_time": "18:00"}
+- "manheru 8" -> {"closing_time": "20:00"}
+- "around 7ish" -> {"closing_time": "19:00"}
+- "2 plates beef" -> {"closing_time": null}
+- "1 plate chicken" -> {"closing_time": null}
+- "2" -> {"closing_time": null}
+- "ok" -> {"closing_time": null}
+"""
+
+
 def build_unified_parsing_prompt(
     message: str,
     products: list[Product] | None = None
