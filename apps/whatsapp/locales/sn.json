@@ -42,9 +42,9 @@
         "invalid_time": "Handina kunzwisisa nguva iyo. Pindura ne hour, sekuti '6pm' kana '18:00'.",
         "normal_time_set": "Zvakanaka! Ndichakutumira ma reports na{time} mazuva ose.",
         "setup_prompt_buttons": "Shop yenyu inovhara nguvai? Ndichakutumira zvawatengesa zuva nezuva.",
-        "btn_early": "Pamberi pe7pm",
+        "btn_early": "Before 7pm",
         "btn_mid": "7pm – 8pm",
-        "btn_late": "Mushure me8pm"
+        "btn_late": "After 8pm"
     },
     "sales_query": {
         "no_sales": "Hapana zvakatengeswa musi wa {date}.",
