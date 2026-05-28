@@ -382,8 +382,8 @@ class WhatsAppClient:
         """Send typing indicator via Meta Cloud API.
 
         Only "typing_on" triggers an API call. "typing_off" is a no-op because the
-        Cloud API uses type=typing_indicator which auto-expires after 25s or when a
-        message is sent — there is no explicit off signal.
+        Cloud API typing_indicator auto-expires after 25s or when a message is
+        sent — there is no explicit off signal.
         """
         if action == "typing_off":
             return True
@@ -396,7 +396,6 @@ class WhatsAppClient:
 
         payload = {
             "messaging_product": "whatsapp",
-            "recipient_type": "individual",
             "to": to_number,
             "type": "typing_indicator",
             "typing_indicator": {"type": "text"},
