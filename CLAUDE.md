@@ -134,6 +134,12 @@ The `deploy-production.yml` workflow triggers on `release: published` — no man
 
 `USE_MOCK_WHATSAPP` must **not** be set (or set to `False`) on production — if it's `True` on prod, the bot silently swallows all outbound messages instead of sending them via WhatsApp. Confirm this before every prod deploy.
 
+## Sentry
+
+- `SENTRY_ENVIRONMENT=production` must be set as a Fly secret on prod — without it events are tagged `development` and environment filters break
+- `SENTRY_AUTH_TOKEN` is a GitHub Actions secret (deploy workflow only) — creates a release on every prod deploy so issues auto-resolve and show which version introduced them
+- Cron monitors: `send-daily-reports` and `send-nudges` at `aakitech.sentry.io/crons/`
+
 ## Migrations
 
 Migration files are immutable once committed. Never edit or delete an existing migration. Always create a new one:
