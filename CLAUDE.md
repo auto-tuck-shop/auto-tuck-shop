@@ -2,7 +2,7 @@
 
 ## Keeping this file current
 
-This file is the source of truth for any AI assistant working on this repo. **Keep it up to date as the project evolves** — when issues are closed, when the phase changes, when new conventions are established, or when the team changes. At the end of any session where meaningful progress was made, update the relevant sections here. Don't let it drift.
+This file is the source of truth for any AI assistant working on this repo. **Keep it up to date as the project evolves** — when the phase changes, when new conventions are established, or when the team changes. At the end of any session where meaningful progress was made, update the relevant sections here. Don't let it drift.
 
 ## Start of every session
 
@@ -29,15 +29,10 @@ Auto Tuck Shop is a Django app. Shop owners in Zimbabwe send WhatsApp text or vo
 
 **Pilot active — production is live as of 2026-05-25.** The bot is receiving and replying to real WhatsApp messages on production.
 
-1. ~~Accounts audit — confirm all API keys are in hand (#18)~~ ✓ done
-2. ~~Set Fly.io secrets on staging (#19 partial)~~ ✓ done
-3. ~~Deploy to staging and verify app boots (#20)~~ ✓ done
-4. ~~Register WhatsApp webhook on Meta dashboard (#23)~~ ✓ done — permanent system user token set
-5. ~~E2E test checklist (#44)~~ ✓ done — audio testing deferred to real device
-6. ~~Pre-production checklist (#76)~~ ✓ done — Meta policy URLs (privacy/terms/data-deletion) set in App Settings → Basic
-7. ~~Deploy to production (#24)~~ ✓ done — live 2026-05-25
-8. Onboard 10 pilot shops (#25, assigned Bradley)
-9. WhatsApp UX polish — blue ticks, typing indicator, profile name/icon (#77, post-deploy)
+Open items:
+- Onboard 20 pilot shops (#25, assigned Bradley)
+- Typing indicator broken on prod (wrong Meta API payload) — tracked in #77
+- WhatsApp profile name/icon still pending (#77)
 
 When an AI assistant is helping with a task, check which issue it maps to and work within that scope. If a task doesn't map to an open issue, check with the user before starting.
 
@@ -53,7 +48,7 @@ Before starting any task, read the relevant context:
 - **Architecture, data model, flows, async model:** wiki (see below)
 - **Pilot launch sequence and success metrics:** wiki (see below)
 - **All external service integrations:** wiki (see below)
-- **Key service entry points:** `apps/whatsapp/services/` — sale_handler, waitlist_handler, media_handler, message_parser
+- **Key service entry points:** `apps/whatsapp/services/` — webhook_handler (main entry), sale_handler, waitlist_handler, business_reports, nudge_service, media_handler, message_parser, report_card, whatsapp_client
 - **LLM system prompt (tune for parsing improvements):** `services/openrouter/prompts.py`
 - **User-facing strings (EN + Shona):** `apps/whatsapp/locales/en.json`, `sn.json`
 - **Unit tests:** `python manage.py test unit_tests`
@@ -90,12 +85,7 @@ cd /tmp/ats-wiki && git add <file> && git commit -m "docs: ..." && git push orig
 
 ## Scope rule
 
-Every task should be classified before starting:
-- **Pilot blocker** — must be done before first live deploy
-- **Pilot support** — useful for operating or observing the pilot
-- **Post-pilot** — record in backlog, don't implement now
-
-If a change doesn't improve sale recording, pilot onboarding, operator visibility, or production safety, it belongs after Phase 1.
+Production is live. If a change doesn't directly support the 20-shop pilot or fix a real issue, it belongs in the backlog.
 
 ## Keeping the backlog current
 
@@ -104,7 +94,7 @@ When closing out a task, update the GitHub issue and backlog as part of the same
 - **Close issues** when the fix is merged: `gh issue close <number> --comment "Fixed in #<PR>"`
 - **Add new issues** for anything discovered mid-work that's out of scope for the current PR. Add them to the project immediately: `gh issue edit <number> --add-project "Auto Tuck Shop — Backlog"`
 - **Update priority labels** if the significance of an open issue changes (e.g. a "nice to have" becomes a production bug)
-- **Update CLAUDE.md phase status** when a phase item is completed — mark it `✓ done` in the Current phase section
+- **Update CLAUDE.md phase status** when the open items above change
 
 ## Shipping flow
 
@@ -115,8 +105,6 @@ When closing out a task, update the GitHub issue and backlog as part of the same
 5. **Merge** once approved — squash merge, branch gets deleted
 6. **Staging auto-deploys** — GitHub Actions deploys to staging on every push to main (no manual step needed)
 7. **Production deploy** — Brighton publishes a GitHub Release → GitHub Actions auto-deploys to prod. Never deploy to production without explicit sign-off from Brighton.
-
-Note: first-ever deploy to a new Fly app must be done manually with `fly deploy` — `fly secrets deploy` fails if no machines exist yet.
 
 ### How to create a production release (step-by-step)
 
@@ -140,7 +128,7 @@ gh release create vX.X.X \
 - Fix: <description> (#issue)"
 ```
 
-The `deploy-production.yml` workflow triggers on `release: published` — no manual `fly deploy` needed after the first-ever deploy. Monitor the deploy at: https://github.com/aakitech/auto-tuck-shop/actions
+The `deploy-production.yml` workflow triggers on `release: published` — no manual `fly deploy` needed. Monitor the deploy at: https://github.com/aakitech/auto-tuck-shop/actions
 
 ## Deployment
 
@@ -157,9 +145,17 @@ python manage.py migrate
 
 New migrations must be committed immediately and included in the same PR as the schema change.
 
-## Debugging Sentry issues
+## Pilot audit
 
-Write a staging integration test that reproduces the failure before fixing. If the bug can't be reproduced in staging, recommend improved logging instead.
+When Brighton says "audit the pilot", "check shop activity", or similar, run:
+
+```bash
+fly ssh console --app auto-tuck-shop -C "python manage.py pilot_audit"
+```
+
+Pass `--hours 48` (or any number) for a wider window.
+
+Known test accounts excluded automatically: +27644178150, +27610869293
 
 ## Language and parsing
 
