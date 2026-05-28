@@ -60,8 +60,11 @@ The wiki is a separate git repo. Always clone it locally rather than fetching UR
 
 ```bash
 # Clone once per session (safe to re-run; git will error if already cloned, just cd in)
-git clone https://github.com/aakitech/auto-tuck-shop.wiki.git /tmp/ats-wiki
+# On Windows the Bash /tmp maps to C:\Users\User\AppData\Local\Temp — use that path directly
+git clone https://github.com/aakitech/auto-tuck-shop.wiki.git /c/Users/User/AppData/Local/Temp/ats-wiki
 ```
+
+> **Windows note:** `/tmp/ats-wiki` is unreliable in this environment because the shell CWD resets between Bash invocations. Always use the full Windows-style path `/c/Users/User/AppData/Local/Temp/ats-wiki` for `git add`, `git commit`, and `git push`, or run those commands via Python subprocess with `cwd='C:/Users/User/AppData/Local/Temp/ats-wiki'`.
 
 Pages and what they cover:
 
@@ -133,6 +136,12 @@ The `deploy-production.yml` workflow triggers on `release: published` — no man
 ## Deployment
 
 `USE_MOCK_WHATSAPP` must **not** be set (or set to `False`) on production — if it's `True` on prod, the bot silently swallows all outbound messages instead of sending them via WhatsApp. Confirm this before every prod deploy.
+
+## Sentry
+
+- `SENTRY_ENVIRONMENT=production` must be set as a Fly secret on prod — without it events are tagged `development` and environment filters break
+- `SENTRY_AUTH_TOKEN` is a GitHub Actions secret (deploy workflow only) — creates a release on every prod deploy so issues auto-resolve and show which version introduced them
+- Cron monitors: `send-daily-reports` and `send-nudges` at `aakitech.sentry.io/crons/`
 
 ## Migrations
 
