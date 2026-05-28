@@ -58,9 +58,9 @@ class ClosingTimeButtonTest(TransactionTestCase):
         self._run_handler("closing_mid")
         self.assertEqual(self.company.normal_closing_time, time(19, 0))
 
-    def test_closing_late_stores_10pm(self):
+    def test_closing_late_stores_9pm(self):
         self._run_handler("closing_late")
-        self.assertEqual(self.company.normal_closing_time, time(22, 0))
+        self.assertEqual(self.company.normal_closing_time, time(21, 0))
 
     def test_unknown_button_id_does_nothing(self):
         _run(_handle_closing_time_button_async(self.profile.phone_number, "closing_unknown"))

@@ -203,7 +203,7 @@ from datetime import time as _time
 _CLOSING_TIME_BUTTON_MAP = {
     "closing_early": _time(18, 0),  # 6pm → summary at 7pm
     "closing_mid":   _time(19, 0),  # 7pm → summary at 8pm
-    "closing_late":  _time(22, 0),  # 10pm → summary at 11pm
+    "closing_late":  _time(21, 0),  # 9pm → summary at 10pm
 }
 
 
