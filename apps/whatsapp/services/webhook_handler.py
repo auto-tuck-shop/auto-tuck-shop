@@ -181,13 +181,52 @@ def handle_nudge_reports_no(sender: str) -> None:
 async def _handle_nudge_reports_yes_async(phone_number: str) -> None:
     profile = await _get_profile_by_phone(phone_number)
     lang = profile.language if profile else DEFAULT_LANGUAGE
-    await _send_response(phone_number, t("closing.setup_prompt", lang=lang))
+    await _send_response_with_buttons(
+        phone_number,
+        t("closing.setup_prompt_buttons", lang=lang),
+        [
+            {"id": "closing_early", "title": t("closing.btn_early", lang=lang)},
+            {"id": "closing_mid",   "title": t("closing.btn_mid",   lang=lang)},
+            {"id": "closing_late",  "title": t("closing.btn_late",  lang=lang)},
+        ],
+    )
 
 
 async def _handle_nudge_reports_no_async(phone_number: str) -> None:
     profile = await _get_profile_by_phone(phone_number)
     lang = profile.language if profile else DEFAULT_LANGUAGE
     await _send_response(phone_number, t("nudge.reports_declined", lang=lang))
+
+
+from datetime import time as _time
+
+_CLOSING_TIME_BUTTON_MAP = {
+    "closing_early": _time(18, 0),  # 6pm → summary at 7pm
+    "closing_mid":   _time(19, 0),  # 7pm → summary at 8pm
+    "closing_late":  _time(22, 0),  # 10pm → summary at 11pm
+}
+
+
+def handle_closing_time_button_action(sender: str, button_id: str) -> None:
+    run_async(_handle_closing_time_button_async(sender, button_id))
+
+
+async def _handle_closing_time_button_async(sender: str, button_id: str) -> None:
+    closing_time = _CLOSING_TIME_BUTTON_MAP.get(button_id)
+    if not closing_time:
+        return
+    phone_number = _extract_phone_number(sender)
+    profile = await _get_profile_by_phone(phone_number)
+    if not profile or not profile.company_id:
+        return
+    lang = profile.language if profile else DEFAULT_LANGUAGE
+    from apps.whatsapp.services.business_reports import set_company_normal_closing_time
+    await set_company_normal_closing_time(profile.company_id, closing_time)
+    from datetime import datetime as _dt, timedelta as _td
+    today = timezone.localdate()
+    summary_time = (_dt.combine(today, closing_time) + _td(hours=1)).time()
+    time_label = summary_time.strftime("%I:%M %p").lstrip("0")
+    await _send_response(sender, t("closing.normal_time_set", lang=lang, time=time_label))
 
 
 def handle_incoming_message(
@@ -356,18 +395,6 @@ async def _process_message_async(
                 _re.IGNORECASE,
             )
             if _permanent_pattern.search(text):
-                parsed_time = await parse_closing_time_llm(text)
-                if parsed_time:
-                    from datetime import datetime as _dt, timedelta as _td
-                    await set_company_normal_closing_time(company.id, parsed_time)
-                    summary_time = (_dt.combine(today, parsed_time) + _td(hours=1)).time()
-                    time_label = summary_time.strftime("%I:%M %p").lstrip("0")
-                    await _send_response(sender, t("closing.normal_time_set", lang=lang, time=time_label))
-                    return
-
-            # Intercept onboarding closing time reply — owner has no normal_closing_time yet.
-            # The setup_prompt was sent right after approval, so their first reply is likely a time.
-            if not company.normal_closing_time and user_profile and user_profile.role == "owner":
                 parsed_time = await parse_closing_time_llm(text)
                 if parsed_time:
                     from datetime import datetime as _dt, timedelta as _td

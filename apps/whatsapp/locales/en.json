@@ -40,7 +40,11 @@
         "prompt": "What time are you closing today so I can prepare your business summary?",
         "acknowledged": "Okay, noted. I will send you the summary when the shop closes.",
         "invalid_time": "I did not understand that time. Please reply with a time like '6pm' or '18:00'.",
-        "normal_time_set": "Got it! I will send your daily summary at {time} every day."
+        "normal_time_set": "Got it! I will send your daily summary at {time} every day.",
+        "setup_prompt_buttons": "When does your shop usually close? I'll send your daily summary automatically.",
+        "btn_early": "Before 7pm",
+        "btn_mid": "7pm – 8pm",
+        "btn_late": "After 8pm"
     },
     "sales_query": {
         "no_sales": "No sales recorded for {date}.",

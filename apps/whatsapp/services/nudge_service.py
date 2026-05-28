@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import re
-from datetime import date, timedelta
+from datetime import date, time, timedelta
 
 from asgiref.sync import sync_to_async
 from django.conf import settings
@@ -15,7 +15,6 @@ logger = logging.getLogger(__name__)
 
 # CTA definitions: key, eligible_ctas function gate, param-builder
 _ONBOARDING_DAYS = 14
-_RECENTLY_ACTIVE_HOURS = 6
 
 
 def _compute_streak(company) -> int:
@@ -109,8 +108,9 @@ def _eligible_ctas(context: dict) -> list[dict]:
         add("onboarding_shona_tip")
         add("onboarding_reports", cta_type="button")
 
-    # Retention — always eligible
-    add("retention_no_sales_today")
+    # Retention — only if shop has prior sales history
+    if context.get("last_active_days_ago") is not None:
+        add("retention_no_sales_today")
     if streak >= 2:
         add("retention_streak", streak=streak)
 
@@ -118,10 +118,6 @@ def _eligible_ctas(context: dict) -> list[dict]:
     if "reports" not in features:
         add("discovery_weekly_report")
     add("discovery_multi_item")
-
-    # Insight — always eligible
-    add("insight_best_day", day="yesterday", currency="$", total="0")
-    add("insight_daily_average", currency="$", avg="0", projected="0")
 
     # Gated CTAs — enabled via settings flags when features ship
     if getattr(settings, "NUDGE_ENABLE_UNDO_CTA", False):
@@ -189,11 +185,11 @@ def _load_nudge_candidates(today: date):
 
 
 @sync_to_async
-def _recently_active(company, hours: int) -> bool:
+def _recently_active(company) -> bool:
     from apps.whatsapp.models import WhatsAppMessage
-    from django.utils import timezone as tz
+    import datetime as _dt
     close_old_connections()
-    cutoff = tz.now() - __import__("datetime").timedelta(hours=hours)
+    cutoff = timezone.make_aware(_dt.datetime.combine(timezone.localdate(), time.min))
     return WhatsAppMessage.objects.filter(
         company=company,
         direction=WhatsAppMessage.Direction.INBOUND,
@@ -271,7 +267,7 @@ async def maybe_send_nudges(now=None) -> dict:
     skipped = []
 
     for company in companies:
-        if await _recently_active(company, hours=_RECENTLY_ACTIVE_HOURS):
+        if await _recently_active(company):
             logger.debug("Company %s recently active — skipping nudge", company.id)
             skipped.append(company.id)
             continue

@@ -114,6 +114,25 @@ class EligibleCtasTest(TransactionTestCase):
             if cta["key"] != "onboarding_reports":
                 self.assertEqual(cta["type"], "text", f"Expected text type for {cta['key']}")
 
+    def test_insight_ctas_never_appear(self):
+        for context in [
+            {"days_since_onboarding": 3, "streak": 5, "last_active_days_ago": 0, "features_used": [], "nudge_stage": 0},
+            {"days_since_onboarding": 20, "streak": 0, "last_active_days_ago": None, "features_used": [], "nudge_stage": 0},
+        ]:
+            keys = [c["key"] for c in _eligible_ctas(context)]
+            self.assertNotIn("insight_best_day", keys)
+            self.assertNotIn("insight_daily_average", keys)
+
+    def test_retention_excluded_for_never_sold_shop(self):
+        context = {"days_since_onboarding": 5, "streak": 0, "last_active_days_ago": None, "features_used": [], "nudge_stage": 0}
+        keys = [c["key"] for c in _eligible_ctas(context)]
+        self.assertNotIn("retention_no_sales_today", keys)
+
+    def test_retention_included_for_shop_with_history(self):
+        context = {"days_since_onboarding": 5, "streak": 0, "last_active_days_ago": 1, "features_used": [], "nudge_stage": 0}
+        keys = [c["key"] for c in _eligible_ctas(context)]
+        self.assertIn("retention_no_sales_today", keys)
+
 
 class MaybeSendNudgesTest(TransactionTestCase):
 
