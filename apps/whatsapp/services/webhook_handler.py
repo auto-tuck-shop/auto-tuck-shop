@@ -354,7 +354,7 @@ async def _process_message_async(
                 # Otherwise fall through — they sent a sale or unrelated message during the closing window
 
         try:
-            result = await parse_message_unified(text, company=company)
+            result = await parse_message_unified(text, company=company, message_id=message_id)
         except Exception as e:
             logger.exception(f"LLM processing failed for message {message_id}: {e}")
             await _send_response(sender, t("error.processing_failed", lang=lang))
@@ -372,6 +372,15 @@ async def _process_message_async(
                     pass
 
         logger.info(f"Parsed message - intent: {result.intent}, confidence: {result.confidence}")
+
+        import sentry_sdk
+        sentry_sdk.set_tag("intent", result.intent)
+        sentry_sdk.set_context("llm_parse", {
+            "intent": result.intent,
+            "confidence": result.confidence,
+            "message_id": message_id,
+            "notes": result.notes,
+        })
 
         if result.intent == "add_assistant":
             from apps.whatsapp.services.waitlist_handler import handle_add_assistant

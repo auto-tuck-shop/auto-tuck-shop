@@ -94,13 +94,22 @@ async def process_audio_message_async(
             return
 
         try:
-            result = await parse_message_unified(transcribed_text, company=company)
+            result = await parse_message_unified(transcribed_text, company=company, message_id=message_id)
         except Exception as e:
             logger.exception(f"LLM processing failed for audio message {message_id}: {e}")
             await _send_response(sender, t("error.processing_failed", lang=lang))
             return
 
         logger.info(f"Parsed audio - intent: {result.intent}, confidence: {result.confidence}")
+
+        import sentry_sdk
+        sentry_sdk.set_tag("intent", result.intent)
+        sentry_sdk.set_context("llm_parse", {
+            "intent": result.intent,
+            "confidence": result.confidence,
+            "message_id": message_id,
+            "notes": result.notes,
+        })
 
         from apps.core.models import UserProfile as UP
         if result.intent == "add_assistant":
