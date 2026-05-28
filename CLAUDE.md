@@ -36,8 +36,8 @@ Auto Tuck Shop is a Django app. Shop owners in Zimbabwe send WhatsApp text or vo
 5. ~~E2E test checklist (#44)~~ ✓ done — audio testing deferred to real device
 6. ~~Pre-production checklist (#76)~~ ✓ done — Meta policy URLs (privacy/terms/data-deletion) set in App Settings → Basic
 7. ~~Deploy to production (#24)~~ ✓ done — live 2026-05-25
-8. Onboard 10 pilot shops (#25, assigned Bradley)
-9. WhatsApp UX polish — blue ticks, typing indicator, profile name/icon (#77, post-deploy)
+8. Onboard 20 pilot shops (#25, assigned Bradley)
+9. ~~WhatsApp UX polish — blue ticks (#77)~~ ✓ done (v0.1.8) — typing indicator shipped but broken on prod (wrong Meta API payload), profile name/icon still pending
 
 When an AI assistant is helping with a task, check which issue it maps to and work within that scope. If a task doesn't map to an open issue, check with the user before starting.
 
@@ -53,7 +53,7 @@ Before starting any task, read the relevant context:
 - **Architecture, data model, flows, async model:** wiki (see below)
 - **Pilot launch sequence and success metrics:** wiki (see below)
 - **All external service integrations:** wiki (see below)
-- **Key service entry points:** `apps/whatsapp/services/` — sale_handler, waitlist_handler, media_handler, message_parser
+- **Key service entry points:** `apps/whatsapp/services/` — webhook_handler (main entry), sale_handler, waitlist_handler, business_reports, nudge_service, media_handler, message_parser, report_card, whatsapp_client
 - **LLM system prompt (tune for parsing improvements):** `services/openrouter/prompts.py`
 - **User-facing strings (EN + Shona):** `apps/whatsapp/locales/en.json`, `sn.json`
 - **Unit tests:** `python manage.py test unit_tests`
@@ -91,11 +91,10 @@ cd /tmp/ats-wiki && git add <file> && git commit -m "docs: ..." && git push orig
 ## Scope rule
 
 Every task should be classified before starting:
-- **Pilot blocker** — must be done before first live deploy
-- **Pilot support** — useful for operating or observing the pilot
+- **Pilot support** — improves sale recording, shop onboarding, operator visibility, or production safety for the active pilot
 - **Post-pilot** — record in backlog, don't implement now
 
-If a change doesn't improve sale recording, pilot onboarding, operator visibility, or production safety, it belongs after Phase 1.
+Production is live. If a change doesn't directly support the 20-shop pilot or fix a real issue, it belongs in the backlog.
 
 ## Keeping the backlog current
 
