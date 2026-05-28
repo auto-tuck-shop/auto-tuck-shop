@@ -13,7 +13,7 @@ console_command = '/code/manage.py shell'
 
 [processes]
   app = 'gunicorn --bind :8000 --workers 2 config.wsgi'
-  cron = 'python manage.py send_daily_reports'
+  cron = 'python manage.py send_daily_reports && python manage.py send_nudges'
 
 [deploy]
   release_command = 'python manage.py migrate --noinput'

@@ -24,6 +24,11 @@ class Company(models.Model):
         help_text="Default currency for this company's prices",
     )
 
+    # Nudge system
+    first_message_date = models.DateField(null=True, blank=True, help_text="Date of first inbound message — nudge eligibility starts here")
+    last_nudge_date = models.DateField(null=True, blank=True, help_text="Last date a nudge was sent — prevents double-sending")
+    nudge_stage = models.PositiveSmallIntegerField(default=0, help_text="Nudge sequence stage — increments after each send")
+
     def format_price(self, amount):
         """Format a price using this company's currency."""
         return format_price(amount, self.currency)
@@ -56,6 +61,7 @@ class UserProfile(models.Model):
         default="sn",
         help_text="User's preferred language (en, sn)",
     )
+    nudge_opt_out = models.BooleanField(default=False, help_text="User replied 'stop' — skip nudges for this user")
 
     class Meta:
         ordering = ["user__username"]

@@ -306,6 +306,16 @@ async def _process_message_async(
             except Exception:
                 logger.debug("WhatsApp client not available for typing indicator")
 
+        # Intercept nudge opt-out before anything else.
+        if text.strip().lower() in ("stop", "unsubscribe") and user_profile:
+            @db_sync_to_async
+            def _set_opt_out():
+                from apps.core.models import UserProfile as UP
+                UP.objects.filter(pk=user_profile.pk).update(nudge_opt_out=True)
+            await _set_opt_out()
+            await _send_response(sender, t("nudge.opt_out_confirmed", lang=lang))
+            return
+
         # Intercept closing time messages before hitting the LLM.
         if company:
             import re as _re

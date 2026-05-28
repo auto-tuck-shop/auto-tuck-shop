@@ -46,6 +46,19 @@
         "no_sales": "Hapana zvakatengeswa musi wa {date}.",
         "not_registered": "Sorry, account yako haisati yagadzirwa. Taura na administrator we shop yako."
     },
+    "nudge": {
+        "opt_out_confirmed": "Zvakanaka — handichakutumiri ma reminder. Unogona kumboshandisa ini kurecorda zvawatengesa nguva dzose.",
+        "onboarding_first_sale": "Makadii! Moda kurecoda kutengesa kwekutanga? Ndiudze zvamakatengeswa — semuenzaniso *2 Mazoe $1 rimwe*",
+        "onboarding_shona_tip": "Zano: unogona kutaura neni ne Shona, English, kana zvese zviri vaviri.",
+        "onboarding_reports": "Ndinogona kukutumira ma reports kana shop yavhara. Moda kuita izvozvo? Pindura *ehe*",
+        "retention_no_sales_today": "Hauna nyora zvawatengesa nhasi — watengesa chii?",
+        "retention_streak": "Une {streak} mazuva ekutengesa! Ramba — nhasi watengesa chii?",
+        "retention_yesterday_recap": "Nezuro wakarecoda {count} ma sales aine {currency}{total}. Wedzera yenhasi?",
+        "discovery_weekly_report": "Unoziva here kuti unogona kundibvunza *ndakaita mari ngapi svondo rino?* Edza.",
+        "discovery_multi_item": "Unogona kurecorda zvakawanda mumessage imwe — semuenzaniso *3 Mazoe $1, 2 chingwa $0.50*",
+        "insight_best_day": "Zuva rakanakisa svondo rino raive {day} ne {currency}{total}. Chii chakashanduka pazuva iri?",
+        "insight_daily_average": "Unoita {currency}{avg} zuva nezuva — une nzira yekusvika {currency}{projected} Svondo."
+    },
     "sale": {
         "no_products": "Handina zvinotengeswa zvandaona. Tumira zvawatengesa patsva, semuenzaniso: \"2 Mazoe $3 rimwe\" kana \"5 chingwa R18 rimwe, 2 shuga R40 rimwe\"",
         "item_with_price": "  {quantity} x {product} @ {price}",
