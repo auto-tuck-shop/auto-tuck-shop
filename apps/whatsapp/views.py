@@ -22,6 +22,7 @@ from apps.whatsapp.services.webhook_handler import (
     handle_sale_button_action,
     handle_waitlist_button_action,
     handle_waitlisted_message,
+    run_async,
 )
 
 logger = logging.getLogger(__name__)
@@ -205,6 +206,9 @@ class WhatsAppWebhookView(View):
         sender = message.get("from", "")  # Plain number like '1234567890'
         message_type = message.get("type", "")
 
+        import sentry_sdk
+        sentry_sdk.set_user({"id": sender, "username": sender})
+
         if _is_duplicate_message(message_id):
             logger.info("Duplicate message %s from %s, skipping", message_id, sender)
             return
@@ -277,6 +281,9 @@ class WhatsAppWebhookView(View):
         # Lookup sender for recording
         phone_number = _extract_phone_number(sender)
         status, profile, waitlist_entry = _lookup_sender(sender)
+        if profile:
+            import sentry_sdk
+            sentry_sdk.set_user({"id": sender, "username": sender, "name": profile.company.name})
 
         # Record inbound button response
         _record_inbound_message(
@@ -344,6 +351,9 @@ class WhatsAppWebhookView(View):
         status, profile, waitlist_entry = _lookup_sender(sender)
         phone_number = _extract_phone_number(sender)
         print(f"[DEBUG VIEW] Sender status: {status.value}, phone={phone_number}", flush=True)
+        if profile:
+            import sentry_sdk
+            sentry_sdk.set_user({"id": sender, "username": sender, "name": profile.company.name})
 
         # Record inbound message
         _record_inbound_message(
