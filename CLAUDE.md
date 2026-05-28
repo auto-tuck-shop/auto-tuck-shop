@@ -161,6 +161,18 @@ New migrations must be committed immediately and included in the same PR as the 
 
 Write a staging integration test that reproduces the failure before fixing. If the bug can't be reproduced in staging, recommend improved logging instead.
 
+## Pilot audit
+
+When Brighton says "audit the pilot", "check shop activity", or similar, run:
+
+```bash
+fly ssh console --app auto-tuck-shop -C "python manage.py pilot_audit"
+```
+
+Pass `--hours 48` (or any number) for a wider window.
+
+Known test accounts excluded automatically: +27644178150, +27610869293
+
 ## Language and parsing
 
 The LLM must handle English, Shona, and code-switching. Key Shona vocabulary:
