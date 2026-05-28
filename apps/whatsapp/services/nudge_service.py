@@ -254,12 +254,9 @@ async def _send_nudge(company, message: str, cta_type: str = "text", lang: str =
 
 
 def _in_send_window() -> bool:
-    """Return True if current CAT time is within the nudge send window."""
-    import datetime
-    now_utc = timezone.now()
-    # CAT = UTC+2
-    now_cat = now_utc + __import__("datetime").timedelta(hours=2)
-    return settings.NUDGE_SEND_WINDOW_START <= now_cat.hour < settings.NUDGE_SEND_WINDOW_END
+    """Return True if current local time is within the nudge send window."""
+    now_local = timezone.localtime(timezone.now())
+    return settings.NUDGE_SEND_WINDOW_START <= now_local.hour < settings.NUDGE_SEND_WINDOW_END
 
 
 async def maybe_send_nudges(now=None) -> dict:
