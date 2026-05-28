@@ -5,7 +5,7 @@ import logging
 from enum import Enum
 
 from django.conf import settings
-from django.db import close_old_connections
+from django.db import IntegrityError, close_old_connections
 from django.http import HttpRequest, HttpResponse
 from django.utils.decorators import method_decorator
 from django.views import View
@@ -104,6 +104,11 @@ def _record_inbound_message(
     Record an inbound WhatsApp message to the database.
 
     This is a fire-and-forget operation - failures won't break message processing.
+    
+    Duplicate detection: If whatsapp_message_id is already in the DB, this will
+    raise IntegrityError (due to unique constraint). We catch it and log a warning
+    rather than breaking the webhook. This handles the case where Meta retries
+    the same webhook message.
     """
     try:
         WhatsAppMessage.objects.create(
@@ -124,6 +129,11 @@ def _record_inbound_message(
             transcribed_text=transcribed_text,
         )
         logger.debug(f"Recorded inbound message from {phone_number}")
+    except IntegrityError as e:
+        if "whatsapp_message_id" in str(e):
+            logger.warning(f"Duplicate message detected: {whatsapp_message_id}. Ignoring.")
+        else:
+            logger.error(f"Failed to record inbound message: {e}", exc_info=True)
     except Exception as e:
         logger.error(f"Failed to record inbound message: {e}", exc_info=True)
 
@@ -274,6 +284,19 @@ class WhatsAppWebhookView(View):
             waitlist_entry=waitlist_entry,
         )
 
+        # Mark inbound button response as read so WhatsApp shows read receipts
+        if settings.ENABLE_WHATSAPP_MARK_AS_READ:
+            try:
+                from apps.whatsapp.services.whatsapp_client import get_whatsapp_client
+                client = get_whatsapp_client()
+                # fire-and-forget
+                try:
+                    run_async(client.mark_as_read(message_id))
+                except Exception:
+                    logger.exception("Failed to fire mark_as_read")
+            except Exception:
+                logger.debug("Mark-as-read not available")
+
         # Parse button ID to determine action type
         # Format: "confirm_{sale_id}", "fix_{sale_id}", "waitlist_approve_{entry_id}", "waitlist_reject_{entry_id}"
         if button_id.startswith("confirm_") or button_id.startswith("fix_"):
@@ -322,6 +345,18 @@ class WhatsAppWebhookView(View):
             waitlist_entry=waitlist_entry,
         )
 
+        # Mark inbound message as read (so blue ticks appear)
+        if settings.ENABLE_WHATSAPP_MARK_AS_READ:
+            try:
+                from apps.whatsapp.services.whatsapp_client import get_whatsapp_client
+                client = get_whatsapp_client()
+                try:
+                    run_async(client.mark_as_read(message_id))
+                except Exception:
+                    logger.exception("Failed to fire mark_as_read")
+            except Exception:
+                logger.debug("Mark-as-read not available")
+
         if status == SenderStatus.UNKNOWN:
             # New user - add to waitlist
             print(f"[DEBUG VIEW] Calling handle_new_waitlist_entry for unknown sender {sender}", flush=True)
@@ -366,6 +401,18 @@ class WhatsAppWebhookView(View):
             r2_media_url="",
             raw_payload=message,
         )
+
+        # Mark inbound audio message as read
+        if settings.ENABLE_WHATSAPP_MARK_AS_READ:
+            try:
+                from apps.whatsapp.services.whatsapp_client import get_whatsapp_client
+                client = get_whatsapp_client()
+                try:
+                    run_async(client.mark_as_read(message_id))
+                except Exception:
+                    logger.exception("Failed to fire mark_as_read")
+            except Exception:
+                logger.debug("Mark-as-read not available")
 
         if status == SenderStatus.UNKNOWN:
             # New user - add to waitlist

@@ -60,7 +60,20 @@ R2_PUBLIC_URL=
 SENTRY_DSN=  # optional
 ```
 
-**4. Migrate and create superuser**
+**4. Configure WhatsApp Business Profile**
+
+Before first deployment, set up your WhatsApp Business Account profile on Meta's dashboard so customers see your business name and logo instead of just a phone number:
+
+1. Go to [business.facebook.com](https://business.facebook.com)
+2. Select your WhatsApp Business Account
+3. Navigate to **Phone Numbers** → your phone number → **Profile**
+4. Set **Display Name** (e.g., "Auto Tuck Shop") — this requires Meta approval (24-48 hours)
+5. Upload a **Profile Picture** (your business logo, PNG/JPEG, recommended 512×512 px)
+6. Save and wait for approval if prompted
+
+Once approved, customers will see your business name in the chat header instead of just the phone number.
+
+**5. Migrate and create superuser**
 
 ```bash
 python manage.py migrate
@@ -101,6 +114,7 @@ fly deploy                   # only after Brighton sign-off
 |---|---|
 | `apps/whatsapp/views.py` | Webhook entry point — receives Meta callbacks |
 | `apps/whatsapp/services/webhook_handler.py` | Shared utilities, public entry points |
+| `apps/whatsapp/services/message_lock.py` | Per-user message serialization (prevents race conditions) |
 | `apps/whatsapp/services/sale_handler.py` | Sale creation and button processing |
 | `apps/whatsapp/services/waitlist_handler.py` | Onboarding, language selection, approval |
 | `apps/whatsapp/services/media_handler.py` | Audio download, transcription, R2 upload |
