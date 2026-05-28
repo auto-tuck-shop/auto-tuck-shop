@@ -182,10 +182,18 @@ async def process_sale_button_action_async(
         if result:
             sale, original_whatsapp_message_id = result
             await _send_response(sender, t("sale.confirmed_ok", lang=lang), reply_to=original_whatsapp_message_id)
-            # After first confirmed sale, ask for closing time if not yet set
+            # After first confirmed sale, ask for closing time via buttons
             if await _company_needs_closing_time(sale.company_id) and await _is_first_confirmed_sale(sale.company_id):
                 await asyncio.sleep(3)
-                await _send_response(sender, t("closing.setup_prompt", lang=lang))
+                await _send_response_with_buttons(
+                    sender,
+                    t("closing.setup_prompt_buttons", lang=lang),
+                    [
+                        {"id": "closing_early", "title": t("closing.btn_early", lang=lang)},
+                        {"id": "closing_mid",   "title": t("closing.btn_mid",   lang=lang)},
+                        {"id": "closing_late",  "title": t("closing.btn_late",  lang=lang)},
+                    ],
+                )
         else:
             await _send_response(sender, t("sale.already_processed", lang=lang))
     else:

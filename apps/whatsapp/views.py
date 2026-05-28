@@ -14,6 +14,7 @@ from django.views.decorators.csrf import csrf_exempt
 from apps.core.models import UserProfile, WaitlistEntry
 from apps.whatsapp.models import WhatsAppMessage
 from apps.whatsapp.services.webhook_handler import (
+    handle_closing_time_button_action,
     handle_incoming_message,
     handle_language_button_action,
     handle_new_waitlist_entry,
@@ -340,6 +341,8 @@ class WhatsAppWebhookView(View):
             handle_nudge_reports_yes(sender=sender)
         elif button_id == "nudge_reports_no":
             handle_nudge_reports_no(sender=sender)
+        elif button_id in ("closing_early", "closing_mid", "closing_late"):
+            handle_closing_time_button_action(sender=sender, button_id=button_id)
         else:
             logger.warning(f"Unknown button ID format: {button_id}")
 
