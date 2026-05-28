@@ -154,7 +154,7 @@ class MockOutboxView(View):
         # Build timeline for this phone (for history loading)
         phone_timeline = [
             t for t in MockWhatsAppClient.timeline
-            if t["phone"] in variants
+            if not t.get("phone") or t.get("phone") in variants
         ]
 
         return JsonResponse({
