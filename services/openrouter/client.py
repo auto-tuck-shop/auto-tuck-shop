@@ -1,5 +1,6 @@
 import json
 import logging
+from dataclasses import dataclass
 from typing import Any
 
 import httpx
@@ -15,6 +16,20 @@ GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/openai/chat/c
 GEMINI_FALLBACK_MODEL = "gemini-2.5-flash"
 
 MAX_JSON_PARSE_RETRIES = 2
+
+
+@dataclass
+class CompletionResult:
+    content: str
+    prompt_tokens: int | None
+    completion_tokens: int | None
+
+
+@dataclass
+class ParseJsonResult:
+    response: dict
+    prompt_tokens: int | None
+    completion_tokens: int | None
 
 
 class OpenRouterError(Exception):
@@ -70,7 +85,7 @@ class OpenRouterClient:
         self,
         messages: list[dict[str, str]],
         response_format: dict[str, Any] | None = None,
-    ) -> str:
+    ) -> CompletionResult:
         """
         Send a chat completion request to OpenRouter.
 
@@ -79,7 +94,7 @@ class OpenRouterClient:
             response_format: Optional response format specification for JSON mode
 
         Returns:
-            The assistant's response content
+            CompletionResult with content and token counts
         """
         payload: dict[str, Any] = {
             "model": self.model,
@@ -138,7 +153,12 @@ class OpenRouterClient:
                 f"{len(content) if content else 0}"
             )
 
-        return content
+        usage = data.get("usage", {})
+        return CompletionResult(
+            content=content,
+            prompt_tokens=usage.get("prompt_tokens"),
+            completion_tokens=usage.get("completion_tokens"),
+        )
 
     async def _gemini_fallback(self, payload: dict, gemini_key: str):
         """Call Gemini directly using its OpenAI-compatible endpoint."""
@@ -158,7 +178,7 @@ class OpenRouterClient:
     async def parse_json_response(
         self,
         messages: list[dict[str, str]],
-    ) -> dict[str, Any]:
+    ) -> ParseJsonResult:
         """
         Send a chat completion request and parse the response as JSON.
 
@@ -169,14 +189,14 @@ class OpenRouterClient:
             messages: List of message dicts with 'role' and 'content' keys
 
         Returns:
-            Parsed JSON response as a dictionary
+            ParseJsonResult with parsed response dict and token counts
         """
         last_error = None
 
         async with track("openrouter_llm"):
             for attempt in range(1 + MAX_JSON_PARSE_RETRIES):
                 try:
-                    content = await self.chat_completion(
+                    completion = await self.chat_completion(
                         messages,
                         response_format={"type": "json_object"},
                     )
@@ -189,12 +209,16 @@ class OpenRouterClient:
                     continue
 
                 try:
-                    return json.loads(content)
+                    return ParseJsonResult(
+                        response=json.loads(completion.content),
+                        prompt_tokens=completion.prompt_tokens,
+                        completion_tokens=completion.completion_tokens,
+                    )
                 except json.JSONDecodeError as e:
                     last_error = OpenRouterError(f"Invalid JSON response: {e}")
                     logger.warning(
                         f"Invalid JSON on attempt {attempt + 1}/"
-                        f"{1 + MAX_JSON_PARSE_RETRIES}: {content[:200]}"
+                        f"{1 + MAX_JSON_PARSE_RETRIES}: {completion.content[:200]}"
                     )
                     continue
 

@@ -120,7 +120,39 @@ def _get_active_products(company=None):
     return products
 
 
-async def parse_message_unified(message: str, company=None) -> UnifiedMessageResult:
+@sync_to_async
+def _save_parse_log(
+    msg_id: str,
+    intent: str,
+    confidence: float | None,
+    raw_response: dict | None,
+    prompt_tokens: int | None,
+    completion_tokens: int | None,
+    parse_error: str = "",
+) -> None:
+    from apps.whatsapp.models import WhatsAppMessage, LlmParseLog
+    try:
+        wa_msg = WhatsAppMessage.objects.get(whatsapp_message_id=msg_id)
+        LlmParseLog.objects.update_or_create(
+            message=wa_msg,
+            defaults=dict(
+                intent=intent,
+                confidence=confidence,
+                raw_response=raw_response,
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                parse_error=parse_error,
+            ),
+        )
+    except WhatsAppMessage.DoesNotExist:
+        pass  # mock/test messages without a DB record — skip silently
+
+
+async def parse_message_unified(
+    message: str,
+    company=None,
+    message_id: str | None = None,
+) -> UnifiedMessageResult:
     """Unified LLM call: detect intent and extract data in one shot."""
     async with track("unified_parse"):
         products = await _get_active_products(company)
@@ -130,12 +162,24 @@ async def parse_message_unified(message: str, company=None) -> UnifiedMessageRes
         client = OpenRouterClient()
 
         try:
-            response = await client.parse_json_response(messages)
+            parse_result = await client.parse_json_response(messages)
         except Exception as e:
             logger.exception(f"Failed to parse message: {e}")
+            if message_id:
+                try:
+                    await _save_parse_log(message_id, "", None, None, None, None, parse_error=str(e))
+                except Exception:
+                    logger.exception("Failed to save LlmParseLog for error")
             raise
 
-        logger.info(f"LLM response for '{message[:80]}': {response}")
+        response = parse_result.response
+        prompt_tokens = parse_result.prompt_tokens
+        completion_tokens = parse_result.completion_tokens
+
+        logger.info(
+            f"LLM response for '{message[:80]}': {response} "
+            f"[tokens: prompt={prompt_tokens} completion={completion_tokens} message={message_id}]"
+        )
 
         intent = response.get("intent", "sale")
         confidence = response.get("confidence", 0.5)
@@ -190,5 +234,13 @@ async def parse_message_unified(message: str, company=None) -> UnifiedMessageRes
         elif intent == "sales_query":
             result.timeframe = response.get("timeframe", "today")
             result.product_filter = response.get("product_filter")
+
+        if message_id:
+            try:
+                await _save_parse_log(
+                    message_id, intent, confidence, response, prompt_tokens, completion_tokens
+                )
+            except Exception:
+                logger.exception("Failed to save LlmParseLog")
 
         return result

@@ -90,3 +90,30 @@ class WhatsAppMessage(models.Model):
         direction_arrow = "←" if self.direction == self.Direction.INBOUND else "→"
         content_preview = self.content[:50] if self.content else f"[{self.message_type}]"
         return f"{direction_arrow} {self.phone_number}: {content_preview}"
+
+
+class LlmParseLog(models.Model):
+    """Stores the LLM parse result for each inbound message."""
+
+    message = models.OneToOneField(
+        "WhatsAppMessage",
+        on_delete=models.CASCADE,
+        related_name="llm_parse_log",
+    )
+    intent = models.CharField(max_length=30, blank=True)
+    confidence = models.FloatField(null=True, blank=True)
+    raw_response = models.JSONField(null=True, blank=True)
+    prompt_tokens = models.IntegerField(null=True, blank=True)
+    completion_tokens = models.IntegerField(null=True, blank=True)
+    parse_error = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["intent", "-created_at"]),
+        ]
+
+    def __str__(self):
+        if self.parse_error:
+            return f"LlmParseLog [{self.message_id}] ERROR"
+        return f"LlmParseLog [{self.message_id}] {self.intent} ({self.confidence:.2f})"
