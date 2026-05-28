@@ -89,17 +89,17 @@ def build_shop_context(company) -> dict:
 
 
 def _eligible_ctas(context: dict) -> list[dict]:
-    """Return list of {key, text} dicts eligible for this shop context."""
+    """Return list of {key, text, type} dicts eligible for this shop context."""
     from apps.whatsapp.services.webhook_handler import t
     days = context.get("days_since_onboarding")
     streak = context.get("streak", 0)
     features = context.get("features_used", [])
     eligible = []
 
-    def add(key: str, **params):
+    def add(key: str, cta_type: str = "text", **params):
         try:
             text = t(f"nudge.{key}", lang="en", **params)
-            eligible.append({"key": key, "text": text})
+            eligible.append({"key": key, "text": text, "type": cta_type})
         except (KeyError, IndexError):
             logger.warning("Missing nudge locale key: %s", key)
 
@@ -107,7 +107,7 @@ def _eligible_ctas(context: dict) -> list[dict]:
     if days is not None and days <= _ONBOARDING_DAYS:
         add("onboarding_first_sale")
         add("onboarding_shona_tip")
-        add("onboarding_reports")
+        add("onboarding_reports", cta_type="button")
 
     # Retention — always eligible
     add("retention_no_sales_today")
@@ -125,19 +125,19 @@ def _eligible_ctas(context: dict) -> list[dict]:
 
     # Gated CTAs — enabled via settings flags when features ship
     if getattr(settings, "NUDGE_ENABLE_UNDO_CTA", False):
-        eligible.append({"key": "discovery_undo", "text": "You can correct a mistake — just say *undo last sale*"})
+        eligible.append({"key": "discovery_undo", "text": "You can correct a mistake — just say *undo last sale*", "type": "text"})
     if getattr(settings, "NUDGE_ENABLE_INVENTORY_CTA", False):
-        eligible.append({"key": "inventory_restock", "text": "Are you running low on anything? Tell me and I'll track it."})
+        eligible.append({"key": "inventory_restock", "text": "Are you running low on anything? Tell me and I'll track it.", "type": "text"})
     if getattr(settings, "NUDGE_ENABLE_COMMUNITY_CTA", False):
-        eligible.append({"key": "community_whatsapp", "text": "Join other Auto Tuck Shop owners on WhatsApp."})
+        eligible.append({"key": "community_whatsapp", "text": "Join other Auto Tuck Shop owners on WhatsApp.", "type": "text"})
     if getattr(settings, "NUDGE_ENABLE_OPTIONS_CTA", False):
-        eligible.append({"key": "options_menu", "text": "Need help? Reply *help* to see what I can do."})
+        eligible.append({"key": "options_menu", "text": "Need help? Reply *help* to see what I can do.", "type": "text"})
 
     return eligible
 
 
-async def pick_nudge_cta(context: dict, lang: str) -> str | None:
-    """Ask the LLM to pick the best CTA from the eligible pool. Returns formatted message or None."""
+async def pick_nudge_cta(context: dict, lang: str) -> dict | None:
+    """Ask the LLM to pick the best CTA from the eligible pool. Returns {message, cta_type} or None."""
     from services.openrouter import OpenRouterClient
     from services.openrouter.prompts import build_nudge_picker_prompt
     from apps.whatsapp.services.webhook_handler import t
@@ -154,14 +154,16 @@ async def pick_nudge_cta(context: dict, lang: str) -> str | None:
         params = result.response.get("params") or {}
         if not cta_key:
             return None
+        # Find the selected CTA to get its type
+        selected = next((c for c in eligible if c["key"] == cta_key), None)
+        cta_type = selected["type"] if selected else "text"
         try:
-            return t(f"nudge.{cta_key}", lang=lang, **params)
+            message = t(f"nudge.{cta_key}", lang=lang, **params)
         except (KeyError, IndexError):
-            # Fallback: find the eligible CTA text directly
-            for c in eligible:
-                if c["key"] == cta_key:
-                    return c["text"]
+            message = selected["text"] if selected else None
+        if not message:
             return None
+        return {"message": message, "cta_type": cta_type}
     except Exception:
         logger.exception("LLM CTA picker failed — skipping nudge")
         return None
@@ -230,13 +232,23 @@ def _get_non_opted_out_phones(company) -> list[str]:
     )
 
 
-async def _send_nudge(company, message: str) -> None:
+async def _send_nudge(company, message: str, cta_type: str = "text", lang: str = "en") -> None:
     from apps.whatsapp.services.whatsapp_client import get_whatsapp_client
+    from apps.whatsapp.services.webhook_handler import t
     phones = await _get_non_opted_out_phones(company)
     client = get_whatsapp_client()
     for phone in phones:
         if settings.USE_TEMPLATE_MESSAGES:
             await client.send_template_message(phone, "ats_daily_nudge")
+        elif cta_type == "button":
+            await client.send_message_with_buttons(
+                phone,
+                message,
+                buttons=[
+                    {"id": "nudge_reports_yes", "title": t("nudge.btn_reports_yes", lang=lang)},
+                    {"id": "nudge_reports_no", "title": t("nudge.btn_reports_no", lang=lang)},
+                ],
+            )
         else:
             await client.send_message(phone, message)
 
@@ -269,15 +281,15 @@ async def maybe_send_nudges(now=None) -> dict:
 
         context = await sync_to_async(build_shop_context)(company)
         lang = await _company_owner_lang(company)
-        message = await pick_nudge_cta(context, lang)
+        cta = await pick_nudge_cta(context, lang)
 
-        if not message:
+        if not cta:
             logger.debug("No eligible CTA for company %s — skipping", company.id)
             skipped.append(company.id)
             continue
 
         try:
-            await _send_nudge(company, message)
+            await _send_nudge(company, cta["message"], cta_type=cta["cta_type"], lang=lang)
             await _record_nudge_sent(company, today)
             logger.info("Nudge sent to company %s (stage %s)", company.id, company.nudge_stage)
             sent.append(company.id)
