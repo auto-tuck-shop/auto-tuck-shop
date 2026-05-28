@@ -17,6 +17,8 @@ from apps.whatsapp.services.webhook_handler import (
     handle_incoming_message,
     handle_language_button_action,
     handle_new_waitlist_entry,
+    handle_nudge_reports_no,
+    handle_nudge_reports_yes,
     handle_sale_button_action,
     handle_waitlist_button_action,
     handle_waitlisted_message,
@@ -327,6 +329,10 @@ class WhatsAppWebhookView(View):
                 entry_id=entry_id,
                 sender=sender,
             )
+        elif button_id == "nudge_reports_yes":
+            handle_nudge_reports_yes(sender=sender)
+        elif button_id == "nudge_reports_no":
+            handle_nudge_reports_no(sender=sender)
         else:
             logger.warning(f"Unknown button ID format: {button_id}")
 

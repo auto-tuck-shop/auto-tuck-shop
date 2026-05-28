@@ -100,6 +100,20 @@ class EligibleCtasTest(TransactionTestCase):
         keys = [c["key"] for c in _eligible_ctas(context)]
         self.assertNotIn("discovery_weekly_report", keys)
 
+    def test_onboarding_reports_cta_is_button_type(self):
+        context = {"days_since_onboarding": 3, "streak": 0, "features_used": [], "nudge_stage": 0}
+        ctas = _eligible_ctas(context)
+        reports_cta = next((c for c in ctas if c["key"] == "onboarding_reports"), None)
+        self.assertIsNotNone(reports_cta)
+        self.assertEqual(reports_cta["type"], "button")
+
+    def test_all_other_ctas_are_text_type(self):
+        context = {"days_since_onboarding": 3, "streak": 3, "features_used": [], "nudge_stage": 0}
+        ctas = _eligible_ctas(context)
+        for cta in ctas:
+            if cta["key"] != "onboarding_reports":
+                self.assertEqual(cta["type"], "text", f"Expected text type for {cta['key']}")
+
 
 class MaybeSendNudgesTest(TransactionTestCase):
 
@@ -127,7 +141,7 @@ class MaybeSendNudgesTest(TransactionTestCase):
     def test_sends_nudge_to_eligible_shop(self, _mock_window):
         async def _run_with_mocks():
             with patch("apps.whatsapp.services.nudge_service._recently_active", new=AsyncMock(return_value=False)), \
-                 patch("apps.whatsapp.services.nudge_service.pick_nudge_cta", new=AsyncMock(return_value="What did you sell today?")), \
+                 patch("apps.whatsapp.services.nudge_service.pick_nudge_cta", new=AsyncMock(return_value={"message": "What did you sell today?", "cta_type": "text"})), \
                  patch("apps.whatsapp.services.nudge_service._send_nudge", new=AsyncMock(return_value=None)):
                 return await maybe_send_nudges()
         result = _run(_run_with_mocks())

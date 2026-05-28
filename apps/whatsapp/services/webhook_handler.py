@@ -166,6 +166,30 @@ def handle_sale_button_action(action: str, sender: str, original_message_sid: st
     _handle(action, sender, original_message_sid)
 
 
+def handle_nudge_reports_yes(sender: str) -> None:
+    """User tapped 'Yes, set it up' on the onboarding_reports nudge — enter closing time setup flow."""
+    phone_number = _extract_phone_number(sender)
+    run_async(_handle_nudge_reports_yes_async(phone_number))
+
+
+def handle_nudge_reports_no(sender: str) -> None:
+    """User tapped 'Not now' on the onboarding_reports nudge — send a brief acknowledgement."""
+    phone_number = _extract_phone_number(sender)
+    run_async(_handle_nudge_reports_no_async(phone_number))
+
+
+async def _handle_nudge_reports_yes_async(phone_number: str) -> None:
+    profile = await _get_profile_by_phone(phone_number)
+    lang = profile.language if profile else DEFAULT_LANGUAGE
+    await _send_response(phone_number, t("closing.setup_prompt", lang=lang))
+
+
+async def _handle_nudge_reports_no_async(phone_number: str) -> None:
+    profile = await _get_profile_by_phone(phone_number)
+    lang = profile.language if profile else DEFAULT_LANGUAGE
+    await _send_response(phone_number, t("nudge.reports_declined", lang=lang))
+
+
 def handle_incoming_message(
     message_id: str,
     sender: str,
