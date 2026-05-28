@@ -484,7 +484,7 @@ async def maybe_send_daily_notifications(now: datetime | None = None) -> dict[st
     """
     now = now or timezone.now()
     today = timezone.localdate(now)
-    current_time = now.time()
+    current_time = timezone.localtime(now).time()
     prompt_cutoff = time(17, 0)
 
     companies = await load_active_companies()
