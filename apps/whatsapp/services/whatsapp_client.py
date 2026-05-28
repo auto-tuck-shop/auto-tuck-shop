@@ -381,38 +381,11 @@ class WhatsAppClient:
     async def send_typing_indicator(self, to: str, action: str = "typing_on") -> bool:
         """Send typing indicator via Meta Cloud API.
 
-        Only "typing_on" triggers an API call. "typing_off" is a no-op because the
-        Cloud API typing_indicator auto-expires after 25s or when a message is
-        sent — there is no explicit off signal.
+        Disabled: type=typing_indicator is rejected by Meta's /messages endpoint on
+        Graph API v21.0 (not in the valid type enum). No-op until Meta confirms the
+        correct payload or endpoint for Cloud API typing indicators.
         """
-        if action == "typing_off":
-            return True
-
-        if not self.access_token or not self.phone_number_id:
-            logger.error("Meta WhatsApp credentials not configured for typing indicator")
-            return False
-
-        to_number = self._normalize_phone_number(to)
-
-        payload = {
-            "messaging_product": "whatsapp",
-            "to": to_number,
-            "type": "typing_indicator",
-            "typing_indicator": {"type": "text"},
-        }
-
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            try:
-                response = await client.post(self._get_api_url(), headers=self._get_headers(), json=payload)
-                if not response.is_success:
-                    logger.error(
-                        f"Typing indicator rejected by Meta (HTTP {response.status_code}): {response.text}"
-                    )
-                response.raise_for_status()
-                logger.info(f"Sent typing indicator to {to}")
-                return True
-            except Exception:
-                logger.exception(f"Failed to send typing indicator to {to}")
+        return True
 
     async def send_image(self, to: str, image_url: str, caption: str = "") -> bool:
         """Send a WhatsApp image message via URL via Meta Cloud API."""
