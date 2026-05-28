@@ -157,6 +157,23 @@ python manage.py migrate
 
 New migrations must be committed immediately and included in the same PR as the schema change.
 
+## Pilot audit
+
+When Brighton says "audit the pilot", "check shop activity", or similar, run:
+
+```bash
+fly ssh console --app auto-tuck-shop -C "python manage.py pilot_audit"
+```
+
+Pass `--hours 48` (or any number) for a wider window. The command outputs:
+- New signups and anything pending approval
+- Per-company: sales count (total / yesterday / today), last inbound message, closing time, last summary date
+- Sales detail for the window (items, amounts)
+- Recent inbound messages
+- Auto-flagged issues: unnamed shops, silent approved shops, missing summaries
+
+Known test accounts excluded automatically: +27644178150 (Tandabantu shop), +27610869293 (Semwayo).
+
 ## Debugging Sentry issues
 
 Write a staging integration test that reproduces the failure before fixing. If the bug can't be reproduced in staging, recommend improved logging instead.
