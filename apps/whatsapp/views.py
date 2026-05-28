@@ -129,6 +129,10 @@ def _record_inbound_message(
             transcribed_text=transcribed_text,
         )
         logger.debug(f"Recorded inbound message from {phone_number}")
+        if user_profile and user_profile.company and not user_profile.company.first_message_date:
+            from django.utils import timezone
+            from apps.core.models import Company
+            Company.objects.filter(pk=user_profile.company_id).update(first_message_date=timezone.localdate())
     except IntegrityError as e:
         if "whatsapp_message_id" in str(e):
             logger.warning(f"Duplicate message detected: {whatsapp_message_id}. Ignoring.")

@@ -320,6 +320,42 @@ class WhatsAppClient:
 
                     return False
 
+    async def send_template_message(
+        self,
+        to: str,
+        template_name: str,
+        language_code: str = "en",
+        components: list | None = None,
+    ) -> bool:
+        """Send a pre-approved Meta template message (required for out-of-24h-window messages)."""
+        if not self.access_token or not self.phone_number_id:
+            logger.error("Meta WhatsApp credentials not configured for send_template_message")
+            return False
+
+        to_number = self._normalize_phone_number(to)
+        payload = {
+            "messaging_product": "whatsapp",
+            "to": to_number,
+            "type": "template",
+            "template": {
+                "name": template_name,
+                "language": {"code": language_code},
+                "components": components or [],
+            },
+        }
+
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            try:
+                response = await client.post(self._get_api_url(), headers=self._get_headers(), json=payload)
+                response.raise_for_status()
+                data = response.json()
+                message_id = data.get("messages", [{}])[0].get("id", "")
+                logger.info(f"Sent template '{template_name}' to {to_number}: {message_id}")
+                return True
+            except Exception:
+                logger.exception(f"Failed to send template '{template_name}' to {to_number}")
+                return False
+
     async def mark_as_read(self, message_id: str) -> bool:
         """Mark an inbound message as read (send read receipt to Meta)."""
         if not self.access_token or not self.phone_number_id:

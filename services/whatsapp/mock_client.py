@@ -71,6 +71,16 @@ class MockWhatsAppClient:
         """Mock get_media_url - returns mock URL."""
         return (f"https://mock-cdn.example.com/{media_id}.ogg", "audio/ogg")
 
+    async def send_template_message(
+        self, to: str, template_name: str, language_code: str = "en", components: list | None = None
+    ) -> bool:
+        """Mock template message — records in timeline."""
+        logger.info(f"[MOCK] Template '{template_name}' to {to}")
+        idx = len(self.sent_messages)
+        self.sent_messages.append({"to": to, "template_name": template_name, "type": "template"})
+        self.timeline.append({"type": "template", "index": idx, "phone": to, "template_name": template_name})
+        return True
+
     async def mark_as_read(self, message_id: str) -> bool:
         """Mock mark message as read (record action)."""
         logger.info(f"[MOCK] Marking message as read: {message_id}")

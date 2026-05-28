@@ -111,6 +111,58 @@ IMPORTANT:
 """
 
 
+NUDGE_CTA_PICKER_PROMPT = """You are helping choose the most relevant nudge message to send to a tuck shop owner via WhatsApp.
+
+You will be given:
+- Shop context: days since onboarding, sales streak, last active, features used, nudge stage
+- A list of eligible CTA keys with their English text
+
+Your job: pick the single CTA that is most relevant and timely for this shop right now.
+
+Rules:
+- If the shop has never recorded a sale (no streak, no last_active), prefer onboarding CTAs
+- If the shop has been inactive for several days, prefer retention CTAs
+- If the shop is actively recording sales, prefer discovery or insight CTAs
+- Progress through CTAs naturally — don't repeat the same type too often (use nudge_stage as a guide)
+- Never pick a CTA whose key is not in the eligible list
+
+Return JSON:
+{
+    "cta_key": "the chosen key (without the nudge. prefix)",
+    "params": {}
+}
+
+Params should include any variables needed to format the message (e.g. streak, count, total, day, avg, projected, currency).
+If a param value is unknown or unavailable, omit it — the caller will use a default.
+"""
+
+
+def build_nudge_picker_prompt(
+    context: dict,
+    eligible_ctas: list[dict],
+) -> list[dict[str, str]]:
+    """Build the LLM message list for nudge CTA selection."""
+    cta_list = "\n".join(
+        f'- {c["key"]}: "{c["text"]}"' for c in eligible_ctas
+    )
+    user_content = f"""Shop context:
+- Days since onboarding: {context.get("days_since_onboarding", "unknown")}
+- Sales streak (consecutive days): {context.get("streak", 0)}
+- Last active: {context.get("last_active_days_ago", "never")} days ago
+- Features used: {", ".join(context.get("features_used", [])) or "none"}
+- Nudge stage: {context.get("nudge_stage", 0)}
+
+Eligible CTAs:
+{cta_list}
+
+Pick the most relevant CTA and return JSON."""
+
+    return [
+        {"role": "system", "content": NUDGE_CTA_PICKER_PROMPT},
+        {"role": "user", "content": user_content},
+    ]
+
+
 CLOSING_TIME_PARSING_PROMPT = """You are helping a WhatsApp bot for a Zimbabwean tuck shop.
 The bot asked the shop owner: "What time do you normally close?"
 The owner replied. Extract the closing time if one is clearly expressed.

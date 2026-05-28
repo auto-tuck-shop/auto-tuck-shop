@@ -153,6 +153,16 @@ CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[])
 ENABLE_WHATSAPP_TYPING = env.bool("ENABLE_WHATSAPP_TYPING", default=True)
 ENABLE_WHATSAPP_MARK_AS_READ = env.bool("ENABLE_WHATSAPP_MARK_AS_READ", default=True)
 
+# Nudge / drip system
+USE_TEMPLATE_MESSAGES = env.bool("USE_TEMPLATE_MESSAGES", default=False)
+NUDGE_SEND_WINDOW_START = 7   # 07:00 CAT — nudges only fire in this window
+NUDGE_SEND_WINDOW_END = 10    # 10:00 CAT
+# CTA gates — flip to True when the corresponding feature ships
+NUDGE_ENABLE_UNDO_CTA = env.bool("NUDGE_ENABLE_UNDO_CTA", default=False)
+NUDGE_ENABLE_INVENTORY_CTA = env.bool("NUDGE_ENABLE_INVENTORY_CTA", default=False)
+NUDGE_ENABLE_COMMUNITY_CTA = env.bool("NUDGE_ENABLE_COMMUNITY_CTA", default=False)
+NUDGE_ENABLE_OPTIONS_CTA = env.bool("NUDGE_ENABLE_OPTIONS_CTA", default=False)
+
 # Meta WhatsApp Business Cloud API Configuration
 META_WHATSAPP_ACCESS_TOKEN = env("META_WHATSAPP_ACCESS_TOKEN", default="")
 META_WHATSAPP_PHONE_NUMBER_ID = env("META_WHATSAPP_PHONE_NUMBER_ID", default="")

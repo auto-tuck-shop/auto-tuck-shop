@@ -46,6 +46,7 @@ class WhatsAppMessageAdmin(admin.ModelAdmin):
         "waitlist_entry",
     ]
     ordering = ["-timestamp"]
+    list_select_related = ["user_profile__company", "company"]
 
     def content_preview(self, obj):
         """Show truncated content in list view."""
