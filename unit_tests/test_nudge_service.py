@@ -84,6 +84,17 @@ class EligibleCtasTest(TransactionTestCase):
         self.assertIn("onboarding_first_sale", keys)
         self.assertIn("onboarding_shona_tip", keys)
 
+    def test_onboarding_first_sale_excluded_if_shop_has_sales(self):
+        # Regression: Sweetwaters received onboarding_first_sale despite having confirmed sales (#153)
+        context = {"days_since_onboarding": 0, "streak": 0, "last_active_days_ago": 0, "features_used": [], "nudge_stage": 0}
+        keys = [c["key"] for c in _eligible_ctas(context)]
+        self.assertNotIn("onboarding_first_sale", keys)
+
+    def test_onboarding_first_sale_included_if_no_sales(self):
+        context = {"days_since_onboarding": 0, "streak": 0, "last_active_days_ago": None, "features_used": [], "nudge_stage": 0}
+        keys = [c["key"] for c in _eligible_ctas(context)]
+        self.assertIn("onboarding_first_sale", keys)
+
     def test_onboarding_ctas_excluded_after_window(self):
         context = {"days_since_onboarding": 20, "streak": 0, "features_used": [], "nudge_stage": 0}
         keys = [c["key"] for c in _eligible_ctas(context)]

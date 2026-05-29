@@ -104,7 +104,8 @@ def _eligible_ctas(context: dict) -> list[dict]:
 
     # Onboarding (first 2 weeks only)
     if days is not None and days <= _ONBOARDING_DAYS:
-        add("onboarding_first_sale")
+        if context.get("last_active_days_ago") is None:
+            add("onboarding_first_sale")
         add("onboarding_shona_tip")
         add("onboarding_reports", cta_type="button")
 
