@@ -378,41 +378,38 @@ class WhatsAppClient:
                 logger.exception(f"Failed to mark message {message_id} as read")
                 return False
 
-    async def send_typing_indicator(self, to: str, action: str = "typing_on") -> bool:
+    async def send_typing_indicator(self, to: str, action: str = "typing_on", message_id: str | None = None) -> bool:
         """Send typing indicator via Meta Cloud API.
 
-        Only "typing_on" triggers an API call. "typing_off" is a no-op because the
-        Cloud API typing_indicator auto-expires after 25s or when a message is
-        sent — there is no explicit off signal.
+        Must be combined with a read receipt (status=read + message_id). Typing_off
+        is a no-op — the indicator auto-dismisses after 25s or when a reply is sent.
+        Requires message_id; skips silently if not provided.
         """
         if action == "typing_off":
             return True
 
-        if not self.access_token or not self.phone_number_id:
-            logger.error("Meta WhatsApp credentials not configured for typing indicator")
-            return False
+        if not message_id:
+            return True
 
-        to_number = self._normalize_phone_number(to)
+        if not self.access_token or not self.phone_number_id:
+            return False
 
         payload = {
             "messaging_product": "whatsapp",
-            "to": to_number,
-            "type": "typing_indicator",
+            "status": "read",
+            "message_id": message_id,
             "typing_indicator": {"type": "text"},
         }
 
         async with httpx.AsyncClient(timeout=10.0) as client:
             try:
                 response = await client.post(self._get_api_url(), headers=self._get_headers(), json=payload)
-                if not response.is_success:
-                    logger.error(
-                        f"Typing indicator rejected by Meta (HTTP {response.status_code}): {response.text}"
-                    )
                 response.raise_for_status()
                 logger.info(f"Sent typing indicator to {to}")
                 return True
             except Exception:
                 logger.exception(f"Failed to send typing indicator to {to}")
+                return False
 
     async def send_image(self, to: str, image_url: str, caption: str = "") -> bool:
         """Send a WhatsApp image message via URL via Meta Cloud API."""

@@ -363,7 +363,7 @@ async def _process_message_async(
             try:
                 client = get_whatsapp_client()
                 try:
-                    await client.send_typing_indicator(sender, "typing_on")
+                    await client.send_typing_indicator(sender, "typing_on", message_id=message_id)
                 except Exception:
                     logger.debug("Typing indicator not available or failed to send")
             except Exception:
