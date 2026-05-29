@@ -197,6 +197,9 @@ class WhatsAppWebhookView(View):
                 for message in messages:
                     self._handle_message(message)
 
+                for status in value.get("statuses", []):
+                    self._handle_status_update(status)
+
         # Always return 200 OK for Meta webhooks
         return HttpResponse("OK")
 
@@ -265,6 +268,26 @@ class WhatsAppWebhookView(View):
             return
 
         logger.info(f"Ignoring message type: {message_type}")
+
+    def _handle_status_update(self, status: dict) -> None:
+        """Update outbound message delivery status from Meta webhook callback."""
+        from apps.whatsapp.models import WhatsAppMessage
+        wamid = status.get("id")
+        delivery_status = status.get("status")
+        if not wamid or delivery_status not in ("failed", "delivered", "read"):
+            return
+        errors = status.get("errors", [])
+        error_detail = errors[0].get("error_data", {}).get("details", "") if errors else ""
+        error_code = str(errors[0].get("code", "")) if errors else ""
+        api_error = f"[{error_code}] {error_detail}".strip("[] ") if error_code else error_detail
+        update = {"api_success": delivery_status != "failed"}
+        if api_error:
+            update["api_error"] = api_error
+        updated = WhatsAppMessage.objects.filter(whatsapp_message_id=wamid).update(**update)
+        if updated:
+            logger.info(f"Delivery status {delivery_status} for wamid {wamid}" + (f" — {api_error}" if api_error else ""))
+        else:
+            logger.debug(f"No message found for wamid {wamid} (status: {delivery_status})")
 
     def _handle_button_response(self, sender: str, button_id: str, message: dict) -> None:
         """Handle a button click response."""
