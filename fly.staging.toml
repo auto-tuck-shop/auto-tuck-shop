@@ -13,7 +13,7 @@ console_command = '/code/manage.py shell'
 
 [processes]
   app = 'gunicorn --bind :8000 --workers 1 config.wsgi'
-  cron = 'python manage.py send_daily_reports'
+  cron = 'supercronic /code/crontab.staging'
 
 [deploy]
   release_command = 'python manage.py migrate --noinput'
@@ -55,6 +55,3 @@ console_command = '/code/manage.py shell'
   guest_path = '/code/staticfiles'
   url_prefix = '/static/'
 
-[[scheduled_machines]]
-  process_group = 'cron'
-  schedule = '*/15 * * * *'
