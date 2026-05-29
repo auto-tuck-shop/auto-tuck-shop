@@ -113,12 +113,18 @@ class Command(BaseCommand):
         )
         real_sales = [s for s in recent_sales if not _is_test(s.company)]
         if real_sales:
+            from collections import defaultdict
+            from decimal import Decimal
             for s in real_sales:
-                items = ", ".join(
-                    f"{int(i.quantity)}x {i.product.name}"
-                    for i in s.items.all()
-                )
-                w(f"  {s.sale_timestamp.strftime('%Y-%m-%d %H:%M UTC')}  {s.company.name}  ${s.total_amount}  {items}")
+                currency_totals: dict = defaultdict(Decimal)
+                item_parts = []
+                for i in s.items.all():
+                    item_parts.append(f"{int(i.quantity)}x {i.product.name}")
+                    if i.unit_price is not None and i.currency:
+                        currency_totals[i.currency] += i.unit_price * i.quantity
+                amount_str = "  ".join(f"{cur}{amt}" for cur, amt in currency_totals.items()) or str(s.total_amount)
+                items = ", ".join(item_parts)
+                w(f"  {s.sale_timestamp.strftime('%Y-%m-%d %H:%M UTC')}  {s.company.name}  {amount_str}  {items}")
         else:
             w("  None")
 
