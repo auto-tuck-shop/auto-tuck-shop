@@ -87,7 +87,7 @@ class MockWhatsAppClient:
         self.timeline.append({"type": "mark_as_read", "message_id": message_id})
         return True
 
-    async def send_typing_indicator(self, to: str, action: str = "typing_on") -> bool:
+    async def send_typing_indicator(self, to: str, action: str = "typing_on", message_id: str | None = None) -> bool:
         """Mock typing indicator (action: 'typing_on' or 'typing_off')."""
         logger.info(f"[MOCK] Typing indicator {action} to {to}")
         idx = len(self.sent_messages)
