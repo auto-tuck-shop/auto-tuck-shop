@@ -1,0 +1,2 @@
+*/15 * * * * python /code/manage.py send_daily_reports
+*/15 * * * * python /code/manage.py send_nudges
