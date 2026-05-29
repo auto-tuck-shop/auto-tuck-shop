@@ -25,6 +25,7 @@ from apps.whatsapp.services.webhook_handler import (
     handle_waitlisted_message,
     run_async,
 )
+from apps.whatsapp.services.sale_handler import handle_currency_clarification
 
 logger = logging.getLogger(__name__)
 
@@ -366,6 +367,8 @@ class WhatsAppWebhookView(View):
             handle_nudge_reports_no(sender=sender)
         elif button_id in ("closing_early", "closing_mid", "closing_late"):
             handle_closing_time_button_action(sender=sender, button_id=button_id)
+        elif button_id in ("currency_usd", "currency_zwg", "currency_zar"):
+            handle_currency_clarification(sender=sender, button_id=button_id)
         else:
             logger.warning(f"Unknown button ID format: {button_id}")
 

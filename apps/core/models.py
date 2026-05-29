@@ -24,6 +24,16 @@ class Company(models.Model):
         help_text="Default currency for this company's prices",
     )
 
+    # Currency clarification
+    pending_clarification_sale = models.OneToOneField(
+        "sales.Sale",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="+",
+        help_text="Sale awaiting currency clarification from the owner",
+    )
+
     # Nudge system
     first_message_date = models.DateField(null=True, blank=True, help_text="Date of first inbound message — nudge eligibility starts here")
     last_nudge_date = models.DateField(null=True, blank=True, help_text="Last date a nudge was sent — prevents double-sending")

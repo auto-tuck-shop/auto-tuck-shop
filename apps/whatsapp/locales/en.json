@@ -66,6 +66,14 @@
         "insight_best_day": "Your best day this week was {day} with {currency}{total}. What made that day different?",
         "insight_daily_average": "You're averaging {currency}{avg}/day — on track for {currency}{projected} by Sunday."
     },
+    "currency_clarification": {
+        "ask": "Which currency was that sale in?",
+        "btn_usd": "USD ($)",
+        "btn_zwg": "ZiG (ZWG)",
+        "btn_zar": "Rand (ZAR)",
+        "confirmed": "Got it — recorded in {currency}.",
+        "not_found": "Could not find that sale to update. Please record it again."
+    },
     "sale": {
         "no_products": "I could not identify any products. Please send a full sale message, e.g., \"2 Mazoe $3 each\" or \"5 bread R18 each, 2 sugar R40 each\"",
         "item_with_price": "  {quantity} x {product} @ {price}",
