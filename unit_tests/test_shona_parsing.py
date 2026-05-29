@@ -169,3 +169,13 @@ class ShonaParsingTestCase(TestCase):
         self.assertEqual(bread["unit_price"], 3.0)
         self.assertEqual(coke["quantity"], 2)
         self.assertIsNone(coke["unit_price"])
+
+    def test_cents_means_usd(self):
+        """"4 games for 25 cents each" → USD 0.25 each (cents in Zim = US cents)."""
+        result = self._parse("4 games for 25 cents each")
+        self.assertEqual(result.intent, "sale")
+        self.assertEqual(len(result.items), 1)
+        item = result.items[0]
+        self.assertEqual(item["quantity"], 4)
+        self.assertAlmostEqual(item["unit_price"], 0.25)
+        self.assertEqual(item["currency"], "USD")

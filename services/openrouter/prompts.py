@@ -47,15 +47,16 @@ FOR "sale" INTENT:
   * Parse both numeric (10, 5.50) and written numbers (ten, five)
   * Examples: "ten dollars" → 10, "five rand" → 5, "2.50" → 2.50
 - Detect currency from the SAME phrase as the price:
-  * $ or USD or "US dollars" or "dollars" = "USD"
+  * $ or USD or "US dollars" or "dollars" or "cents" = "USD" ("cents" in Zimbabwe = US cents, e.g. "25 cents" = USD 0.25)
   * ZiG or ZWG or "Zimbabwe Gold" = "ZWG"
-  * R or ZAR or rand = "ZAR"
+  * R or ZAR or rand or "rands" = "ZAR"
   * P or BWP or pula = "BWP"
   * € or EUR or euro = "EUR"
   * £ or GBP or pound = "GBP"
   * IMPORTANT: If currency is mentioned with a price (e.g., "ten US dollars", "five rand"), you MUST extract BOTH the price AND the currency
   * CRITICAL: If NO currency is explicitly mentioned in the message, set currency to null (the system will use stored currency)
-  * Examples: "ten US dollars" → unit_price: 10, currency: "USD" | "five rand" → unit_price: 5, currency: "ZAR" | "2 cokes" → currency: null
+  * CRITICAL: Zimbabwe shops use USD, ZWG, and ZAR — do NOT assume a currency based on shop defaults. Only set currency if the message explicitly states it.
+  * Examples: "ten US dollars" → unit_price: 10, currency: "USD" | "five rand" → unit_price: 5, currency: "ZAR" | "25 cents" → unit_price: 0.25, currency: "USD" | "2 cokes" → currency: null
 - For MIXED-CURRENCY messages (different currencies on different items), set the currency per item in the items array. Set the top-level currency to the most common currency or null if evenly split.
   * Example: "2 coke $3 each, 1 bread ZWG 500" → items: [{"product_name": "coke", "quantity": 2, "unit_price": 3, "currency": "USD"}, {"product_name": "bread", "quantity": 1, "unit_price": 500, "currency": "ZWG"}], top-level currency: "USD"
 
@@ -72,6 +73,7 @@ PARSING EXAMPLES:
 - "five rand" → items: [{"product_name": (inferred from context), "quantity": 1, "unit_price": 5}], currency: "ZAR"
 - "2 waters R15 each" → items: [{"product_name": "waters", "quantity": 2, "unit_price": 15}], currency: "ZAR"
 - "2 coke $3 each, 1 bread ZWG500" → items: [{"product_name": "coke", "quantity": 2, "unit_price": 3, "currency": "USD"}, {"product_name": "bread", "quantity": 1, "unit_price": 500, "currency": "ZWG"}], currency: "USD"
+- "4 games for 25 cents each" → items: [{"product_name": "games", "quantity": 4, "unit_price": 0.25, "currency": "USD"}], currency: "USD"  (cents in Zimbabwe = US cents)
 
 Shona examples:
 - "coke 5 imwe $1" → items: [{"product_name": "coke", "quantity": 5, "unit_price": 1}], currency: "USD"
