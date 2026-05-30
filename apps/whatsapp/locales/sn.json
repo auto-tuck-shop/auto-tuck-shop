@@ -71,8 +71,8 @@
         "question": "Ndinokwanisa kuchengetedza zvekutengesa chete. Ndiudze zvawatengesa, semuenzaniso: *2 Mazoe $3 rimwe*"
     },
     "media": {
-        "image_no_sale": "Handina kukwanisa kuverenga zvekutengesa kubva mufoto rako. Ndiudze zvawatengesa nekunyora kana kutuma audio — semuenzaniso: *2 Mazoe $3 rimwe*",
-        "unsupported": "Ndinokwanisa kuverenga text, audio, uye mafoto chete. Ndiudze zvawatengesa nekunyora kana kutuma audio — semuenzaniso: *2 Mazoe $3 rimwe*"
+        "image_no_sale": "Handina kukwanisa kuverenga zvekutengesa kubva mufoto rako. Ndiudze zvawatengesa nekunyora kana kutumira audio — semuenzaniso: *2 Mazoe $3 rimwe*",
+        "unsupported": "Ndinokwanisa kunzwisisa text, audio, nemafoto chete. Ndiudze zvawatengesa nekunyora kana kutumira audio — semuenzaniso: *2 Mazoe $3 rimwe*"
     },
     "currency_clarification": {
         "ask": "Mari ipi?",
