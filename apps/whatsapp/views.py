@@ -516,9 +516,17 @@ class WhatsAppWebhookView(View):
             raw_payload=message,
         )
 
-        # For now, we just save media files without processing them
-        # In the future, you could process images/videos/documents as needed
         logger.info(f"Saved {media_type} message from {sender}, R2 URL: {r2_url}")
+
+        if status == SenderStatus.KNOWN_USER and profile:
+            from apps.whatsapp.services.webhook_handler import handle_incoming_media_message
+            handle_incoming_media_message(
+                message_id=message_id,
+                sender=sender,
+                r2_url=r2_url or "",
+                media_type=media_type,
+                user_profile=profile,
+            )
 
     def _download_and_upload_media(self, media_id: str, phone_number: str) -> str | None:
         """

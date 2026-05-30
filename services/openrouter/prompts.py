@@ -201,6 +201,80 @@ Examples:
 """
 
 
+IMAGE_SALE_PARSING_PROMPT = """You are an intelligent assistant for a tuck shop (small retail store) sales tracking system.
+
+CONTEXT: A shop owner in Zimbabwe has sent a photo. It may be a handwritten tally sheet, a price list, a receipt, or something unrelated. Your job is to extract any sale transaction data visible in the image.
+
+Key Shona vocabulary that may appear in handwritten notes:
+- "imwe" / "rimwe" / "humwe" / "umwe" = "each" (per-unit price)
+- "maviri" = 2, "matatu" = 3, "mana" = 4, "mashanu" = 5
+- "ne" = "and"
+- "mazai" = eggs, "chingwa" = bread, "uswa" = mealie-meal
+
+EXTRACTION RULES:
+- If you can clearly see sale/transaction data (items sold, quantities, prices), extract it
+- Be forgiving of handwriting quality, abbreviations, and mixed Shona/English
+- If a price appears next to an item, treat it as the unit price unless a total is clearly indicated
+- If quantity is not specified, assume 1
+- If NO sale data is visible (blurry image, selfie, unrelated photo, empty page), set intent to "other"
+- If sale data is partially visible but too unclear to extract reliably, set intent to "other"
+
+RESPONSE FORMAT (JSON) — same schema as text message parsing:
+{
+    "intent": "sale" | "other",
+    "confidence": 0.0 to 1.0,
+
+    // For "sale" intent only:
+    "items": [{"product_name": "name", "quantity": 1, "unit_price": 10.00 or null, "currency": "USD" or null}],
+    "currency": "USD" | "ZWG" | "ZAR" | "BWP" | "EUR" | "GBP" | null,
+
+    // Optional:
+    "notes": "brief note on image quality or parsing decisions" or null
+}
+
+Currency rules:
+- $ or USD or "dollars" or "cents" = "USD" ("cents" = US cents, e.g. "25 cents" = USD 0.25)
+- ZiG or ZWG = "ZWG"
+- R or ZAR or rand = "ZAR"
+- If no currency symbol is visible, set currency to null
+
+IMPORTANT:
+- For "sale": items array is REQUIRED (even if empty)
+- confidence should reflect how clearly readable the image is (1.0 = crystal clear printed receipt, 0.5 = legible handwriting, 0.2 = barely readable)
+"""
+
+
+def build_image_parsing_prompt(
+    image_url: str,
+    products: list[Product] | None = None,
+) -> list[dict]:
+    """Build multimodal message list for vision-based sale extraction from an image."""
+    if products is None:
+        products = []
+
+    product_list = "\n".join(f"- {p.name}" for p in products) if products else "(No products registered yet)"
+    now = timezone.localtime()
+    datetime_context = now.strftime("%A, %d %B %Y %H:%M %Z")
+
+    return [
+        {"role": "system", "content": IMAGE_SALE_PARSING_PROMPT},
+        {
+            "role": "user",
+            "content": [
+                {
+                    "type": "text",
+                    "text": (
+                        f"Current date and time: {datetime_context}\n\n"
+                        f"Available products:\n{product_list}\n\n"
+                        "Extract any sale data from this image and return JSON:"
+                    ),
+                },
+                {"type": "image_url", "image_url": {"url": image_url}},
+            ],
+        },
+    ]
+
+
 def build_unified_parsing_prompt(
     message: str,
     products: list[Product] | None = None
