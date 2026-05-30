@@ -98,6 +98,9 @@ class UnifiedMessageResult:
     timeframe: str | None = None  # "today", "yesterday", "week", "month", "X_days"
     product_filter: str | None = None
 
+    # Other-specific (populated if intent="other")
+    other_sub_intent: str | None = None  # "deferral" | "greeting" | "question" | "unknown"
+
     # Optional metadata
     notes: str | None = None
 
@@ -230,6 +233,13 @@ async def parse_message_unified(
 
         elif intent == "add_assistant":
             result.phone_number = response.get("phone_number")
+
+        elif intent == "other":
+            sub = response.get("other_sub_intent", "unknown")
+            if sub in ("deferral", "greeting", "question", "unknown"):
+                result.other_sub_intent = sub
+            else:
+                result.other_sub_intent = "unknown"
 
         elif intent == "sales_query":
             result.timeframe = response.get("timeframe", "today")

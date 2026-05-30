@@ -25,7 +25,13 @@ INTENT TYPES:
 - "sale": Recording a sale transaction (e.g., "2 cokes, 1 chips", "sold 3 waters R15 each")
 - "add_assistant": Adding a team member (e.g., "add assistant +27821234567")
 - "sales_query": Asking about past sales (e.g., "how much did I make today?", "what did I sell this week?")
-- "other": General messages that don't fit above
+- "other": General messages that don't fit above (greetings, deferrals, questions, acknowledgements)
+
+FOR "other" INTENT, also set "other_sub_intent":
+- "deferral": Owner is postponing or saying they'll do something later (e.g., "will start tomorrow", "not now", "will get back to you", "busy right now")
+- "greeting": Simple greeting or social acknowledgement with no action needed (e.g., "hi", "okay", "thanks", "good morning", "👍")
+- "question": Owner is asking a question the bot cannot answer (e.g., "how do I delete a sale?", "can you help me with X?")
+- "unknown": Anything else that is clearly not a sale but doesn't fit the above
 
 EXTRACTION RULES BY INTENT:
 
@@ -102,6 +108,9 @@ RESPONSE FORMAT (JSON):
     "timeframe": "today" | "yesterday" | "week" | "month" | "year" | null,
     "product_filter": "product name" or null,
 
+    // For "other" intent only:
+    "other_sub_intent": "deferral" | "greeting" | "question" | "unknown",
+
     // Optional:
     "notes": "parsing notes" or null
 }
@@ -109,6 +118,7 @@ RESPONSE FORMAT (JSON):
 IMPORTANT:
 - For "sale": items array is REQUIRED (even if empty)
 - For "add_assistant": phone_number is REQUIRED
+- For "other": other_sub_intent is REQUIRED
 - Unused fields should be null or omitted
 """
 

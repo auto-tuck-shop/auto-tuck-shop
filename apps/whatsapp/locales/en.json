@@ -41,7 +41,7 @@
         "acknowledged": "Okay, noted. I will send you the summary when the shop closes.",
         "invalid_time": "I did not understand that time. Please reply with a time like '6pm' or '18:00'.",
         "normal_time_set": "Got it! I will send your daily summary at {time} every day.",
-        "setup_prompt_buttons": "When does your shop usually close? I'll send your daily summary automatically.",
+        "setup_prompt_buttons": "When does your shop usually close? I will send your daily summary automatically.",
         "btn_early": "Before 7pm",
         "btn_mid": "7pm – 8pm",
         "btn_late": "After 8pm"
@@ -51,20 +51,24 @@
         "not_registered": "Sorry, your account is not set up yet. Please contact your shop administrator."
     },
     "nudge": {
-        "opt_out_confirmed": "Got it — I won't send you reminders anymore. You can still use me to record sales anytime.",
+        "opt_out_confirmed": "Got it — I will not send you reminders anymore. You can still use me to record sales anytime.",
         "onboarding_first_sale": "Welcome! Ready to record your first sale? Just tell me what you sold — e.g. *2 Mazoe $1 each*",
         "onboarding_shona_tip": "Quick tip: you can talk to me in Shona, English, or both.",
         "onboarding_reports": "I can send you a daily summary when your shop closes. Want me to set that up?",
         "btn_reports_yes": "Yes, set it up",
         "btn_reports_no": "Not now",
         "reports_declined": "No problem — you can always ask me *how much did I make today?* anytime.",
-        "retention_no_sales_today": "You haven't logged any sales today yet — what did you sell?",
-        "retention_streak": "You're on a {streak}-day streak! Keep it going — what did you sell today?",
+        "retention_no_sales_today": "You have not logged any sales today yet — what did you sell?",
+        "retention_streak": "You are on a {streak}-day streak! Keep it going — what did you sell today?",
         "retention_yesterday_recap": "Yesterday you recorded {count} sales totalling {currency}{total}. Add today's?",
         "discovery_weekly_report": "Did you know you can ask me *how much did I make this week?* Try it.",
         "discovery_multi_item": "You can record multiple items in one message — e.g. *3 Mazoe $1, 2 bread $0.50*",
         "insight_best_day": "Your best day this week was {day} with {currency}{total}. What made that day different?",
-        "insight_daily_average": "You're averaging {currency}{avg}/day — on track for {currency}{projected} by Sunday."
+        "insight_daily_average": "You are averaging {currency}{avg}/day — on track for {currency}{projected} by Sunday."
+    },
+    "other": {
+        "deferral": "No problem — I will be here when you are ready. Just send what you sold and I will record it.",
+        "question": "I am set up for recording sales right now. To record a sale, just send something like: *2 Mazoe $3 each*"
     },
     "currency_clarification": {
         "ask": "Which currency was that sale in?",
