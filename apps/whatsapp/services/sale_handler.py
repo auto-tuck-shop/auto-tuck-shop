@@ -6,7 +6,7 @@ import asyncio
 import logging
 from decimal import Decimal
 
-from django.db import close_old_connections
+from django.db import close_old_connections, models
 
 from apps.core.currencies import format_price
 from apps.core.models import Company
@@ -53,6 +53,37 @@ def _store_response_message_sid(sale_id: int, message_sid: str) -> None:
 @db_sync_to_async
 def _update_company_currency(company_id: int, currency: str) -> None:
     Company.objects.filter(id=company_id).update(currency=currency)
+
+
+@db_sync_to_async
+def _set_pending_clarification(company_id: int, sale_id: int) -> None:
+    Company.objects.filter(id=company_id).update(pending_clarification_sale_id=sale_id)
+
+
+@db_sync_to_async
+def _clear_pending_clarification(company_id: int) -> None:
+    Company.objects.filter(id=company_id).update(pending_clarification_sale_id=None)
+
+
+@db_sync_to_async
+def _apply_currency_to_sale(company_id: int, sale_id: int, currency: str) -> bool:
+    """Apply currency to all items in the pending clarification sale. Returns True if found."""
+    from apps.sales.models import SaleItem
+    from decimal import Decimal
+    updated = SaleItem.objects.filter(sale_id=sale_id).update(currency=currency)
+    if updated:
+        total = SaleItem.objects.filter(sale_id=sale_id).aggregate(
+            total=models.Sum(models.F("unit_price") * models.F("quantity"))
+        )["total"] or Decimal("0")
+        Sale.objects.filter(id=sale_id).update(total_amount=total)
+        Company.objects.filter(id=company_id).update(pending_clarification_sale_id=None)
+    return bool(updated)
+
+
+@db_sync_to_async
+def _get_pending_clarification_sale_id(company_id: int) -> int | None:
+    company = Company.objects.filter(id=company_id).only("pending_clarification_sale_id").first()
+    return company.pending_clarification_sale_id if company else None
 
 
 @db_sync_to_async
@@ -167,6 +198,21 @@ async def process_sale_message_unified(
     if message_sid:
         await _store_response_message_sid(sale.id, message_sid)
 
+    # If all priced items have no currency, ask the owner to clarify
+    priced_items = [i for i in sale_items if i.unit_price is not None]
+    if priced_items and all(not i.currency for i in priced_items) and company:
+        await _set_pending_clarification(company.id, sale.id)
+        await asyncio.sleep(2)
+        await _send_response_with_buttons(
+            sender,
+            t("currency_clarification.ask", lang=lang),
+            [
+                {"id": "currency_usd", "title": t("currency_clarification.btn_usd", lang=lang)},
+                {"id": "currency_zwg", "title": t("currency_clarification.btn_zwg", lang=lang)},
+                {"id": "currency_zar", "title": t("currency_clarification.btn_zar", lang=lang)},
+            ],
+        )
+
 
 async def process_sale_button_action_async(
     action: str,
@@ -211,3 +257,40 @@ def handle_sale_button_action(action: str, sender: str, original_message_sid: st
         run_async(process_sale_button_action_async(action, sender, original_message_sid))
     except Exception as e:
         logger.exception(f"Error handling sale {action}: {e}")
+
+
+_CURRENCY_BUTTON_MAP = {
+    "currency_usd": "USD",
+    "currency_zwg": "ZWG",
+    "currency_zar": "ZAR",
+}
+
+
+async def _process_currency_clarification_async(sender: str, currency: str) -> None:
+    phone_number = _extract_phone_number(sender)
+    profile = await _get_profile_by_phone(phone_number)
+    lang = profile.language if profile else DEFAULT_LANGUAGE
+    if not profile or not profile.company_id:
+        return
+
+    sale_id = await _get_pending_clarification_sale_id(profile.company_id)
+    if not sale_id:
+        await _send_response(sender, t("currency_clarification.not_found", lang=lang))
+        return
+
+    updated = await _apply_currency_to_sale(profile.company_id, sale_id, currency)
+    if updated:
+        await _send_response(sender, t("currency_clarification.confirmed", lang=lang, currency=currency))
+    else:
+        await _send_response(sender, t("currency_clarification.not_found", lang=lang))
+
+
+def handle_currency_clarification(sender: str, button_id: str) -> None:
+    currency = _CURRENCY_BUTTON_MAP.get(button_id)
+    if not currency:
+        return
+    try:
+        close_old_connections()
+        run_async(_process_currency_clarification_async(sender, currency))
+    except Exception as e:
+        logger.exception(f"Error handling currency clarification {button_id}: {e}")

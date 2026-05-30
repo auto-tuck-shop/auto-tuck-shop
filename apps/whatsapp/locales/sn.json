@@ -66,6 +66,14 @@
         "insight_best_day": "Zuva rakanakisa svondo rino raive {day} ne {currency}{total}. Chii chakashanduka pazuva iri?",
         "insight_daily_average": "Unoita {currency}{avg} zuva nezuva — une nzira yekusvika {currency}{projected} Svondo."
     },
+    "currency_clarification": {
+        "ask": "Mari ipi?",
+        "btn_usd": "USD ($)",
+        "btn_zwg": "ZiG (ZWG)",
+        "btn_zar": "Rand (ZAR)",
+        "confirmed": "Zvakanaka — yarekodwa ne {currency}.",
+        "not_found": "Handina kuwana sale iyo. Tumira patsva."
+    },
     "sale": {
         "no_products": "Handina zvinotengeswa zvandaona. Tumira zvawatengesa patsva, semuenzaniso: \"2 Mazoe $3 rimwe\" kana \"5 chingwa R18 rimwe, 2 shuga R40 rimwe\"",
         "item_with_price": "  {quantity} x {product} @ {price}",
