@@ -70,6 +70,10 @@
         "deferral": "No problem — I will be here when you are ready. Just send what you sold and I will record it.",
         "question": "I am set up for recording sales right now. To record a sale, just send something like: *2 Mazoe $3 each*"
     },
+    "media": {
+        "image_no_sale": "I could not read any sales from your image. To record a sale, just type or send a voice note — for example: *2 Mazoe $3 each*",
+        "unsupported": "I can only read text, voice notes, and images right now. To record a sale, just type or send a voice note — for example: *2 Mazoe $3 each*"
+    },
     "currency_clarification": {
         "ask": "Which currency was that sale in?",
         "btn_usd": "USD ($)",

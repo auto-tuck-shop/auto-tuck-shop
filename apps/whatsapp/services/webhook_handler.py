@@ -271,6 +271,73 @@ def handle_incoming_audio_message(
             logger.exception(f"Error handling audio message {message_id}: {e}")
 
 
+async def _process_media_message_async(
+    message_id: str,
+    sender: str,
+    r2_url: str,
+    media_type: str,
+    user_profile: UserProfile,
+) -> None:
+    """Handle an inbound image/video/document from a known user.
+
+    Images: attempt vision parse → sale confirmation flow or fallback prompt.
+    Video/document: graceful unsupported message.
+    """
+    from apps.whatsapp.services.sale_handler import process_sale_message_unified
+    from apps.whatsapp.services.message_parser import parse_image_for_sale
+
+    lang = user_profile.language if user_profile else DEFAULT_LANGUAGE
+    company = user_profile.company if user_profile else None
+
+    if media_type != "image":
+        await _send_response(sender, t("media.unsupported", lang=lang))
+        return
+
+    if not r2_url:
+        await _send_response(sender, t("media.image_no_sale", lang=lang))
+        return
+
+    try:
+        result = await parse_image_for_sale(r2_url, company=company)
+    except Exception:
+        logger.exception(f"Vision parse failed for message {message_id} from {sender}")
+        await _send_response(sender, t("media.image_no_sale", lang=lang))
+        return
+
+    if result.intent == "sale" and result.items:
+        await process_sale_message_unified(
+            message_id=message_id,
+            sender=sender,
+            text="[Image]",
+            company=company,
+            result=result,
+            lang=lang,
+        )
+    else:
+        await _send_response(sender, t("media.image_no_sale", lang=lang))
+
+
+def handle_incoming_media_message(
+    message_id: str,
+    sender: str,
+    r2_url: str,
+    media_type: str,
+    user_profile: UserProfile,
+) -> None:
+    phone_number = _extract_phone_number(sender)
+    with get_user_lock(phone_number):
+        try:
+            close_old_connections()
+            run_async(_process_media_message_async(message_id, sender, r2_url, media_type, user_profile))
+        except django.db.utils.OperationalError:
+            logger.exception(f"DB connection error for media message {message_id}, retrying...")
+            for conn in connections.all():
+                conn.close()
+            run_async(_process_media_message_async(message_id, sender, r2_url, media_type, user_profile))
+        except Exception as e:
+            logger.exception(f"Error handling media message {message_id}: {e}")
+
+
 async def _handle_sales_query(
     sender: str,
     user_profile: UserProfile | None,

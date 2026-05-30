@@ -151,6 +151,82 @@ def _save_parse_log(
         pass  # mock/test messages without a DB record — skip silently
 
 
+async def parse_image_for_sale(
+    image_url: str,
+    company=None,
+) -> UnifiedMessageResult:
+    """Use Gemini vision to extract sale data from an image (photo of tally sheet, receipt, etc.).
+
+    Returns a UnifiedMessageResult with intent="sale" and items if sale data was found,
+    or intent="other" if the image contains no readable sale data.
+    """
+    async with track("image_parse"):
+        products = await _get_active_products(company)
+        from services.openrouter import build_image_parsing_prompt
+        messages = build_image_parsing_prompt(image_url, products)
+
+        client = OpenRouterClient(model="google/gemini-2.5-flash")
+
+        try:
+            parse_result = await client.parse_json_response(messages)
+        except Exception as e:
+            logger.exception(f"Failed to parse image: {e}")
+            raise
+
+        response = parse_result.response
+        intent = response.get("intent", "other")
+        confidence = response.get("confidence", 0.5)
+
+        logger.info(
+            f"Image LLM response: intent={intent} confidence={confidence} notes={response.get('notes')} "
+            f"[tokens: prompt={parse_result.prompt_tokens} completion={parse_result.completion_tokens}]"
+        )
+
+        result = UnifiedMessageResult(
+            intent=intent,
+            confidence=confidence,
+            notes=response.get("notes"),
+        )
+
+        if intent == "sale":
+            parsed_items: list[ParsedSaleItem] = []
+            for item in response.get("items", []):
+                try:
+                    unit_price = None
+                    if item.get("unit_price") is not None:
+                        try:
+                            unit_price = Decimal(str(item["unit_price"]))
+                        except (InvalidOperation, ValueError):
+                            pass
+
+                    item_currency = item.get("currency")
+                    if item_currency and item_currency not in ("USD", "ZWG", "ZAR", "BWP", "EUR", "GBP"):
+                        item_currency = None
+
+                    parsed_items.append(
+                        ParsedSaleItem(
+                            product_name=str(item.get("product_name", "")),
+                            quantity=int(item.get("quantity", 1)),
+                            unit_price=unit_price,
+                            currency=item_currency,
+                        )
+                    )
+                except (ValueError, TypeError) as e:
+                    logger.warning(f"Skipping invalid image item {item}: {e}")
+                    continue
+
+            currency = response.get("currency")
+            if currency and currency in ("USD", "ZWG", "ZAR", "BWP", "EUR", "GBP"):
+                result.currency = currency
+
+            result.items = parsed_items
+
+            if not parsed_items:
+                result.intent = "other"
+
+        return result
+
+
 async def parse_message_unified(
     message: str,
     company=None,
