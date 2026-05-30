@@ -179,3 +179,25 @@ class ShonaParsingTestCase(TestCase):
         self.assertEqual(item["quantity"], 4)
         self.assertAlmostEqual(item["unit_price"], 0.25)
         self.assertEqual(item["currency"], "USD")
+
+    # ------------------------------------------------------------------
+    # Other intent (non-sale messages)
+    # ------------------------------------------------------------------
+
+    def test_will_start_tomorrow_is_deferral(self):
+        """"Will start tomorrow" → intent=other, sub_intent=deferral."""
+        result = self._parse("Will start tomorrow")
+        self.assertEqual(result.intent, "other")
+        self.assertEqual(result.other_sub_intent, "deferral")
+
+    def test_will_get_back_to_you_is_deferral(self):
+        """"Will get back to you tomorrow" → intent=other, sub_intent=deferral."""
+        result = self._parse("Will get back to you tomorrow")
+        self.assertEqual(result.intent, "other")
+        self.assertEqual(result.other_sub_intent, "deferral")
+
+    def test_greeting_is_other_greeting(self):
+        """"Hi" → intent=other, sub_intent=greeting (no response sent)."""
+        result = self._parse("Hi")
+        self.assertEqual(result.intent, "other")
+        self.assertEqual(result.other_sub_intent, "greeting")

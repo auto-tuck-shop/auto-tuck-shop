@@ -452,6 +452,16 @@ async def _process_message_async(
             await _handle_sales_query(sender, user_profile, result, lang=lang)
             return
 
+        if result.intent == "other":
+            sub = result.other_sub_intent
+            if sub == "greeting":
+                pass  # No response — replying to "hi" / "thanks" adds noise
+            elif sub == "question":
+                await _send_response(sender, t("other.question", lang=lang))
+            else:  # deferral or unknown
+                await _send_response(sender, t("other.deferral", lang=lang))
+            return
+
         from apps.whatsapp.services.sale_handler import process_sale_message_unified
         await process_sale_message_unified(message_id, sender, text, company, result, lang=lang)
     finally:
