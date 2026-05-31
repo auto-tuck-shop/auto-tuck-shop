@@ -109,7 +109,13 @@ When closing out a task, update the GitHub issue and backlog as part of the same
 
 ### How to create a production release (step-by-step)
 
-Releases follow semver patch bumps (v0.1.0 → v0.1.1 → v0.1.2). Only Brighton publishes releases.
+Releases follow semver. Only Brighton publishes releases.
+
+- **Patch** (`v0.1.x → v0.1.x+1`): bug fixes, copy changes, infra/ops fixes, parsing improvements
+- **Minor** (`v0.x.0 → v0.x+1.0`): new user-facing capability (new interaction flow, new report type, new media handling, etc.)
+- **Major** (`v1.0.0`): product is stable and being scaled beyond the pilot
+
+When in doubt: if a shop owner would notice a new thing they can do → minor. If they'd never know → patch.
 
 **Prerequisites:** branch is merged to main, staging looks healthy.
 
