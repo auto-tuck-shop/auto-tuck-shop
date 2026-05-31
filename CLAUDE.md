@@ -170,12 +170,4 @@ Pass `--hours 48` (or any number) for a wider window.
 
 Known test accounts excluded automatically: +27644178150, +27610869293
 
-## Language and parsing
-
-The LLM must handle English, Shona, and code-switching. Key Shona vocabulary:
-- `imwe` / `imwe neimwe` = "each" — per-unit price marker
-- `maviri` = 2, `matatu` = 3, `mana` = 4, `mashanu` = 5
-- `ne` = "and" — joins items
-- `mazai` = eggs
-
 When making changes to parsing behavior, add or update regression tests in `unit_tests/test_shona_parsing.py`.
